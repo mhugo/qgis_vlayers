@@ -1,0 +1,5 @@
+<RCC>
+    <qresource prefix="/plugins/vtablesupport" >
+        <file>icon.png</file>
+    </qresource>
+</RCC>
