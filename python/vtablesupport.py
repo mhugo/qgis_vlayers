@@ -27,6 +27,7 @@ from qgis.core import *
 import resources_rc
 # Import the code for the dialog
 from vtablesupportdialog import VTableSupportDialog
+import os
 import os.path
 
 from qgis_vtable import QgsVectorVTable
@@ -75,16 +76,19 @@ class VTableSupport:
         layer = self.iface.activeLayer()
         print "layer", layer
 
-        conn = apsw.Connection(":memory:")
+        db_file = "/tmp/vtable.sqlite"
+        if os.path.isfile(db_file):
+            os.unlink(db_file)
+        conn = apsw.Connection(db_file)
         print "conn", conn
         qgisvtable = QgsVectorVTable()
         conn.createmodule( "QgsVectorVTable", qgisvtable )
         print "layer id", layer.id()
         conn.cursor().execute("CREATE VIRTUAL TABLE test USING QgsVectorVTable(%s)" % layer.id())
+        conn.commit()
 
-        cur = conn.cursor()
-        r = cur.execute("SELECT * FROM test")
-        for row in r:
-            print row
+        vl = QgsVectorLayer( "dbname=%s table=test sql=" % db_file, "vtable", "spatialite" )
+        print vl
+        QgsMapLayerRegistry.instance().addMapLayers([vl])
 
 

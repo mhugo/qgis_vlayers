@@ -15,12 +15,15 @@ class QgsVectorVTable:
         # returns a list with a "create table" statement and a VTable object
         pr = self._layer.dataProvider()
 
-        type_map = { 'String' : 'TEXT',
-                     'Integer' : 'INT',
-                     'Real' : 'REAL'}
+        type_map = { 'string' : 'TEXT',
+                     'text' : 'TEXT',
+                     'integer' : 'INT',
+                     'int' : 'INT',
+                     'integer auto increment' : 'INT',
+                     'real' : 'REAL'}
 
         fields = pr.fields()
-        field_list = [ "%s %s" % (f.name(), type_map[f.typeName()]) for f in fields.toList() ]
+        field_list = [ "%s %s" % (f.name(), type_map[f.typeName().lower()]) for f in fields.toList() ]
 #        if self._layer.hasGeometryType():
 #            field_list += [ "geometry BLOB" ]
         stmt = "CREATE TABLE %s (%s)" % (tablename, ','.join(field_list) )
