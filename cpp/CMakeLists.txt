@@ -9,6 +9,8 @@ QT4_ADD_RESOURCES(vlayer_plugin_RCC_SRCS vlayer_plugin.qrc)
 
 ADD_LIBRARY(vlayer_plugin MODULE vlayer_plugin.cpp ${vlayer_plugin_RCC_SRCS} ${vlayer_plugin_MOC_SRCS})
 
+ADD_LIBRARY(vlayer_ext MODULE vtable_ext.c vtable.cpp vtable.h)
+
 INCLUDE_DIRECTORIES(
   ${QT_INCLUDE_DIR}
   ${QT_INCLUDE_DIR}/QtCore
