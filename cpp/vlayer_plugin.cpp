@@ -1,29 +1,56 @@
-#define CORE_EXPORT
-#define GUI_EXPORT
-#include <qgis.h>
-#include <qgisinterface.h>
-#include <qgisplugin.h>
+#include "vlayer_plugin.h"
+
+#include <QIcon>
+#include <QAction>
+#include <QDomNode>
+
+#include <qgsmaplayer.h>
 
 #include <iostream>
 
-class VLayerPlugin : public QgisPlugin
+static const QString sName = "Virtual layer plugin";
+static const QString sDescription = "This is a POC virtual layer plugin";
+static const QString sCategory = "Plugins";
+static const QgisPlugin::PLUGINTYPE sType = QgisPlugin::UI;
+static const QString sVersion = "Version 0.1";
+static const QString sIcon = ":/vlayer/vlayer.png";
+static const QString sExperimental = "true";
+
+VLayerPlugin::VLayerPlugin( QgisInterface *iface ) :
+    QgisPlugin( sName, sDescription, sCategory, sVersion, sType ),
+    iface_(iface),
+    action_(0)
 {
-public:
-    VLayerPlugin( QgisInterface *iface ) : iface_(iface) {
+}
+
+void VLayerPlugin::initGui()
+{
+    action_ = new QAction( QIcon( ":/vlayer/vlayer.png" ), tr( "Virtual layer" ), this );
+
+    connect( action_, SIGNAL( triggered() ), this, SLOT( run() ) );
+
+    iface_->addPluginToMenu( "&Virtual layer", action_ );
+}
+
+void VLayerPlugin::run()
+{
+    QgsMapLayer* layer = iface_->activeLayer();
+
+    if ( layer || layer->type() != QgsMapLayer::VectorLayer ) {
+        return;
     }
 
-    void initGui()
-    {
-        std::cout << "VLayer initGui" << std::endl;
-    }
+    std::cout << layer->name().toLocal8Bit().constData() << std::endl;
+}
 
-    void unload()
-    {
-        std::cout << "VLayer unload" << std::endl;
+void VLayerPlugin::unload()
+{
+    if (action_) {
+        iface_->removePluginMenu( "&Virtual layer", action_ );
+        delete action_;
     }
-private:
-    QgisInterface* iface_;
-};
+    std::cout << "VLayer unload" << std::endl;
+}
 
 QGISEXTERN QgisPlugin * classFactory( QgisInterface * iface )
 {
@@ -33,47 +60,47 @@ QGISEXTERN QgisPlugin * classFactory( QgisInterface * iface )
 // the class may not yet be insantiated when this method is called.
 QGISEXTERN QString name()
 {
-  return "Vitual layer plugin";
+    return sName;
 }
 
 // Return the description
 QGISEXTERN QString description()
 {
-  return "This is a POC virtual layer plugin";
+    return sDescription;
 }
 
 // Return the category
 QGISEXTERN QString category()
 {
-  return "Plugins";
+    return sCategory;
 }
 
 // Return the type (either UI or MapLayer plugin)
 QGISEXTERN int type()
 {
-    return QgisPlugin::UI;
+    return sType;
 }
 
 // Return the version number for the plugin
 QGISEXTERN QString version()
 {
-  return "Version 0.1";
+    return sVersion;
 }
 
 // Return the icon
 QGISEXTERN QString icon()
 {
-  return ":/vlayer/vlayer.png";
+    return sIcon;
 }
 
 // Return the experimental status for the plugin
 QGISEXTERN QString experimental()
 {
-  return "true";
+    return sExperimental;
 }
 
 // Delete ourself
 QGISEXTERN void unload( QgisPlugin * thePluginPointer )
 {
-  delete thePluginPointer;
+    delete thePluginPointer;
 }
