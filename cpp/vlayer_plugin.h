@@ -13,8 +13,9 @@ class VLayerPlugin : public QObject, public QgisPlugin
 public:
     VLayerPlugin( QgisInterface *iface );
     void initGui();
-    void run();
     void unload();
+public slots:
+    void run();
 private:
     QgisInterface* iface_;
     QAction* action_;

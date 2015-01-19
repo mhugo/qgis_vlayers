@@ -1,29 +1,22 @@
-#include <sqlite3ext.h> /* Do not use <sqlite3.h>! */
-SQLITE_EXTENSION_INIT1
-
+#include <sqlite3.h>
 #include <stdio.h>
 #include "vtable.h"
 
-#ifdef _WIN32
-__declspec(dllexport)
-#endif
+sqlite3_module module;
 
 void module_destroy( void * d )
 {
     printf("module destroy\n");
 }
 
-sqlite3_module module;
-
-int qgsvlayer_extension_init(
+int qgsvlayer_module_init(
   sqlite3 *db, 
   char **pzErrMsg, 
-  const sqlite3_api_routines *pApi
+  void * unused /*const sqlite3_api_routines *pApi*/
 )
 {
-    printf("qgsvalyer_extension_init\n");
+    printf("qgsvalyer_module_init\n");
     int rc = SQLITE_OK;
-    SQLITE_EXTENSION_INIT2(pApi);
 
     module.xCreate = vtable_create;
     module.xConnect = vtable_create;

@@ -1,11 +1,18 @@
 #include "vlayer_plugin.h"
 
+#include <sqlite3.h>
+#include <spatialite.h>
+//#include <sqlite3ext.h>
+
 #include <QIcon>
 #include <QAction>
 #include <QDomNode>
 
 #include <qgsmaplayer.h>
+#include <qgsvectorlayer.h>
+#include <qgsmaplayerregistry.h>
 
+#include <unistd.h>
 #include <iostream>
 
 static const QString sName = "Virtual layer plugin";
@@ -15,6 +22,11 @@ static const QgisPlugin::PLUGINTYPE sType = QgisPlugin::UI;
 static const QString sVersion = "Version 0.1";
 static const QString sIcon = ":/vlayer/vlayer.png";
 static const QString sExperimental = "true";
+
+extern "C" {
+    int qgsvlayer_module_init();
+}
+
 
 VLayerPlugin::VLayerPlugin( QgisInterface *iface ) :
     QgisPlugin( sName, sDescription, sCategory, sVersion, sType ),
@@ -26,21 +38,50 @@ VLayerPlugin::VLayerPlugin( QgisInterface *iface ) :
 void VLayerPlugin::initGui()
 {
     action_ = new QAction( QIcon( ":/vlayer/vlayer.png" ), tr( "Virtual layer" ), this );
+    action_->setObjectName( "action_" );
 
     connect( action_, SIGNAL( triggered() ), this, SLOT( run() ) );
 
     iface_->addPluginToMenu( "&Virtual layer", action_ );
+
+    // register sqlite extension
+    sqlite3_auto_extension( (void(*)())qgsvlayer_module_init );
 }
 
 void VLayerPlugin::run()
 {
+    std::cout << "run" << std::endl;
+
     QgsMapLayer* layer = iface_->activeLayer();
 
-    if ( layer || layer->type() != QgsMapLayer::VectorLayer ) {
+    if ( !layer || layer->type() != QgsMapLayer::VectorLayer ) {
+        std::cout << "return" << std::endl;
+        return;
+    }
+    QgsVectorLayer *vlayer = static_cast<QgsVectorLayer*>(layer);
+
+    unlink( "/tmp/test_vtable.sqlite" );
+    spatialite_init(1);
+    sqlite3* db;
+    int r = sqlite3_open( "/tmp/test_vtable.sqlite", &db );
+    std::cout << "open: " << r << std::endl;
+    QString createStr = QString("SELECT InitSpatialMetadata(1); DROP TABLE IF EXISTS vtab; CREATE VIRTUAL TABLE vtab USING QgsVLayer(%1,%2);").arg(vlayer->providerType(), layer->source());
+    char *errMsg;
+    r = sqlite3_exec( db, createStr.toUtf8().constData(), NULL, NULL, &errMsg );
+    if (r) {
+        std::cout << "err: " << errMsg << std::endl;
+        sqlite3_close( db );
         return;
     }
 
-    std::cout << layer->name().toLocal8Bit().constData() << std::endl;
+    sqlite3_close( db );
+
+    QgsVectorLayer* vl = new QgsVectorLayer( "dbname='/tmp/test_vtable.sqlite' table=\"vtab\" sql=", "vtab", "spatialite" );
+    std::cout << "vl= " << vl << std::endl;
+    std::cout << "isValid = " << vl->isValid() << std::endl;
+    QgsMapLayer* new_vl = QgsMapLayerRegistry::instance()->addMapLayer( vl );
+    std::cout << "new_vl = " << new_vl << std::endl;
+
 }
 
 void VLayerPlugin::unload()
@@ -50,6 +91,9 @@ void VLayerPlugin::unload()
         delete action_;
     }
     std::cout << "VLayer unload" << std::endl;
+
+    // unregister sqlite extension
+    sqlite3_cancel_auto_extension( (void(*)())qgsvlayer_module_init );
 }
 
 QGISEXTERN QgisPlugin * classFactory( QgisInterface * iface )
