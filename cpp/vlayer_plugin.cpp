@@ -10,6 +10,7 @@
 
 #include <qgsmaplayer.h>
 #include <qgsvectorlayer.h>
+#include <qgsvectordataprovider.h>
 #include <qgsmaplayerregistry.h>
 
 #include <unistd.h>
@@ -60,12 +61,90 @@ void VLayerPlugin::run()
     }
     QgsVectorLayer *vlayer = static_cast<QgsVectorLayer*>(layer);
 
+    QString geometry_type_str;
+    int geometry_dim;
+    int geometry_wkb_type;
+    {
+        switch ( vlayer->dataProvider()->geometryType() ) {
+        case QGis::WKBNoGeometry:
+            geometry_type_str = "";
+            geometry_dim = 0;
+            geometry_wkb_type = 0;
+            break;
+        case QGis::WKBPoint:
+            geometry_type_str = "POINT";
+            geometry_dim = 2;
+            geometry_wkb_type = 1;
+            break;
+        case QGis::WKBPoint25D:
+            geometry_type_str = "POINT";
+            geometry_dim = 3;
+            geometry_wkb_type = 1001;
+            break;
+        case QGis::WKBMultiPoint:
+            geometry_type_str = "MULTIPOINT";
+            geometry_dim = 2;
+            geometry_wkb_type = 4;
+            break;
+        case QGis::WKBMultiPoint25D:
+            geometry_type_str = "MULTIPOINT";
+            geometry_dim = 3;
+            geometry_wkb_type = 1004;
+            break;
+        case QGis::WKBLineString:
+            geometry_type_str = "LINESTRING";
+            geometry_dim = 2;
+            geometry_wkb_type = 2;
+            break;
+        case QGis::WKBLineString25D:
+            geometry_type_str = "LINESTRING";
+            geometry_dim = 3;
+            geometry_wkb_type = 1002;
+            break;
+        case QGis::WKBMultiLineString:
+            geometry_type_str = "MULTILINESTRING";
+            geometry_dim = 2;
+            geometry_wkb_type = 5;
+            break;
+        case QGis::WKBMultiLineString25D:
+            geometry_type_str = "MULTILINESTRING";
+            geometry_dim = 3;
+            geometry_wkb_type = 1005;
+            break;
+        case QGis::WKBPolygon:
+            geometry_type_str = "POLYGON";
+            geometry_dim = 2;
+            geometry_wkb_type = 3;
+            break;
+        case QGis::WKBPolygon25D:
+            geometry_type_str = "POLYGON";
+            geometry_dim = 3;
+            geometry_wkb_type = 1003;
+            break;
+        case QGis::WKBMultiPolygon:
+            geometry_type_str = "MULTIPOLYGON";
+            geometry_dim = 2;
+            geometry_wkb_type = 6;
+            break;
+        case QGis::WKBMultiPolygon25D:
+            geometry_type_str = "MULTIPOLYGON";
+            geometry_dim = 3;
+            geometry_wkb_type = 1006;
+            break;
+        }
+    }
+    long srid = vlayer->crs().postgisSrid();
+
     unlink( "/tmp/test_vtable.sqlite" );
     spatialite_init(1);
     sqlite3* db;
     int r = sqlite3_open( "/tmp/test_vtable.sqlite", &db );
     std::cout << "open: " << r << std::endl;
     QString createStr = QString("SELECT InitSpatialMetadata(1); DROP TABLE IF EXISTS vtab; CREATE VIRTUAL TABLE vtab USING QgsVLayer(%1,%2);").arg(vlayer->providerType(), layer->source());
+    createStr += QString( "INSERT OR REPLACE INTO virts_geometry_columns (virt_name, virt_geometry, geometry_type, coord_dimension, srid) "
+                          "VALUES ('vtab', 'geometry', %1, %2, %3 );" ).arg(geometry_wkb_type).arg(geometry_dim).arg(srid);
+    createStr += "UPDATE geometry_columns_statistics set last_verified = 0; SELECT UpdateLayerStatistics('vtab');";
+
     char *errMsg;
     r = sqlite3_exec( db, createStr.toUtf8().constData(), NULL, NULL, &errMsg );
     if (r) {
@@ -76,7 +155,7 @@ void VLayerPlugin::run()
 
     sqlite3_close( db );
 
-    QgsVectorLayer* vl = new QgsVectorLayer( "dbname='/tmp/test_vtable.sqlite' table=\"vtab\" sql=", "vtab", "spatialite" );
+    QgsVectorLayer* vl = new QgsVectorLayer( "dbname='/tmp/test_vtable.sqlite' table=\"vtab\" (geometry) sql=", "vtab", "spatialite" );
     std::cout << "vl= " << vl << std::endl;
     std::cout << "isValid = " << vl->isValid() << std::endl;
     QgsMapLayer* new_vl = QgsMapLayerRegistry::instance()->addMapLayer( vl );

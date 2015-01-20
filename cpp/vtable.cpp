@@ -2,11 +2,93 @@
 #define GUI_EXPORT
 #include <qgsvectorlayer.h>
 #include <qgsvectordataprovider.h>
+#include <qgsgeometry.h>
 
 #include <sqlite3.h>
 #include "vtable.h"
 #include <string.h>
 #include <iostream>
+#include <stdio.h>
+
+QString geometry_type_string( QGis::WkbType type )
+{
+    switch ( type ) {
+    case QGis::WKBPoint:
+    case QGis::WKBPoint25D:
+        return "POINT";
+    case QGis::WKBMultiPoint:
+    case QGis::WKBMultiPoint25D:
+        return "MULTIPOINT";
+    case QGis::WKBLineString:
+    case QGis::WKBLineString25D:
+        return "LINESTRING";
+    case QGis::WKBMultiLineString:
+    case QGis::WKBMultiLineString25D:
+        return "MULTILINESTRING";
+    case QGis::WKBPolygon:
+    case QGis::WKBPolygon25D:
+        return "POLYGON";
+    case QGis::WKBMultiPolygon:
+    case QGis::WKBMultiPolygon25D:
+        return "MULTIPOLYGON";
+    }
+    return "";
+}
+
+void qgsgeometry_to_spatialite_blob( const QgsGeometry& geom, int32_t srid, unsigned char *&blob, size_t& size )
+{
+    // BLOB header
+    // name    size    value
+    // start     1      00
+    // endian    1      01
+    // srid      4      int
+    // mbr_min_x 8      double
+    // mbr_min_y 8      double
+    // mbr_max_x 8      double
+    // mbr_max_y 8      double
+    // mbr_end   1      7C
+    //          4*8+4+3=4
+    size_t header_len = 39;
+
+    // wkb of the geometry is
+    // name         size    value
+    // endianness     1      01
+    // type           4      int
+
+    // blob geometry = header + wkb[1:] + 'end'
+
+    size_t wkb_size = geom.wkbSize();
+    size = header_len + wkb_size;
+    blob = new unsigned char[size];
+
+    QgsRectangle bbox = const_cast<QgsGeometry&>(geom).boundingBox();
+    double mbr_min_x, mbr_min_y, mbr_max_x, mbr_max_y;
+    mbr_min_x = bbox.xMinimum();
+    mbr_max_x = bbox.xMaximum();
+    mbr_min_y = bbox.yMinimum();
+    mbr_max_y = bbox.yMaximum();
+
+    unsigned char* p = blob;
+    *p = 0x00; p++; // start
+    *p = 0x01; p++; // endianness
+    memcpy( p, &srid, sizeof(srid) ); p+= sizeof(srid);
+    memcpy( p, &mbr_min_x, sizeof(double) ); p+= sizeof(double);
+    memcpy( p, &mbr_min_y, sizeof(double) ); p+= sizeof(double);
+    memcpy( p, &mbr_max_x, sizeof(double) ); p+= sizeof(double);
+    memcpy( p, &mbr_max_y, sizeof(double) ); p+= sizeof(double);
+    *p = 0x7C; p++; // mbr_end
+
+    // copy wkb
+    memcpy( p, geom.asWkb() + 1, wkb_size - 1 );
+    p += wkb_size - 1;
+    // end marker
+    *p = 0xFE;
+}
+
+void delete_geometry_blob( void * p )
+{
+    delete (unsigned char*)p;
+}
 
 struct VTable
 {
@@ -19,7 +101,7 @@ struct VTable
     QgsVectorLayer *layer_;
 
     // CREATE TABLE string
-    QString creation_string_;
+    QString creation_str_;
 
     VTable( const QString& ogr_key, const QString& path ) : zErrMsg(0)
     {
@@ -47,7 +129,11 @@ struct VTable
             sql_fields << fields.at(i).name() + " " + typeName;
         }
 
-        creation_string_ = "CREATE TABLE vtable (" + sql_fields.join(",") + ")";
+        if ( layer_->hasGeometryType() ) {
+            sql_fields << "geometry " + geometry_type_string(layer_->dataProvider()->geometryType());
+        }
+
+        creation_str_ = "CREATE TABLE vtable (" + sql_fields.join(",") + ")";
     }
 
     ~VTable()
@@ -57,9 +143,9 @@ struct VTable
         }
     }
 
-    QgsVectorDataProvider* provider() { return layer_->dataProvider(); }
+    QgsVectorLayer* layer() { return layer_; }
 
-    QString creation_string() const { return creation_string_; }
+    QString creation_string() const { return creation_str_; }
 };
 
 struct VTableCursor
@@ -78,7 +164,7 @@ struct VTableCursor
 
     void filter()
     {
-        iterator_ = vtab_->provider()->getFeatures();
+        iterator_ = vtab_->layer()->dataProvider()->getFeatures();
         current_row_ = -1;
         // got on the first record
         next();
@@ -94,9 +180,19 @@ struct VTableCursor
 
     bool eof() const { return eof_; }
 
+    int n_columns() const { return vtab_->layer()->dataProvider()->fields().count(); }
+
     sqlite3_int64 current_row() const { return current_row_; }
 
     QVariant current_attribute( int column ) const { return current_feature_.attribute(column); }
+
+    QPair<unsigned char*, size_t> current_geometry() const
+    {
+        size_t blob_len;
+        unsigned char* blob;
+        qgsgeometry_to_spatialite_blob( *current_feature_.geometry(), vtab_->layer()->crs().postgisSrid(), blob, blob_len );
+        return qMakePair( blob, blob_len );
+    }
 };
 
 int vtable_create( sqlite3* sql, void* aux, int argc, const char* const* argv, sqlite3_vtab **out_vtab, char** out_err)
@@ -205,8 +301,13 @@ int vtable_rowid( sqlite3_vtab_cursor *cursor, sqlite3_int64 *out_rowid )
 
 int vtable_column( sqlite3_vtab_cursor *cursor, sqlite3_context* ctxt, int idx )
 {
-    std::cout << "vtable_column" << std::endl;
+    std::cout << "vtable_column " << idx << std::endl;
     VTableCursor* c = reinterpret_cast<VTableCursor*>(cursor);
+    if ( idx == c->n_columns() ) {
+        QPair<unsigned char*, size_t> g = c->current_geometry();
+        sqlite3_result_blob( ctxt, g.first, g.second, delete_geometry_blob );
+        return SQLITE_OK;
+    }
     QVariant v = c->current_attribute( idx );
     if ( v.isNull() ) {
         sqlite3_result_null( ctxt );
