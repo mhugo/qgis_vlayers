@@ -143,7 +143,16 @@ void VLayerPlugin::run()
     QString createStr = QString("SELECT InitSpatialMetadata(1); DROP TABLE IF EXISTS vtab; CREATE VIRTUAL TABLE vtab USING QgsVLayer(%1,%2);").arg(vlayer->providerType(), layer->source());
     createStr += QString( "INSERT OR REPLACE INTO virts_geometry_columns (virt_name, virt_geometry, geometry_type, coord_dimension, srid) "
                           "VALUES ('vtab', 'geometry', %1, %2, %3 );" ).arg(geometry_wkb_type).arg(geometry_dim).arg(srid);
-    createStr += "UPDATE geometry_columns_statistics set last_verified = 0; SELECT UpdateLayerStatistics('vtab');";
+
+    // manually set column statistics (needed for QGIS spatialite provider)
+    QgsRectangle extent = vlayer->extent();
+    createStr += QString("INSERT OR REPLACE INTO virts_geometry_columns_statistics (virt_name, virt_geometry, last_verified, row_count, extent_min_x, extent_min_y, extent_max_x, extent_max_y) "
+                         "VALUES ('vtab', 'geometry', datetime('now'), %1, %2, %3, %4, %5);")
+        .arg(vlayer->featureCount())
+        .arg(extent.xMinimum())
+        .arg(extent.yMinimum())
+        .arg(extent.xMaximum())
+        .arg(extent.yMaximum());
 
     char *errMsg;
     r = sqlite3_exec( db, createStr.toUtf8().constData(), NULL, NULL, &errMsg );
