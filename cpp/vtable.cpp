@@ -1,5 +1,3 @@
-#define CORE_EXPORT
-#define GUI_EXPORT
 #include <qgsvectorlayer.h>
 #include <qgsvectordataprovider.h>
 #include <qgsgeometry.h>

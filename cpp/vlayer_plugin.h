@@ -1,5 +1,3 @@
-#define CORE_EXPORT
-#define GUI_EXPORT
 #include <QAction>
 
 #include <qgis.h>

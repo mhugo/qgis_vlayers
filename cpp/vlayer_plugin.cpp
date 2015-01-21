@@ -61,6 +61,7 @@ void VLayerPlugin::run()
     }
     QgsVectorLayer *vlayer = static_cast<QgsVectorLayer*>(layer);
 
+#if 0
     QString geometry_type_str;
     int geometry_dim;
     int geometry_wkb_type;
@@ -165,11 +166,13 @@ void VLayerPlugin::run()
     sqlite3_close( db );
 
     QgsVectorLayer* vl = new QgsVectorLayer( "dbname='/tmp/test_vtable.sqlite' table=\"vtab\" (geometry) sql=", "vtab", "spatialite" );
+#endif
+    unlink( "/tmp/test_vtable.sqlite" );
+    QgsVectorLayer* vl = new QgsVectorLayer( QString("/tmp/test_vtable.sqlite?layer_id=%1").arg(vlayer->id()), "vtab", "virtual" );
     std::cout << "vl= " << vl << std::endl;
     std::cout << "isValid = " << vl->isValid() << std::endl;
     QgsMapLayer* new_vl = QgsMapLayerRegistry::instance()->addMapLayer( vl );
     std::cout << "new_vl = " << new_vl << std::endl;
-
 }
 
 void VLayerPlugin::unload()
