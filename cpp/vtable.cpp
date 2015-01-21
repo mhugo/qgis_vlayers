@@ -98,14 +98,14 @@ struct VTable
     char *zErrMsg;                  /* Error message from sqlite3_mprintf() */
 
     // specific members
-    QgsVectorLayer *layer_;
+    QScopedPointer<QgsVectorLayer> layer_;
 
     // CREATE TABLE string
     QString creation_str_;
 
     VTable( const QString& ogr_key, const QString& path ) : zErrMsg(0)
     {
-        layer_ = new QgsVectorLayer( path, "vtab_tmp", ogr_key );
+        layer_.reset(new QgsVectorLayer( path, "vtab_tmp", ogr_key ));
         QgsVectorDataProvider *pr = layer_->dataProvider();
         const QgsFields& fields = pr->fields();
         QStringList sql_fields;
@@ -136,14 +136,7 @@ struct VTable
         creation_str_ = "CREATE TABLE vtable (" + sql_fields.join(",") + ")";
     }
 
-    ~VTable()
-    {
-        if (layer_) {
-            delete layer_;
-        }
-    }
-
-    QgsVectorLayer* layer() { return layer_; }
+    QgsVectorLayer* layer() { return layer_.data(); }
 
     QString creation_string() const { return creation_str_; }
 };
@@ -245,7 +238,7 @@ int vtable_destroy( sqlite3_vtab *vtab )
 {
     std::cout << "vtable_destroy @" << vtab << std::endl;
     if (vtab) {
-        delete vtab;
+        delete reinterpret_cast<VTable*>(vtab);
     }
     return SQLITE_OK;
 }
