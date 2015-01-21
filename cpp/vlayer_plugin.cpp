@@ -140,7 +140,7 @@ void VLayerPlugin::run()
     sqlite3* db;
     int r = sqlite3_open( "/tmp/test_vtable.sqlite", &db );
     std::cout << "open: " << r << std::endl;
-    QString createStr = QString("SELECT InitSpatialMetadata(1); DROP TABLE IF EXISTS vtab; CREATE VIRTUAL TABLE vtab USING QgsVLayer(%1,%2);").arg(vlayer->providerType(), layer->source());
+    QString createStr = QString("SELECT InitSpatialMetadata(1); DROP TABLE IF EXISTS vtab; CREATE VIRTUAL TABLE vtab USING QgsVLayer(%1);").arg(vlayer->id());
     createStr += QString( "INSERT OR REPLACE INTO virts_geometry_columns (virt_name, virt_geometry, geometry_type, coord_dimension, srid) "
                           "VALUES ('vtab', 'geometry', %1, %2, %3 );" ).arg(geometry_wkb_type).arg(geometry_dim).arg(srid);
 

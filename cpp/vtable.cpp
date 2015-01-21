@@ -3,6 +3,7 @@
 #include <qgsvectorlayer.h>
 #include <qgsvectordataprovider.h>
 #include <qgsgeometry.h>
+#include <qgsmaplayerregistry.h>
 
 #include <sqlite3.h>
 #include "vtable.h"
@@ -98,14 +99,15 @@ struct VTable
     char *zErrMsg;                  /* Error message from sqlite3_mprintf() */
 
     // specific members
-    QScopedPointer<QgsVectorLayer> layer_;
+    // pointer to the underlying vector layer, not owned
+    QgsVectorLayer* layer_;
 
     // CREATE TABLE string
     QString creation_str_;
 
-    VTable( const QString& ogr_key, const QString& path ) : zErrMsg(0)
+    VTable( QgsVectorLayer* layer ) : layer_(layer), zErrMsg(0)
     {
-        layer_.reset(new QgsVectorLayer( path, "vtab_tmp", ogr_key ));
+        // FIXME : connect to layer deletion signal
         QgsVectorDataProvider *pr = layer_->dataProvider();
         const QgsFields& fields = pr->fields();
         QStringList sql_fields;
@@ -136,7 +138,7 @@ struct VTable
         creation_str_ = "CREATE TABLE vtable (" + sql_fields.join(",") + ")";
     }
 
-    QgsVectorLayer* layer() { return layer_.data(); }
+    QgsVectorLayer* layer() { return layer_; }
 
     QString creation_string() const { return creation_str_; }
 };
@@ -192,7 +194,7 @@ int vtable_create( sqlite3* sql, void* aux, int argc, const char* const* argv, s
 {
     std::cout << "vtable_create" << std::endl;
     if ( argc < 4 ) {
-        std::string err( "Missing arguments: provider key and source" );
+        std::string err( "Missing arguments: layer id" );
         *out_err = (char*)sqlite3_malloc(err.size()+1);
         strncpy( *out_err, err.c_str(), err.size() );
         return SQLITE_ERROR;
@@ -201,7 +203,14 @@ int vtable_create( sqlite3* sql, void* aux, int argc, const char* const* argv, s
         std::cout << i << "=" << argv[i] << std::endl;
     }
 
-    VTable *new_vtab = new VTable( argv[3], argv[4] );
+    QgsMapLayer *l = QgsMapLayerRegistry::instance()->mapLayer( argv[3] );
+    if ( l == 0 || l->type() != QgsMapLayer::VectorLayer ) {
+        std::string err("Cannot find layer");
+        *out_err = (char*)sqlite3_malloc(err.size()+1);
+        strncpy( *out_err, err.c_str(), err.size() );
+        return SQLITE_ERROR;
+    }
+    VTable *new_vtab = new VTable( static_cast<QgsVectorLayer*>(l) );
     int r = sqlite3_declare_vtab( sql, new_vtab->creation_string().toUtf8().constData() );
     if ( r ) {
         delete new_vtab;
