@@ -29,6 +29,11 @@ extern "C" {
 const QString VIRTUAL_LAYER_KEY = "virtual";
 const QString VIRTUAL_LAYER_DESCRIPTION = "Virtual layer data provider";
 
+// declaration of the spatialite module
+extern "C" {
+    int qgsvlayer_module_init();
+}
+
 QgsVirtualLayerProvider::QgsVirtualLayerProvider( QString const &uri )
     : QgsVectorDataProvider( uri ),
       mValid( true ),
@@ -78,6 +83,10 @@ QgsVirtualLayerProvider::QgsVirtualLayerProvider( QString const &uri )
     }
 
     spatialite_init(0);
+
+    // register sqlite extension
+    sqlite3_auto_extension( (void(*)())qgsvlayer_module_init );
+
     sqlite3* db;
     // open and create if it does not exist
     int r = sqlite3_open( mPath.toUtf8().constData(), &db );
@@ -169,19 +178,21 @@ QgsVirtualLayerProvider::QgsVirtualLayerProvider( QString const &uri )
         long srid = vlayer->crs().postgisSrid();
 
         QString createStr = QString("SELECT InitSpatialMetadata(1); DROP TABLE IF EXISTS vtab%1; CREATE VIRTUAL TABLE vtab%1 USING QgsVLayer(%2);").arg(layer_idx).arg(vlayer->id());
-        createStr += QString( "INSERT OR REPLACE INTO virts_geometry_columns (virt_name, virt_geometry, geometry_type, coord_dimension, srid) "
-                              "VALUES ('vtab%1', 'geometry', %2, %3, %4 );" ).arg(layer_idx).arg(geometry_wkb_type).arg(geometry_dim).arg(srid);
+        if ( geometry_wkb_type ) {
+            createStr += QString( "INSERT OR REPLACE INTO virts_geometry_columns (virt_name, virt_geometry, geometry_type, coord_dimension, srid) "
+                                  "VALUES ('vtab%1', 'geometry', %2, %3, %4 );" ).arg(layer_idx).arg(geometry_wkb_type).arg(geometry_dim).arg(srid);
 
-        // manually set column statistics (needed for QGIS spatialite provider)
-        QgsRectangle extent = vlayer->extent();
-        createStr += QString("INSERT OR REPLACE INTO virts_geometry_columns_statistics (virt_name, virt_geometry, last_verified, row_count, extent_min_x, extent_min_y, extent_max_x, extent_max_y) "
-                             "VALUES ('vtab%1', 'geometry', datetime('now'), %2, %3, %4, %5, %6);")
-            .arg(layer_idx)
-            .arg(vlayer->featureCount())
-            .arg(extent.xMinimum())
-            .arg(extent.yMinimum())
-            .arg(extent.xMaximum())
-            .arg(extent.yMaximum());
+            // manually set column statistics (needed for QGIS spatialite provider)
+            QgsRectangle extent = vlayer->extent();
+            createStr += QString("INSERT OR REPLACE INTO virts_geometry_columns_statistics (virt_name, virt_geometry, last_verified, row_count, extent_min_x, extent_min_y, extent_max_x, extent_max_y) "
+                                 "VALUES ('vtab%1', 'geometry', datetime('now'), %2, %3, %4, %5, %6);")
+                .arg(layer_idx)
+                .arg(vlayer->featureCount())
+                .arg(extent.xMinimum())
+                .arg(extent.yMinimum())
+                .arg(extent.xMaximum())
+                .arg(extent.yMaximum());
+        }
 
         char *errMsg;
         int r = sqlite3_exec( mSqlite.data(), createStr.toUtf8().constData(), NULL, NULL, &errMsg );
@@ -206,6 +217,9 @@ QgsVirtualLayerProvider::~QgsVirtualLayerProvider()
     if (mSpatialite) {
         delete mSpatialite;
     }
+
+    // unregister sqlite extension
+    sqlite3_cancel_auto_extension( (void(*)())qgsvlayer_module_init );
 }
 
 QgsAbstractFeatureSource* QgsVirtualLayerProvider::featureSource() const
