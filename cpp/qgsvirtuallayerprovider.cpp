@@ -48,6 +48,7 @@ QgsVirtualLayerProvider::QgsVirtualLayerProvider( QString const &uri )
 
     // xxxxx = open a virtual layer
     // xxxxx?key=value&key=value = create a virtual layer
+    // ?key=value = create a temporary virtual layer
 
     mPath = url.path();
 
@@ -87,6 +88,15 @@ QgsVirtualLayerProvider::QgsVirtualLayerProvider( QString const &uri )
     // register sqlite extension
     sqlite3_auto_extension( (void(*)())qgsvlayer_module_init );
 
+    // use a temporary file if needed
+    if ( mPath.isEmpty() ) {
+        mTempFile.reset( new QTemporaryFile() );
+        mTempFile->open();
+        mPath = mTempFile->fileName();
+        std::cout << "Temporary file " << mPath.toUtf8().constData() << std::endl;
+        mTempFile->close();
+    }
+
     sqlite3* db;
     // open and create if it does not exist
     int r = sqlite3_open( mPath.toUtf8().constData(), &db );
@@ -99,6 +109,7 @@ QgsVirtualLayerProvider::QgsVirtualLayerProvider( QString const &uri )
 
     // now create virtual tables based on layers
     int layer_idx = 0;
+    bool has_geometry = false;
     for ( int i = 0; i < mLayers.size(); i++ ) {
         layer_idx++;
         QgsVectorLayer* vlayer = mLayers.at(i);
@@ -179,6 +190,7 @@ QgsVirtualLayerProvider::QgsVirtualLayerProvider( QString const &uri )
 
         QString createStr = QString("SELECT InitSpatialMetadata(1); DROP TABLE IF EXISTS vtab%1; CREATE VIRTUAL TABLE vtab%1 USING QgsVLayer(%2);").arg(layer_idx).arg(vlayer->id());
         if ( geometry_wkb_type ) {
+            has_geometry = true;
             createStr += QString( "INSERT OR REPLACE INTO virts_geometry_columns (virt_name, virt_geometry, geometry_type, coord_dimension, srid) "
                                   "VALUES ('vtab%1', 'geometry', %2, %3, %4 );" ).arg(layer_idx).arg(geometry_wkb_type).arg(geometry_dim).arg(srid);
 
@@ -206,7 +218,7 @@ QgsVirtualLayerProvider::QgsVirtualLayerProvider( QString const &uri )
 
     QgsDataSourceURI source;
     source.setDatabase( mPath );
-    source.setDataSource( "", "vtab1", "geometry" );
+    source.setDataSource( "", "vtab1", has_geometry ? "geometry" : "" );
     std::cout << "Spatialite uri: " << source.uri().toUtf8().constData() << std::endl;
     mSpatialite = new QgsSpatiaLiteProvider( source.uri() );
     mValid = mSpatialite->isValid();

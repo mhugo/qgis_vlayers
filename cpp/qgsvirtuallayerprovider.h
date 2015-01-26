@@ -18,6 +18,7 @@ email                : hugo dot mercier at oslandia dot com
 #define QGSVIRTUAL_LAYER_PROVIDER_H
 
 #include <qgsvectordataprovider.h>
+#include <QTemporaryFile>
 
 #include "spatialite/qgsspatialiteprovider.h"
 #include "spatialite/qgsspatialiteconnection.h"
@@ -192,6 +193,9 @@ class QgsVirtualLayerProvider: public QgsVectorDataProvider
 
     // the underlying spatialite provider
     QgsSpatiaLiteProvider* mSpatialite;
+
+    // temporary file used for temporary virtual layer
+    QScopedPointer<QTemporaryFile> mTempFile;
 };
 
 #endif
