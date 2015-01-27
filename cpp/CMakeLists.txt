@@ -23,7 +23,7 @@ TARGET_LINK_LIBRARIES( virtuallayerprovider
   spatialiteprovider
 )
 
-ADD_DEFINITIONS( -DCORE_EXPORT= -DGUI_EXPORT= -std=c++11 )
+ADD_DEFINITIONS( -DCORE_EXPORT= -DGUI_EXPORT= -std=c++11 -DQGIDDEBUG=1 -DQGIS_DEBUG=1)
 
 INCLUDE_DIRECTORIES(
   ~/src/QGIS/src/providers

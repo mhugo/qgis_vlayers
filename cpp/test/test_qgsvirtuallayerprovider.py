@@ -59,5 +59,34 @@ class TestQgsVirtualLayerProvider(TestCase):
         l2 = QgsVectorLayer( "?layer_id=" + l1.id(), "vtab", "virtual" )
         self.assertEqual( l2.isValid(), True )
 
+    def testQuery(self):
+        l1 = QgsVectorLayer( os.path.join(self.testDataDir_, "france_parts.shp"), "france_parts", "ogr" )
+        self.assertEqual( l1.isValid(), True )
+        QgsMapLayerRegistry.instance().addMapLayer(l1)
+        ref_sum = sum(f.attributes()[0] for f in l1.getFeatures())
+
+        l2 = QgsVectorLayer( "?layer_id=%s&geometry=geometry:3:4326&query=SELECT * FROM vtab1&uid=OBJECTID" % l1.id(), "vtab", "virtual" )
+        self.assertEqual( l2.isValid(), True )
+        self.assertEqual( l2.dataProvider().geometryType(), 3 )
+        ref_sum2 = sum(f.attributes()[0] for f in l2.getFeatures())
+        ref_sum3 = sum(f.id() for f in l2.getFeatures())
+        # check we have the same rows
+        self.assertEqual( ref_sum, ref_sum2 )
+        # check the id is ok
+        self.assertEqual( ref_sum, ref_sum3 )
+
+        # the same, without geometry
+        l2 = QgsVectorLayer( "?layer_id=%s&query=SELECT * FROM vtab1&uid=ObJeCtId" % l1.id(), "vtab", "virtual" )
+        self.assertEqual( l2.isValid(), True )
+        self.assertEqual( l2.dataProvider().geometryType(), 100 ) # NoGeometry
+        ref_sum2 = sum(f.attributes()[0] for f in l2.getFeatures())
+        ref_sum3 = sum(f.id() for f in l2.getFeatures())
+        self.assertEqual( ref_sum, ref_sum2 )
+        self.assertEqual( ref_sum, ref_sum3 )
+
+        # check that it fails when a query and no uid are specified
+        l2 = QgsVectorLayer( "?layer_id=%s&query=SELECT * FROM vtab1" % l1.id(), "vtab", "virtual" )
+        self.assertEqual( l2.isValid(), False )
+
 if __name__ == '__main__':
     unittest.main()

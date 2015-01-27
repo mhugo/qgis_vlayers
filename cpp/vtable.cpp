@@ -159,13 +159,16 @@ struct VTableCursor
     {
         iterator_ = vtab_->layer()->dataProvider()->getFeatures();
         current_row_ = -1;
-        // got on the first record
+        // get on the first record
+        eof_ = false;
         next();
     }
 
     void next()
     {
-        eof_ = !iterator_.nextFeature( current_feature_ );
+        if ( !eof_ ) {
+            eof_ = !iterator_.nextFeature( current_feature_ );
+        }
         if ( !eof_ ) {
             current_row_++;
         }
@@ -301,31 +304,37 @@ int vtable_rowid( sqlite3_vtab_cursor *cursor, sqlite3_int64 *out_rowid )
 
 int vtable_column( sqlite3_vtab_cursor *cursor, sqlite3_context* ctxt, int idx )
 {
-    std::cout << "vtable_column " << idx << std::endl;
+    std::cout << "vtable_column " << idx << " ";
     VTableCursor* c = reinterpret_cast<VTableCursor*>(cursor);
     if ( idx == c->n_columns() ) {
         QPair<unsigned char*, size_t> g = c->current_geometry();
         sqlite3_result_blob( ctxt, g.first, g.second, delete_geometry_blob );
+        std::cout << "geometry" << std::endl;
         return SQLITE_OK;
     }
     QVariant v = c->current_attribute( idx );
     if ( v.isNull() ) {
+        std::cout << "null";
         sqlite3_result_null( ctxt );
     }
     else {
         switch ( v.type() ) {
         case QVariant::Int:
         case QVariant::UInt:
+            std::cout << "int " << v.toInt();
             sqlite3_result_int( ctxt, v.toInt() );
             break;
         case QVariant::Double:
+            std::cout << "double " << v.toDouble();
             sqlite3_result_double( ctxt, v.toDouble() );
             break;
         default:
+            std::cout << "text " << v.toString().toUtf8().constData();
             sqlite3_result_text( ctxt, v.toString().toUtf8(), -1, SQLITE_TRANSIENT );
             break;
         }
     }
+    std::cout << std::endl;
     return SQLITE_OK;
 }
 

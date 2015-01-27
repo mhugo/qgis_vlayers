@@ -183,19 +183,32 @@ class QgsVirtualLayerProvider: public QgsVectorDataProvider
     };
     QScopedPointer<sqlite3, SqliteHandleDeleter> mSqlite;
 
-    bool mValid;
-
     // underlying layers, do not own them
     QVector<QgsVectorLayer*> mLayers;
 
+    bool mValid;
+
     // final query
     QString mQuery;
+    // column name used for unique id
+    QString mUid;
 
     // the underlying spatialite provider
     QgsSpatiaLiteProvider* mSpatialite;
 
     // temporary file used for temporary virtual layer
     QScopedPointer<QTemporaryFile> mTempFile;
+
+    QgsFields mFields;
+
+    struct GeometryField
+    {
+        QString name;
+        long wkbType;
+        long srid;
+    };
+    typedef QVector<GeometryField> GeometryFields;
+    GeometryFields mGeometryFields;
 };
 
 #endif

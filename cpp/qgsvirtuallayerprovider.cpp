@@ -34,6 +34,8 @@ extern "C" {
     int qgsvlayer_module_init();
 }
 
+#define PROVIDER_ERROR( msg ) do { mError = QgsError( msg, VIRTUAL_LAYER_KEY ); QgsDebugMsg( msg ); } while(0)
+
 QgsVirtualLayerProvider::QgsVirtualLayerProvider( QString const &uri )
     : QgsVectorDataProvider( uri ),
       mValid( true ),
@@ -42,7 +44,7 @@ QgsVirtualLayerProvider::QgsVirtualLayerProvider( QString const &uri )
     QUrl url = QUrl::fromEncoded( uri.toUtf8() );
     if ( !url.isValid() ) {
         mValid = false;
-        mError = QgsError("Malformed URL", VIRTUAL_LAYER_KEY);
+        PROVIDER_ERROR("Malformed URL");
         return;
     }
 
@@ -52,6 +54,9 @@ QgsVirtualLayerProvider::QgsVirtualLayerProvider( QString const &uri )
 
     mPath = url.path();
 
+    // geometry field set by parameters
+    GeometryField geometryField;
+
     QList<QPair<QString, QString> > items = url.queryItems();
     for ( int i = 0; i < items.size(); i++ ) {
         QString key = items.at(i).first;
@@ -60,16 +65,30 @@ QgsVirtualLayerProvider::QgsVirtualLayerProvider( QString const &uri )
             QgsMapLayer *l = QgsMapLayerRegistry::instance()->mapLayer( value );
             if ( l == 0 ) {
                 mValid = false;
-                mError = QgsError( QString("Cannot find layer %1").arg(value), VIRTUAL_LAYER_KEY );
+                PROVIDER_ERROR( QString("Cannot find layer %1").arg(value) );
                 return;
             }
             if ( l->type() != QgsMapLayer::VectorLayer ) {
                 mValid = false;
-                mError = QgsError( QString("Layer %1 is not a vector layer").arg(value), VIRTUAL_LAYER_KEY );
+                PROVIDER_ERROR( QString("Layer %1 is not a vector layer").arg(value) );
                 return;
             }
             // add the layer to the list
             mLayers << static_cast<QgsVectorLayer*>(l);
+        }
+        else if ( key == "geometry" ) {
+            // geometry field definition, optional
+            // geometry_column:wkb_type:srid
+            QRegExp reGeom( "(\\w+):(\\d+):(\\d+)" );
+            int pos = reGeom.indexIn( value );
+            if ( pos >= 0 ) {
+                geometryField.name = reGeom.cap(1);
+                geometryField.wkbType = reGeom.cap(2).toLong();
+                geometryField.srid = reGeom.cap(3).toLong();
+            }
+        }
+        else if ( key == "uid" ) {
+            mUid = value;
         }
         else if ( key == "query" ) {
             mQuery = value;
@@ -79,21 +98,29 @@ QgsVirtualLayerProvider::QgsVirtualLayerProvider( QString const &uri )
     // consistency check
     if ( mLayers.size() > 1 && mQuery.isEmpty() ) {
         mValid = false;
-        mError = QgsError( QString("Don't know how to join layers, please specify a query"), VIRTUAL_LAYER_KEY );
+        PROVIDER_ERROR( QString("Don't know how to join layers, please specify a query") );
+        return;
+    }
+
+    if ( !mQuery.isEmpty() && mUid.isEmpty() ) {
+        mValid = false;
+        PROVIDER_ERROR( QString("Please specify a 'uid' column name") );
+        return;
+    }
+
+    if ( mLayers.size() > 1 && geometryField.name.isEmpty() ) {
+        mValid = false;
+        PROVIDER_ERROR( QString("Please specify the geometry column name and type") );
         return;
     }
 
     spatialite_init(0);
-
-    // register sqlite extension
-    sqlite3_auto_extension( (void(*)())qgsvlayer_module_init );
 
     // use a temporary file if needed
     if ( mPath.isEmpty() ) {
         mTempFile.reset( new QTemporaryFile() );
         mTempFile->open();
         mPath = mTempFile->fileName();
-        std::cout << "Temporary file " << mPath.toUtf8().constData() << std::endl;
         mTempFile->close();
     }
 
@@ -102,7 +129,7 @@ QgsVirtualLayerProvider::QgsVirtualLayerProvider( QString const &uri )
     int r = sqlite3_open( mPath.toUtf8().constData(), &db );
     if ( r ) {
         mValid = false;
-        mError = QgsError( QString( sqlite3_errmsg(db) ), VIRTUAL_LAYER_KEY );
+        PROVIDER_ERROR( QString( sqlite3_errmsg(db) ) );
         return;
     }
     mSqlite.reset(db);
@@ -210,17 +237,100 @@ QgsVirtualLayerProvider::QgsVirtualLayerProvider( QString const &uri )
         int r = sqlite3_exec( mSqlite.data(), createStr.toUtf8().constData(), NULL, NULL, &errMsg );
         if (r) {
             mValid = false;
-            mError = QgsError( errMsg, VIRTUAL_LAYER_KEY );
-            std::cout << "err: " << errMsg << std::endl;
+            PROVIDER_ERROR( errMsg );
             return;
         }
     }
 
-    QgsDataSourceURI source;
-    source.setDatabase( mPath );
-    source.setDataSource( "", "vtab1", has_geometry ? "geometry" : "" );
-    std::cout << "Spatialite uri: " << source.uri().toUtf8().constData() << std::endl;
-    mSpatialite = new QgsSpatiaLiteProvider( source.uri() );
+    if ( !mQuery.isEmpty() ) {
+        // create a temporary view, in order to call table_info on it
+        QString viewStr = "CREATE TEMPORARY VIEW vview AS " + mQuery;
+
+        char *errMsg;
+        int r;
+        r = sqlite3_exec( mSqlite.data(), viewStr.toUtf8().constData(), NULL, NULL, &errMsg );
+        if (r) {
+            mValid = false;
+            PROVIDER_ERROR( errMsg );
+            return;
+        }
+
+        // look for column names and types
+        bool all_types = true;
+        QgsFields fields;
+
+        sqlite3_stmt *stmt;
+        r = sqlite3_prepare_v2( mSqlite.data(), "PRAGMA table_info('vview')", -1, &stmt, NULL );
+        if (r) {
+            mValid = false;
+            PROVIDER_ERROR( errMsg );
+            return;
+        }
+        QList<QString> column_names;
+        int n = sqlite3_column_count( stmt );
+        int name_idx = -1, type_idx = -1;
+        for ( int i = 0 ; i < n; i++ ) {
+            QString col_name(sqlite3_column_name( stmt, i ));
+            if ( col_name == "name" ) {
+                name_idx = i;
+            }
+            else if ( col_name == "type" ) {
+                type_idx = i;
+            }
+        }
+        while ( sqlite3_step( stmt ) == SQLITE_ROW ) {
+            QString field_name((const char*)sqlite3_column_text( stmt, name_idx ));
+            QString field_type((const char*)sqlite3_column_text( stmt, type_idx ));
+            std::cout << field_name.toUtf8().constData() << " - " << field_type.toUtf8().constData() << std::endl;
+
+            if ( field_type == "INT" ) {
+                fields.append( QgsField( field_name, QVariant::Int ) );
+            }
+            else if ( field_type == "REAL" ) {
+                fields.append( QgsField( field_name, QVariant::Double ) );
+            }
+            else if ( field_type == "TEXT" ) {
+                fields.append( QgsField( field_name, QVariant::String ) );
+            }
+            else if (( field_type == "POINT" ) || (field_type == "MULTIPOINT") ||
+                     (field_type == "LINESTRING") || (field_type == "MULTILINESTRING") ||
+                     (field_type == "POLYGON") || (field_type == "MULTIPOLYGON")) {
+                continue;
+            }
+            else {
+                // force to TEXT
+                fields.append( QgsField( field_name, QVariant::String ) );
+            }
+        }
+
+        sqlite3_finalize( stmt );
+
+        mFields = fields;
+        mGeometryFields << geometryField;
+
+        QgsDataSourceURI source;
+        source.setDatabase( mPath );
+        source.setDataSource( "", "(" + mQuery + ")", mGeometryFields.isEmpty() ? "" : mGeometryFields[0].name, "", mUid );
+        std::cout << "Spatialite uri: " << source.uri().toUtf8().constData() << std::endl;
+        mSpatialite = new QgsSpatiaLiteProvider( source.uri() );
+        
+    }
+    else {
+        // no query => implies we must only have one virtual table
+        QgsDataSourceURI source;
+        source.setDatabase( mPath );
+        source.setDataSource( "", "vtab1", has_geometry ? "geometry" : "" );
+        std::cout << "Spatialite uri: " << source.uri().toUtf8().constData() << std::endl;
+        mSpatialite = new QgsSpatiaLiteProvider( source.uri() );
+
+        mFields = mSpatialite->fields();
+        GeometryField g_field;
+        g_field.name = "geometry";
+        // FIXME
+        //        g_field.type = ..
+        mGeometryFields << g_field;
+    }
+
     mValid = mSpatialite->isValid();
 }
 
@@ -229,9 +339,6 @@ QgsVirtualLayerProvider::~QgsVirtualLayerProvider()
     if (mSpatialite) {
         delete mSpatialite;
     }
-
-    // unregister sqlite extension
-    sqlite3_cancel_auto_extension( (void(*)())qgsvlayer_module_init );
 }
 
 QgsAbstractFeatureSource* QgsVirtualLayerProvider::featureSource() const
@@ -291,7 +398,7 @@ void QgsVirtualLayerProvider::updateExtents()
 
 const QgsFields & QgsVirtualLayerProvider::fields() const
 {
-    return mSpatialite->fields();
+    return mFields;
 }
 
 QVariant QgsVirtualLayerProvider::minimumValue( int index )
@@ -316,7 +423,7 @@ bool QgsVirtualLayerProvider::isValid()
 
 int QgsVirtualLayerProvider::capabilities() const
 {
-    return SelectAtId | SelectGeometryAtId;
+    return 0; //SelectAtId | SelectGeometryAtId;
 }
 
 QString QgsVirtualLayerProvider::name() const
@@ -340,7 +447,10 @@ QgsAttributeList QgsVirtualLayerProvider::pkAttributeIndexes()
  */
 QGISEXTERN QgsVirtualLayerProvider *classFactory( const QString * uri )
 {
-  return new QgsVirtualLayerProvider( *uri );
+    // register sqlite extension
+    sqlite3_auto_extension( (void(*)())qgsvlayer_module_init );
+
+    return new QgsVirtualLayerProvider( *uri );
 }
 
 /** Required key function (used to map the plugin to a data store type)
@@ -369,4 +479,6 @@ QGISEXTERN bool isProvider()
 
 QGISEXTERN void cleanupProvider()
 {
+    // unregister sqlite extension
+    sqlite3_cancel_auto_extension( (void(*)())qgsvlayer_module_init );
 }
