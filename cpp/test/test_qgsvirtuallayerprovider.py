@@ -96,6 +96,15 @@ class TestQgsVirtualLayerProvider(TestCase):
         l2 = QgsVectorLayer( "?layer_id=%s&query=SELECT * FROM vtab1" % l1.id(), "vtab", "virtual" )
         self.assertEqual( l2.isValid(), False )
 
+    def testQueryTableName(self):
+        l1 = QgsVectorLayer( os.path.join(self.testDataDir_, "france_parts.shp"), "france_parts", "ogr" )
+        self.assertEqual( l1.isValid(), True )
+        QgsMapLayerRegistry.instance().addMapLayer(l1)
+
+        l2 = QgsVectorLayer( "?layer_id=%s:vt&query=SELECT * FROM vt&uid=ObJeCtId" % l1.id(), "vtab", "virtual" )
+        self.assertEqual( l2.isValid(), True )
+        self.assertEqual( l2.dataProvider().geometryType(), 100 ) # NoGeometry
+
     def testJoin(self):
         l1 = QgsVectorLayer( os.path.join(self.testDataDir_, "points.shp"), "points", "ogr" )
         self.assertEqual( l1.isValid(), True )

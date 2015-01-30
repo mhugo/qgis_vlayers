@@ -183,8 +183,8 @@ class QgsVirtualLayerProvider: public QgsVectorDataProvider
     };
     QScopedPointer<sqlite3, SqliteHandleDeleter> mSqlite;
 
-    // underlying layers, do not own them
-    QVector<QgsVectorLayer*> mLayers;
+    // underlying vector layers, do not own them
+    QVector< QPair <QgsVectorLayer *, QString > > mLayers;
 
     bool mValid;
 

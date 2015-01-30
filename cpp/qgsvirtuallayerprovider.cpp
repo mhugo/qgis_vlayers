@@ -102,19 +102,28 @@ QgsVirtualLayerProvider::QgsVirtualLayerProvider( QString const &uri )
         QString key = items.at(i).first;
         QString value = items.at(i).second;
         if ( key == "layer_id" ) {
-            QgsMapLayer *l = QgsMapLayerRegistry::instance()->mapLayer( value );
+            // layer id, with optional layer_name
+            int pos = value.indexOf(':');
+            QString layer_id, vlayer_name;
+            if ( pos == -1 ) {
+                layer_id = value;
+            } else {
+                layer_id = value.left(pos);
+                vlayer_name = value.mid(pos+1);
+            }
+            QgsMapLayer *l = QgsMapLayerRegistry::instance()->mapLayer( layer_id );
             if ( l == 0 ) {
                 mValid = false;
-                PROVIDER_ERROR( QString("Cannot find layer %1").arg(value) );
+                PROVIDER_ERROR( QString("Cannot find layer %1").arg(layer_id) );
                 return;
             }
             if ( l->type() != QgsMapLayer::VectorLayer ) {
                 mValid = false;
-                PROVIDER_ERROR( QString("Layer %1 is not a vector layer").arg(value) );
+                PROVIDER_ERROR( QString("Layer %1 is not a vector layer").arg(layer_id) );
                 return;
             }
             // add the layer to the list
-            mLayers << static_cast<QgsVectorLayer*>(l);
+            mLayers << qMakePair(static_cast<QgsVectorLayer*>(l), vlayer_name);
         }
         else if ( key == "geometry" ) {
             // geometry field definition, optional
@@ -180,7 +189,11 @@ QgsVirtualLayerProvider::QgsVirtualLayerProvider( QString const &uri )
     bool has_geometry = false;
     for ( int i = 0; i < mLayers.size(); i++ ) {
         layer_idx++;
-        QgsVectorLayer* vlayer = mLayers.at(i);
+        QgsVectorLayer* vlayer = mLayers.at(i).first;
+        QString vname = mLayers.at(i).second;
+        if ( vname.isEmpty() ) {
+            vname = QString("vtab%1").arg(layer_idx);
+        }
 
         QString geometry_type_str;
         int geometry_dim;
@@ -256,17 +269,17 @@ QgsVirtualLayerProvider::QgsVirtualLayerProvider( QString const &uri )
         }
         long srid = vlayer->crs().postgisSrid();
 
-        QString createStr = QString("SELECT InitSpatialMetadata(1); DROP TABLE IF EXISTS vtab%1; CREATE VIRTUAL TABLE vtab%1 USING QgsVLayer(%2);").arg(layer_idx).arg(vlayer->id());
+        QString createStr = QString("SELECT InitSpatialMetadata(1); DROP TABLE IF EXISTS vtab%1; CREATE VIRTUAL TABLE %1 USING QgsVLayer(%2);").arg(vname).arg(vlayer->id());
         if ( geometry_wkb_type ) {
             has_geometry = true;
             createStr += QString( "INSERT OR REPLACE INTO virts_geometry_columns (virt_name, virt_geometry, geometry_type, coord_dimension, srid) "
-                                  "VALUES ('vtab%1', 'geometry', %2, %3, %4 );" ).arg(layer_idx).arg(geometry_wkb_type).arg(geometry_dim).arg(srid);
+                                  "VALUES ('%1', 'geometry', %2, %3, %4 );" ).arg(vname).arg(geometry_wkb_type).arg(geometry_dim).arg(srid);
 
             // manually set column statistics (needed for QGIS spatialite provider)
             QgsRectangle extent = vlayer->extent();
             createStr += QString("INSERT OR REPLACE INTO virts_geometry_columns_statistics (virt_name, virt_geometry, last_verified, row_count, extent_min_x, extent_min_y, extent_max_x, extent_max_y) "
-                                 "VALUES ('vtab%1', 'geometry', datetime('now'), %2, %3, %4, %5, %6);")
-                .arg(layer_idx)
+                                 "VALUES ('%1', 'geometry', datetime('now'), %2, %3, %4, %5, %6);")
+                .arg(vname)
                 .arg(vlayer->featureCount())
                 .arg(extent.xMinimum())
                 .arg(extent.yMinimum())
