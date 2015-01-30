@@ -36,6 +36,46 @@ extern "C" {
 
 #define PROVIDER_ERROR( msg ) do { mError = QgsError( msg, VIRTUAL_LAYER_KEY ); QgsDebugMsg( msg ); } while(0)
 
+QgsFields getSqliteFields( sqlite3* db, const QString& table )
+{
+    QgsFields fields;
+
+    sqlite3_stmt *stmt;
+    int r;
+    r = sqlite3_prepare_v2( db, QString("PRAGMA table_info('%1')").arg(table).toUtf8().constData(), -1, &stmt, NULL );
+    if (r) {
+        throw std::runtime_error( sqlite3_errmsg( db ) );
+    }
+    int n = sqlite3_column_count( stmt );
+    while ( (r=sqlite3_step( stmt )) == SQLITE_ROW ) {
+        QString field_name((const char*)sqlite3_column_text( stmt, 1 ));
+        QString field_type((const char*)sqlite3_column_text( stmt, 2 ));
+        std::cout << field_name.toUtf8().constData() << " - " << field_type.toUtf8().constData() << std::endl;
+
+        if ( field_type == "INT" ) {
+            fields.append( QgsField( field_name, QVariant::Int ) );
+        }
+        else if ( field_type == "REAL" ) {
+            fields.append( QgsField( field_name, QVariant::Double ) );
+        }
+        else if ( field_type == "TEXT" ) {
+            fields.append( QgsField( field_name, QVariant::String ) );
+        }
+        else if (( field_type == "POINT" ) || (field_type == "MULTIPOINT") ||
+                 (field_type == "LINESTRING") || (field_type == "MULTILINESTRING") ||
+                 (field_type == "POLYGON") || (field_type == "MULTIPOLYGON")) {
+            continue;
+        }
+        else {
+            // force to TEXT
+            fields.append( QgsField( field_name, QVariant::String ) );
+        }
+    }
+
+    sqlite3_finalize( stmt );
+    return fields;
+}
+
 QgsVirtualLayerProvider::QgsVirtualLayerProvider( QString const &uri )
     : QgsVectorDataProvider( uri ),
       mValid( true ),
@@ -85,6 +125,7 @@ QgsVirtualLayerProvider::QgsVirtualLayerProvider( QString const &uri )
                 geometryField.name = reGeom.cap(1);
                 geometryField.wkbType = reGeom.cap(2).toLong();
                 geometryField.srid = reGeom.cap(3).toLong();
+                mGeometryFields << geometryField;
             }
         }
         else if ( key == "uid" ) {
@@ -256,57 +297,14 @@ QgsVirtualLayerProvider::QgsVirtualLayerProvider( QString const &uri )
         }
 
         // look for column names and types
-        bool all_types = true;
-        QgsFields fields;
-
-        sqlite3_stmt *stmt;
-        r = sqlite3_prepare_v2( mSqlite.data(), "PRAGMA table_info('vview')", -1, &stmt, NULL );
-        if (r) {
+        try {
+            mFields = getSqliteFields( mSqlite.data(), "vview" );
+        }
+        catch ( std::runtime_error& e ) {
             mValid = false;
-            PROVIDER_ERROR( errMsg );
+            PROVIDER_ERROR( e.what() );
             return;
         }
-        QList<QString> column_names;
-        int n = sqlite3_column_count( stmt );
-        int name_idx = -1, type_idx = -1;
-        for ( int i = 0 ; i < n; i++ ) {
-            QString col_name(sqlite3_column_name( stmt, i ));
-            if ( col_name == "name" ) {
-                name_idx = i;
-            }
-            else if ( col_name == "type" ) {
-                type_idx = i;
-            }
-        }
-        while ( sqlite3_step( stmt ) == SQLITE_ROW ) {
-            QString field_name((const char*)sqlite3_column_text( stmt, name_idx ));
-            QString field_type((const char*)sqlite3_column_text( stmt, type_idx ));
-            std::cout << field_name.toUtf8().constData() << " - " << field_type.toUtf8().constData() << std::endl;
-
-            if ( field_type == "INT" ) {
-                fields.append( QgsField( field_name, QVariant::Int ) );
-            }
-            else if ( field_type == "REAL" ) {
-                fields.append( QgsField( field_name, QVariant::Double ) );
-            }
-            else if ( field_type == "TEXT" ) {
-                fields.append( QgsField( field_name, QVariant::String ) );
-            }
-            else if (( field_type == "POINT" ) || (field_type == "MULTIPOINT") ||
-                     (field_type == "LINESTRING") || (field_type == "MULTILINESTRING") ||
-                     (field_type == "POLYGON") || (field_type == "MULTIPOLYGON")) {
-                continue;
-            }
-            else {
-                // force to TEXT
-                fields.append( QgsField( field_name, QVariant::String ) );
-            }
-        }
-
-        sqlite3_finalize( stmt );
-
-        mFields = fields;
-        mGeometryFields << geometryField;
 
         QgsDataSourceURI source;
         source.setDatabase( mPath );

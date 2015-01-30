@@ -50,6 +50,14 @@ class TestQgsVirtualLayerProvider(TestCase):
         l2 = QgsVectorLayer( "?layer_id=" + l1.id(), "vtab", "virtual" )
         self.assertEqual( l2.isValid(), True )
 
+    def testDynamicGeometry(self):
+        l1 = QgsVectorLayer( os.path.join(self.testDataDir_, "delimitedtext/testextpt.txt") + "?type=csv&delimiter=%7C&geomType=none&subsetIndex=no&watchFile=no", "test", "delimitedtext")
+        self.assertEqual( l1.isValid(), True )
+        QgsMapLayerRegistry.instance().addMapLayer(l1)
+
+        l2 = QgsVectorLayer( "?layer_id=%s&query=select *,makepoint(x,y) as geom from vtab1&geometry=geom:1:4326&uid=id" % l1.id(), "vtab", "virtual" )
+        self.assertEqual( l2.isValid(), True )
+
     def testShapefileWithGeometry(self):
         l1 = QgsVectorLayer( os.path.join(self.testDataDir_, "france_parts.shp"), "france_parts", "ogr" )
         self.assertEqual( l1.isValid(), True )
@@ -87,6 +95,24 @@ class TestQgsVirtualLayerProvider(TestCase):
         # check that it fails when a query and no uid are specified
         l2 = QgsVectorLayer( "?layer_id=%s&query=SELECT * FROM vtab1" % l1.id(), "vtab", "virtual" )
         self.assertEqual( l2.isValid(), False )
+
+    def testJoin(self):
+        l1 = QgsVectorLayer( os.path.join(self.testDataDir_, "points.shp"), "points", "ogr" )
+        self.assertEqual( l1.isValid(), True )
+        QgsMapLayerRegistry.instance().addMapLayer(l1)
+        l2 = QgsVectorLayer( os.path.join(self.testDataDir_, "points_relations.shp"), "points_relations", "ogr" )
+        self.assertEqual( l2.isValid(), True )
+        QgsMapLayerRegistry.instance().addMapLayer(l2)
+        ref_sum = sum(f.attributes()[1] for f in l2.getFeatures())
+
+        # use a temporary file
+        l3 = QgsVectorLayer( "?layer_id=%s&layer_id=%s&uid=id&query=select id,Pilots,vtab1.geometry from vtab1,vtab2 where intersects(vtab1.geometry,vtab2.geometry)&geometry=geometry:1:4326" % (l1.id(), l2.id()), "vtab", "virtual" )
+        self.assertEqual( l3.isValid(), True )
+        self.assertEqual( l3.dataProvider().geometryType(), 1 )
+        self.assertEqual( l3.dataProvider().fields().count(), 2 )
+        ref_sum2 = sum(f.id() for f in l3.getFeatures())
+        self.assertEqual(ref_sum, ref_sum2)
+
 
 if __name__ == '__main__':
     unittest.main()
