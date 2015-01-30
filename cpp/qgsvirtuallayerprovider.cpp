@@ -36,10 +36,32 @@ extern "C" {
 
 #define PROVIDER_ERROR( msg ) do { mError = QgsError( msg, VIRTUAL_LAYER_KEY ); QgsDebugMsg( msg ); } while(0)
 
-QgsFields getSqliteFields( sqlite3* db, const QString& table )
+int geometry_type_to_wkb_type( const QString& wkb_str )
 {
-    QgsFields fields;
+    QString w = wkb_str.toLower();
+    if ( w == "point" ) {
+        return 1;
+    }
+    else if ( w == "linestring" ) {
+        return 2;
+    }
+    else if ( w == "polygon" ) {
+        return 3;
+    }
+    else if ( w == "multipoint" ) {
+        return 4;
+    }
+    else if ( w == "multilinestring" ) {
+        return 5;
+    }
+    else if ( w == "multipolygon" ) {
+        return 6;
+    }
+    return 0;
+}
 
+void QgsVirtualLayerProvider::getSqliteFields( sqlite3* db, const QString& table, QgsFields& fields, GeometryFields& gFields )
+{
     sqlite3_stmt *stmt;
     int r;
     r = sqlite3_prepare_v2( db, QString("PRAGMA table_info('%1')").arg(table).toUtf8().constData(), -1, &stmt, NULL );
@@ -64,7 +86,10 @@ QgsFields getSqliteFields( sqlite3* db, const QString& table )
         else if (( field_type == "POINT" ) || (field_type == "MULTIPOINT") ||
                  (field_type == "LINESTRING") || (field_type == "MULTILINESTRING") ||
                  (field_type == "POLYGON") || (field_type == "MULTIPOLYGON")) {
-            continue;
+            GeometryField g;
+            g.name = field_name;
+            g.wkbType = geometry_type_to_wkb_type( field_type );
+            gFields.append( g );
         }
         else {
             // force to TEXT
@@ -73,7 +98,6 @@ QgsFields getSqliteFields( sqlite3* db, const QString& table )
     }
 
     sqlite3_finalize( stmt );
-    return fields;
 }
 
 QgsVirtualLayerProvider::QgsVirtualLayerProvider( QString const &uri )
@@ -94,8 +118,10 @@ QgsVirtualLayerProvider::QgsVirtualLayerProvider( QString const &uri )
 
     mPath = url.path();
 
-    // geometry field set by parameters
+    // geometry field to consider (if more than one or if it cannot be detected)
     GeometryField geometryField;
+
+    bool noGeometry = false;
 
     QList<QPair<QString, QString> > items = url.queryItems();
     for ( int i = 0; i < items.size(); i++ ) {
@@ -127,15 +153,23 @@ QgsVirtualLayerProvider::QgsVirtualLayerProvider( QString const &uri )
         }
         else if ( key == "geometry" ) {
             // geometry field definition, optional
-            // geometry_column:wkb_type:srid
-            QRegExp reGeom( "(\\w+):(\\d+):(\\d+)" );
+            // geometry_column(:wkb_type:srid)?
+            QRegExp reGeom( "(\\w+)(?::([a-zA-Z0-9]+):(\\d+))?" );
             int pos = reGeom.indexIn( value );
             if ( pos >= 0 ) {
                 geometryField.name = reGeom.cap(1);
-                geometryField.wkbType = reGeom.cap(2).toLong();
-                geometryField.srid = reGeom.cap(3).toLong();
-                mGeometryFields << geometryField;
+                if ( reGeom.captureCount() > 1 ) {
+                    // not used by the spatialite provider for now ...
+                    int wkb_type = geometry_type_to_wkb_type( reGeom.cap(2) );
+                    if (wkb_type == 0) {
+                        wkb_type = reGeom.cap(2).toLong();
+                    }
+                    geometryField.srid = reGeom.cap(3).toLong();
+                }
             }
+        }
+        else if ( key == "nogeometry" ) {
+            noGeometry = true;
         }
         else if ( key == "uid" ) {
             mUid = value;
@@ -155,12 +189,6 @@ QgsVirtualLayerProvider::QgsVirtualLayerProvider( QString const &uri )
     if ( !mQuery.isEmpty() && mUid.isEmpty() ) {
         mValid = false;
         PROVIDER_ERROR( QString("Please specify a 'uid' column name") );
-        return;
-    }
-
-    if ( mLayers.size() > 1 && geometryField.name.isEmpty() ) {
-        mValid = false;
-        PROVIDER_ERROR( QString("Please specify the geometry column name and type") );
         return;
     }
 
@@ -309,9 +337,43 @@ QgsVirtualLayerProvider::QgsVirtualLayerProvider( QString const &uri )
             return;
         }
 
-        // look for column names and types
         try {
-            mFields = getSqliteFields( mSqlite.data(), "vview" );
+            // look for column names and types
+            getSqliteFields( mSqlite.data(), "vview", mFields, mGeometryFields );
+
+            // process geometry field
+            if ( !geometryField.name.isEmpty() ) {
+                // requested geometry field is in mFields => remove it from mFields and add it to mGeometryFields
+                bool found = false;
+                for ( int i = 0; i < mFields.count(); i++ ) {
+                    if ( mFields[i].name() == geometryField.name ) {
+                        mFields.remove(i);
+                        GeometryField g;
+                        g.name = geometryField.name;
+                        mGeometryFields.append( g );
+                        found = true;
+                        break;
+                    }
+                }
+                // if not found in mFields, look in mGeometryFields
+                if ( !found ) {
+                    for ( int i = 0; !found && i < mGeometryFields.size(); i++ ) {
+                        if ( mGeometryFields[i].name == geometryField.name ) {
+                            found = true;
+                            break;
+                        }
+                    }
+                }
+                if ( !found ) {
+                    mValid = false;
+                    PROVIDER_ERROR( "Cannot find the specified geometry field !" );
+                    return;
+                }
+            }
+            if ( geometryField.name.isEmpty() && !noGeometry && mGeometryFields.size() > 0 ) {
+                // take the first
+                geometryField.name = mGeometryFields[0].name;
+            }
         }
         catch ( std::runtime_error& e ) {
             mValid = false;
@@ -321,7 +383,7 @@ QgsVirtualLayerProvider::QgsVirtualLayerProvider( QString const &uri )
 
         QgsDataSourceURI source;
         source.setDatabase( mPath );
-        source.setDataSource( "", "(" + mQuery + ")", mGeometryFields.isEmpty() ? "" : mGeometryFields[0].name, "", mUid );
+        source.setDataSource( "", "(" + mQuery + ")", geometryField.name.isEmpty() ? "" : geometryField.name, "", mUid );
         std::cout << "Spatialite uri: " << source.uri().toUtf8().constData() << std::endl;
         mSpatialite = new QgsSpatiaLiteProvider( source.uri() );
         

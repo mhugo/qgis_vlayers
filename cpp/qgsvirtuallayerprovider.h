@@ -209,6 +209,8 @@ class QgsVirtualLayerProvider: public QgsVectorDataProvider
     };
     typedef QVector<GeometryField> GeometryFields;
     GeometryFields mGeometryFields;
+
+    void getSqliteFields( sqlite3* db, const QString& table, QgsFields& fields, GeometryFields& gFields );
 };
 
 #endif
