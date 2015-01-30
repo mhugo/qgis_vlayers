@@ -37,7 +37,7 @@ int qgsvlayer_module_init(
     module.xSync = NULL;
     module.xCommit = NULL;
     module.xRollback = NULL;
-    module.xFindFunction = NULL;
+    module.xFindFunction = vtable_findfunction;
     module.xSavepoint = NULL;
     module.xRelease = NULL;
     module.xRollbackTo = NULL;

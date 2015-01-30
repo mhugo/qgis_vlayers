@@ -15,6 +15,12 @@ int vtable_eof( sqlite3_vtab_cursor *cursor );
 int vtable_column( sqlite3_vtab_cursor *cursor, sqlite3_context*, int );
 int vtable_rowid( sqlite3_vtab_cursor *cursor, sqlite3_int64 *out_rowid );
 
+int vtable_findfunction( sqlite3_vtab *pVtab,
+                         int nArg,
+                         const char *zName,
+                         void (**pxFunc)(sqlite3_context*,int,sqlite3_value**),
+                         void **ppArg );
+
 #ifdef __cplusplus
 }
 #endif

@@ -338,3 +338,12 @@ int vtable_column( sqlite3_vtab_cursor *cursor, sqlite3_context* ctxt, int idx )
     return SQLITE_OK;
 }
 
+int vtable_findfunction( sqlite3_vtab *pVtab,
+                         int nArg,
+                         const char *zName,
+                         void (**pxFunc)(sqlite3_context*,int,sqlite3_value**),
+                         void **ppArg )
+{
+    std::cout << "find function: " << zName << std::endl;
+    return SQLITE_OK;
+}
