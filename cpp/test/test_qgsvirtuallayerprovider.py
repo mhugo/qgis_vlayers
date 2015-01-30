@@ -159,6 +159,29 @@ class TestQgsVirtualLayerProvider(TestCase):
         ref_sum2 = sum(f.id() for f in l3.getFeatures())
         self.assertEqual(ref_sum, ref_sum2)
 
+    def test_geometryTypes( self ):
+
+        geo = [ (1, "POINT", "(0 0)" ),
+                (2, "LINESTRING", "(0 0,1 0)"),
+                (3, "POLYGON", "((0 0,1 0,1 1,0 0))"),
+                (4, "MULTIPOINT", "(1 1)"),
+                (5, "MULTILINESTRING", "((0 0,1 0),(0 1,1 1))"),
+                (6, "MULTIPOLYGON", "(((0 0,1 0,1 1,0 0)),((2 2,3 0,3 3,2 2)))") ]
+        for wkb_type, wkt_type, wkt in geo:
+            l = QgsVectorLayer( "%s?crs=epsg:4326" % wkt_type, "m1", "memory" )
+            self.assertEqual( l.isValid(), True )
+            QgsMapLayerRegistry.instance().addMapLayer(l)
+
+            f1 = QgsFeature(1)
+            f1.setGeometry(QgsGeometry.fromWkt(wkt_type+wkt))
+            l.dataProvider().addFeatures([f1])
+
+            l2 = QgsVectorLayer( "?layer_id=%s" % l.id(), "vtab", "virtual" )
+            self.assertEqual( l2.isValid(), True )
+            self.assertEqual( l2.dataProvider().featureCount(), 1 )
+            self.assertEqual( l2.dataProvider().geometryType(), wkb_type )
+
+
 
 if __name__ == '__main__':
     unittest.main()
