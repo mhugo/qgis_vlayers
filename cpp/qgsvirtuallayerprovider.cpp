@@ -123,16 +123,19 @@ QgsVirtualLayerProvider::QgsVirtualLayerProvider( QString const &uri )
 
     bool noGeometry = false;
 
+    int layer_idx = 0;
     QList<QPair<QString, QString> > items = url.queryItems();
     for ( int i = 0; i < items.size(); i++ ) {
         QString key = items.at(i).first;
         QString value = items.at(i).second;
         if ( key == "layer_id" ) {
+            layer_idx++;
             // layer id, with optional layer_name
             int pos = value.indexOf(':');
             QString layer_id, vlayer_name;
             if ( pos == -1 ) {
                 layer_id = value;
+                vlayer_name = QString("vtab%1").arg(layer_idx);
             } else {
                 layer_id = value.left(pos);
                 vlayer_name = value.mid(pos+1);
@@ -213,15 +216,10 @@ QgsVirtualLayerProvider::QgsVirtualLayerProvider( QString const &uri )
     mSqlite.reset(db);
 
     // now create virtual tables based on layers
-    int layer_idx = 0;
     bool has_geometry = false;
     for ( int i = 0; i < mLayers.size(); i++ ) {
-        layer_idx++;
         QgsVectorLayer* vlayer = mLayers.at(i).first;
         QString vname = mLayers.at(i).second;
-        if ( vname.isEmpty() ) {
-            vname = QString("vtab%1").arg(layer_idx);
-        }
 
         QString geometry_type_str;
         int geometry_dim;
@@ -399,8 +397,6 @@ QgsVirtualLayerProvider::QgsVirtualLayerProvider( QString const &uri )
         mFields = mSpatialite->fields();
         GeometryField g_field;
         g_field.name = "geometry";
-        // FIXME
-        //        g_field.type = ..
         mGeometryFields << g_field;
     }
 

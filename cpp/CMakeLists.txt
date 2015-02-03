@@ -5,7 +5,7 @@ FIND_PACKAGE(Qt4 4.7.0 REQUIRED)
 
 QT4_WRAP_CPP (vlayer_plugin_MOC_SRCS  vlayer_plugin.h)
 
-QT4_WRAP_CPP (vlayer_provider_MOC_SRCS qgsvirtuallayerprovider.h)
+QT4_WRAP_CPP (vlayer_provider_MOC_SRCS qgsvirtuallayerprovider.h )
 
 QT4_ADD_RESOURCES(vlayer_plugin_RCC_SRCS vlayer_plugin.qrc)
 

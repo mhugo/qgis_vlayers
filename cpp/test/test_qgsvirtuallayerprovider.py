@@ -42,6 +42,9 @@ class TestQgsVirtualLayerProvider(TestCase):
         #        cls.testDataDir_ = unitTestDataPath()
         cls.testDataDir_ = os.path.abspath(os.path.join(os.path.dirname(__file__), "../testdata"))
 
+    def tearDown(self):
+        QgsMapLayerRegistry.instance().removeAllMapLayers()
+
     def testCsvNoGeometry(self):
         l1 = QgsVectorLayer( os.path.join(self.testDataDir_, "delimitedtext/test.csv") + "?type=csv&geomType=none&subsetIndex=no&watchFile=no", "test", "delimitedtext")
         self.assertEqual( l1.isValid(), True )
