@@ -147,6 +147,15 @@ class TestQgsVirtualLayerProvider(TestCase):
         l2 = QgsVectorLayer( "?layer_id=%s&query=SELECT * FROM vtab1&geometry=geo" % l1.id(), "vtab", "virtual" )
         self.assertEqual( l2.isValid(), False )
 
+    def test_QueryUrlEncoding( self ):
+        l1 = QgsVectorLayer( os.path.join(self.testDataDir_, "france_parts.shp"), "france_parts", "ogr" )
+        self.assertEqual( l1.isValid(), True )
+        QgsMapLayerRegistry.instance().addMapLayer(l1)
+
+        query = str(QUrl.toPercentEncoding("SELECT * FROM vtab1"))
+        l2 = QgsVectorLayer("?layer_id=%s&query=%s&uid=ObjectId&nogeometry" % (l1.id(), query), "vtab", "virtual")
+        self.assertEqual( l2.isValid(), True )
+
     def test_QueryTableName(self):
         l1 = QgsVectorLayer( os.path.join(self.testDataDir_, "france_parts.shp"), "france_parts", "ogr" )
         self.assertEqual( l1.isValid(), True )

@@ -198,7 +198,8 @@ QgsVirtualLayerProvider::QgsVirtualLayerProvider( QString const &uri )
             mUid = value;
         }
         else if ( key == "query" ) {
-            mQuery = value;
+            // url encoded query
+            mQuery = QUrl::fromPercentEncoding(value.toLocal8Bit());
         }
     }
 
