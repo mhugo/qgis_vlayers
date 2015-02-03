@@ -131,7 +131,7 @@ QgsVirtualLayerProvider::QgsVirtualLayerProvider( QString const &uri )
     for ( int i = 0; i < items.size(); i++ ) {
         QString key = items.at(i).first;
         QString value = items.at(i).second;
-        if ( key == "layer_id" ) {
+        if ( key == "layer_ref" ) {
             layer_idx++;
             // layer id, with optional layer_name
             int pos = value.indexOf(':');

@@ -50,7 +50,7 @@ class TestQgsVirtualLayerProvider(TestCase):
         self.assertEqual( l1.isValid(), True )
         QgsMapLayerRegistry.instance().addMapLayer(l1)
 
-        l2 = QgsVectorLayer( "?layer_id=" + l1.id(), "vtab", "virtual" )
+        l2 = QgsVectorLayer( "?layer_ref=" + l1.id(), "vtab", "virtual" )
         self.assertEqual( l2.isValid(), True )
 
     def test_DynamicGeometry(self):
@@ -58,7 +58,7 @@ class TestQgsVirtualLayerProvider(TestCase):
         self.assertEqual( l1.isValid(), True )
         QgsMapLayerRegistry.instance().addMapLayer(l1)
 
-        l2 = QgsVectorLayer( "?layer_id=%s&query=select *,makepoint(x,y) as geom from vtab1&geometry=geom&uid=id" % l1.id(), "vtab", "virtual" )
+        l2 = QgsVectorLayer( "?layer_ref=%s&query=select *,makepoint(x,y) as geom from vtab1&geometry=geom&uid=id" % l1.id(), "vtab", "virtual" )
         self.assertEqual( l2.isValid(), True )
 
     def test_FieldTypes(self):
@@ -66,7 +66,7 @@ class TestQgsVirtualLayerProvider(TestCase):
         self.assertEqual( l1.isValid(), True )
         QgsMapLayerRegistry.instance().addMapLayer(l1)
 
-        l2 = QgsVectorLayer( "?layer_id=%s&field=x:double" % l1.id(), "vtab", "virtual" )
+        l2 = QgsVectorLayer( "?layer_ref=%s&field=x:double" % l1.id(), "vtab", "virtual" )
         self.assertEqual( l2.isValid(), True )
         for f in l2.dataProvider().fields():
             if f.name() == "x":
@@ -78,7 +78,7 @@ class TestQgsVirtualLayerProvider(TestCase):
         QgsMapLayerRegistry.instance().addMapLayer(l1)
 
         # use a temporary file
-        l2 = QgsVectorLayer( "?layer_id=" + l1.id(), "vtab", "virtual" )
+        l2 = QgsVectorLayer( "?layer_ref=" + l1.id(), "vtab", "virtual" )
         self.assertEqual( l2.isValid(), True )
 
     def test_Query(self):
@@ -87,7 +87,7 @@ class TestQgsVirtualLayerProvider(TestCase):
         QgsMapLayerRegistry.instance().addMapLayer(l1)
         ref_sum = sum(f.attributes()[0] for f in l1.getFeatures())
 
-        l2 = QgsVectorLayer( "?layer_id=%s&geometry=geometry&query=SELECT * FROM vtab1&uid=OBJECTID" % l1.id(), "vtab", "virtual" )
+        l2 = QgsVectorLayer( "?layer_ref=%s&geometry=geometry&query=SELECT * FROM vtab1&uid=OBJECTID" % l1.id(), "vtab", "virtual" )
         self.assertEqual( l2.isValid(), True )
         self.assertEqual( l2.dataProvider().geometryType(), 3 )
         ref_sum2 = sum(f.attributes()[0] for f in l2.getFeatures())
@@ -98,7 +98,7 @@ class TestQgsVirtualLayerProvider(TestCase):
         self.assertEqual( ref_sum, ref_sum3 )
 
         # the same, without specifying the geometry column name
-        l2 = QgsVectorLayer( "?layer_id=%s&query=SELECT * FROM vtab1&uid=OBJECTID" % l1.id(), "vtab", "virtual" )
+        l2 = QgsVectorLayer( "?layer_ref=%s&query=SELECT * FROM vtab1&uid=OBJECTID" % l1.id(), "vtab", "virtual" )
         self.assertEqual( l2.isValid(), True )
         self.assertEqual( l2.dataProvider().geometryType(), 3 )
         ref_sum2 = sum(f.attributes()[0] for f in l2.getFeatures())
@@ -109,7 +109,7 @@ class TestQgsVirtualLayerProvider(TestCase):
         self.assertEqual( ref_sum, ref_sum3 )
 
         # with two geometry columns
-        l2 = QgsVectorLayer( "?layer_id=%s&query=SELECT *,geometry as geom FROM vtab1&uid=OBJECTID&geometry=geom" % l1.id(), "vtab", "virtual" )
+        l2 = QgsVectorLayer( "?layer_ref=%s&query=SELECT *,geometry as geom FROM vtab1&uid=OBJECTID&geometry=geom" % l1.id(), "vtab", "virtual" )
         self.assertEqual( l2.isValid(), True )
         self.assertEqual( l2.dataProvider().geometryType(), 3 )
         ref_sum2 = sum(f.attributes()[0] for f in l2.getFeatures())
@@ -120,7 +120,7 @@ class TestQgsVirtualLayerProvider(TestCase):
         self.assertEqual( ref_sum, ref_sum3 )
 
         # with two geometry columns, but no geometry column specified (will take the first)
-        l2 = QgsVectorLayer( "?layer_id=%s&query=SELECT *,geometry as geom FROM vtab1&uid=OBJECTID" % l1.id(), "vtab", "virtual" )
+        l2 = QgsVectorLayer( "?layer_ref=%s&query=SELECT *,geometry as geom FROM vtab1&uid=OBJECTID" % l1.id(), "vtab", "virtual" )
         self.assertEqual( l2.isValid(), True )
         self.assertEqual( l2.dataProvider().geometryType(), 3 )
         ref_sum2 = sum(f.attributes()[0] for f in l2.getFeatures())
@@ -131,7 +131,7 @@ class TestQgsVirtualLayerProvider(TestCase):
         self.assertEqual( ref_sum, ref_sum3 )
 
         # the same, without geometry
-        l2 = QgsVectorLayer( "?layer_id=%s&query=SELECT * FROM vtab1&uid=ObJeCtId&nogeometry" % l1.id(), "vtab", "virtual" )
+        l2 = QgsVectorLayer( "?layer_ref=%s&query=SELECT * FROM vtab1&uid=ObJeCtId&nogeometry" % l1.id(), "vtab", "virtual" )
         self.assertEqual( l2.isValid(), True )
         self.assertEqual( l2.dataProvider().geometryType(), 100 ) # NoGeometry
         ref_sum2 = sum(f.attributes()[0] for f in l2.getFeatures())
@@ -140,11 +140,11 @@ class TestQgsVirtualLayerProvider(TestCase):
         self.assertEqual( ref_sum, ref_sum3 )
 
         # check that it fails when a query and no uid are specified
-        l2 = QgsVectorLayer( "?layer_id=%s&query=SELECT * FROM vtab1" % l1.id(), "vtab", "virtual" )
+        l2 = QgsVectorLayer( "?layer_ref=%s&query=SELECT * FROM vtab1" % l1.id(), "vtab", "virtual" )
         self.assertEqual( l2.isValid(), False )
 
         # check that it fails when a query has a wrong geometry column
-        l2 = QgsVectorLayer( "?layer_id=%s&query=SELECT * FROM vtab1&geometry=geo" % l1.id(), "vtab", "virtual" )
+        l2 = QgsVectorLayer( "?layer_ref=%s&query=SELECT * FROM vtab1&geometry=geo" % l1.id(), "vtab", "virtual" )
         self.assertEqual( l2.isValid(), False )
 
     def test_QueryUrlEncoding( self ):
@@ -153,7 +153,7 @@ class TestQgsVirtualLayerProvider(TestCase):
         QgsMapLayerRegistry.instance().addMapLayer(l1)
 
         query = str(QUrl.toPercentEncoding("SELECT * FROM vtab1"))
-        l2 = QgsVectorLayer("?layer_id=%s&query=%s&uid=ObjectId&nogeometry" % (l1.id(), query), "vtab", "virtual")
+        l2 = QgsVectorLayer("?layer_ref=%s&query=%s&uid=ObjectId&nogeometry" % (l1.id(), query), "vtab", "virtual")
         self.assertEqual( l2.isValid(), True )
 
     def test_QueryTableName(self):
@@ -161,7 +161,7 @@ class TestQgsVirtualLayerProvider(TestCase):
         self.assertEqual( l1.isValid(), True )
         QgsMapLayerRegistry.instance().addMapLayer(l1)
 
-        l2 = QgsVectorLayer( "?layer_id=%s:vt&query=SELECT * FROM vt&uid=ObJeCtId&nogeometry" % l1.id(), "vtab", "virtual" )
+        l2 = QgsVectorLayer( "?layer_ref=%s:vt&query=SELECT * FROM vt&uid=ObJeCtId&nogeometry" % l1.id(), "vtab", "virtual" )
         self.assertEqual( l2.isValid(), True )
         self.assertEqual( l2.dataProvider().geometryType(), 100 ) # NoGeometry
 
@@ -175,7 +175,7 @@ class TestQgsVirtualLayerProvider(TestCase):
         ref_sum = sum(f.attributes()[1] for f in l2.getFeatures())
 
         # use a temporary file
-        l3 = QgsVectorLayer( "?layer_id=%s&layer_id=%s&uid=id&query=select id,Pilots,vtab1.geometry from vtab1,vtab2 where intersects(vtab1.geometry,vtab2.geometry)" % (l1.id(), l2.id()), "vtab", "virtual" )
+        l3 = QgsVectorLayer( "?layer_ref=%s&layer_ref=%s&uid=id&query=select id,Pilots,vtab1.geometry from vtab1,vtab2 where intersects(vtab1.geometry,vtab2.geometry)" % (l1.id(), l2.id()), "vtab", "virtual" )
         self.assertEqual( l3.isValid(), True )
         self.assertEqual( l3.dataProvider().geometryType(), 1 )
         self.assertEqual( l3.dataProvider().fields().count(), 2 )
@@ -199,7 +199,7 @@ class TestQgsVirtualLayerProvider(TestCase):
             f1.setGeometry(QgsGeometry.fromWkt(wkt_type+wkt))
             l.dataProvider().addFeatures([f1])
 
-            l2 = QgsVectorLayer( "?layer_id=%s" % l.id(), "vtab", "virtual" )
+            l2 = QgsVectorLayer( "?layer_ref=%s" % l.id(), "vtab", "virtual" )
             self.assertEqual( l2.isValid(), True )
             self.assertEqual( l2.dataProvider().featureCount(), 1 )
             self.assertEqual( l2.dataProvider().geometryType(), wkb_type )
