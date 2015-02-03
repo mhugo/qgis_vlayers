@@ -183,8 +183,26 @@ class QgsVirtualLayerProvider: public QgsVectorDataProvider
     };
     QScopedPointer<sqlite3, SqliteHandleDeleter> mSqlite;
 
-    // underlying vector layers, do not own them
-    QVector< QPair <QgsVectorLayer *, QString > > mLayers;
+    // underlying vector layers
+    struct SourceLayer
+    {
+        SourceLayer( QgsVectorLayer *l = 0, const QString& n = "", bool o = false ) : layer(l), name(n), owned(o) {}
+        QgsVectorLayer* layer;
+        QString name;
+        bool owned;
+    };
+    struct SourceLayers : public QVector<SourceLayer>
+    {
+        SourceLayers() : QVector<SourceLayer>() {}
+        virtual ~SourceLayers() {
+            for (int i=0; i < count(); i++) {
+                if (at(i).owned && at(i).layer) {
+                    delete at(i).layer;
+                }
+            }
+        }
+    };
+    SourceLayers mLayers;
 
     bool mValid;
 

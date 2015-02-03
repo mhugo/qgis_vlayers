@@ -81,6 +81,9 @@ class TestQgsVirtualLayerProvider(TestCase):
         l2 = QgsVectorLayer( "?layer_ref=" + l1.id(), "vtab", "virtual" )
         self.assertEqual( l2.isValid(), True )
 
+        l2 = QgsVectorLayer( "?layer_ref=%s:nn" % l1.id(), "vtab", "virtual" )
+        self.assertEqual( l2.isValid(), True )
+
     def test_Query(self):
         l1 = QgsVectorLayer( os.path.join(self.testDataDir_, "france_parts.shp"), "france_parts", "ogr" )
         self.assertEqual( l1.isValid(), True )
@@ -204,7 +207,13 @@ class TestQgsVirtualLayerProvider(TestCase):
             self.assertEqual( l2.dataProvider().featureCount(), 1 )
             self.assertEqual( l2.dataProvider().geometryType(), wkb_type )
 
+    def test_embeddedLayer( self ):
+        source = QUrl.toPercentEncoding(os.path.join(self.testDataDir_, "france_parts.shp"))
+        l = QgsVectorLayer("?layer=ogr:%s" % source, "vtab", "virtual")
+        self.assertEqual(l.isValid(), True)
 
+        l = QgsVectorLayer("?layer=ogr:%s:nn" % source, "vtab", "virtual")
+        self.assertEqual(l.isValid(), True)
 
 if __name__ == '__main__':
     unittest.main()

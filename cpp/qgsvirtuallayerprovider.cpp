@@ -155,7 +155,36 @@ QgsVirtualLayerProvider::QgsVirtualLayerProvider( QString const &uri )
                 return;
             }
             // add the layer to the list
-            mLayers << qMakePair(static_cast<QgsVectorLayer*>(l), vlayer_name);
+            mLayers << SourceLayer(static_cast<QgsVectorLayer*>(l), vlayer_name);
+        }
+        if ( key == "layer" ) {
+            layer_idx++;
+            // syntax: layer=provider:url_encoded_source_URI(:name)?
+            int pos = value.indexOf(':');
+            if ( pos != -1 ) {
+                QString providerKey, source, vlayer_name;
+
+                providerKey = value.left(pos);
+                int pos2 = value.indexOf( ':', pos + 1);
+                if (pos2 != -1) {
+                    source = QUrl::fromPercentEncoding(value.mid(pos+1,pos2-pos-1).toLocal8Bit());
+                    vlayer_name = value.mid(pos2+1);
+                }
+                else {
+                    source = QUrl::fromPercentEncoding(value.mid(pos+1).toLocal8Bit());
+                    vlayer_name = QString("vtab%1").arg(layer_idx);
+                }
+
+                QgsVectorLayer *l = new QgsVectorLayer(source, vlayer_name, providerKey );
+                if ( (l == 0) || (!l->isValid()) ) {
+                    mValid = false;
+                    PROVIDER_ERROR( QString("Problem loading layer source=%1 provider=%2").arg(source).arg(providerKey) );
+                    return;
+                }
+                QgsMapLayerRegistry::instance()->addMapLayer(l, /*addToLegend=*/ false, /* takeOwnership */ false );
+
+                mLayers << SourceLayer(l, vlayer_name, /* owned */ true );
+            }
         }
         else if ( key == "geometry" ) {
             // geometry field definition, optional
@@ -239,8 +268,8 @@ QgsVirtualLayerProvider::QgsVirtualLayerProvider( QString const &uri )
     // now create virtual tables based on layers
     bool has_geometry = false;
     for ( int i = 0; i < mLayers.size(); i++ ) {
-        QgsVectorLayer* vlayer = mLayers.at(i).first;
-        QString vname = mLayers.at(i).second;
+        QgsVectorLayer* vlayer = mLayers.at(i).layer;
+        QString vname = mLayers.at(i).name;
 
         QString geometry_type_str;
         int geometry_dim;
@@ -316,7 +345,7 @@ QgsVirtualLayerProvider::QgsVirtualLayerProvider( QString const &uri )
         }
         long srid = vlayer->crs().postgisSrid();
 
-        QString createStr = QString("SELECT InitSpatialMetadata(1); DROP TABLE IF EXISTS vtab%1; CREATE VIRTUAL TABLE %1 USING QgsVLayer(%2);").arg(vname).arg(vlayer->id());
+        QString createStr = QString("SELECT InitSpatialMetadata(1); DROP TABLE IF EXISTS %1; CREATE VIRTUAL TABLE %1 USING QgsVLayer(%2);").arg(vname).arg(vlayer->id());
         if ( geometry_wkb_type ) {
             has_geometry = true;
             createStr += QString( "INSERT OR REPLACE INTO virts_geometry_columns (virt_name, virt_geometry, geometry_type, coord_dimension, srid) "
@@ -411,7 +440,7 @@ QgsVirtualLayerProvider::QgsVirtualLayerProvider( QString const &uri )
         // no query => implies we must only have one virtual table
         QgsDataSourceURI source;
         source.setDatabase( mPath );
-        source.setDataSource( "", "vtab1", has_geometry ? "geometry" : "" );
+        source.setDataSource( "", mLayers[0].name, has_geometry ? "geometry" : "" );
         std::cout << "Spatialite uri: " << source.uri().toUtf8().constData() << std::endl;
         mSpatialite = new QgsSpatiaLiteProvider( source.uri() );
 
