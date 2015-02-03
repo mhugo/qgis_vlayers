@@ -45,7 +45,7 @@ class TestQgsVirtualLayerProvider(TestCase):
     def tearDown(self):
         QgsMapLayerRegistry.instance().removeAllMapLayers()
 
-    def testCsvNoGeometry(self):
+    def test_CsvNoGeometry(self):
         l1 = QgsVectorLayer( os.path.join(self.testDataDir_, "delimitedtext/test.csv") + "?type=csv&geomType=none&subsetIndex=no&watchFile=no", "test", "delimitedtext")
         self.assertEqual( l1.isValid(), True )
         QgsMapLayerRegistry.instance().addMapLayer(l1)
@@ -53,7 +53,7 @@ class TestQgsVirtualLayerProvider(TestCase):
         l2 = QgsVectorLayer( "?layer_id=" + l1.id(), "vtab", "virtual" )
         self.assertEqual( l2.isValid(), True )
 
-    def testDynamicGeometry(self):
+    def test_DynamicGeometry(self):
         l1 = QgsVectorLayer( os.path.join(self.testDataDir_, "delimitedtext/testextpt.txt") + "?type=csv&delimiter=%7C&geomType=none&subsetIndex=no&watchFile=no", "test", "delimitedtext")
         self.assertEqual( l1.isValid(), True )
         QgsMapLayerRegistry.instance().addMapLayer(l1)
@@ -61,7 +61,18 @@ class TestQgsVirtualLayerProvider(TestCase):
         l2 = QgsVectorLayer( "?layer_id=%s&query=select *,makepoint(x,y) as geom from vtab1&geometry=geom&uid=id" % l1.id(), "vtab", "virtual" )
         self.assertEqual( l2.isValid(), True )
 
-    def testShapefileWithGeometry(self):
+    def test_FieldTypes(self):
+        l1 = QgsVectorLayer( os.path.join(self.testDataDir_, "delimitedtext/testextpt.txt") + "?type=csv&delimiter=%7C&geomType=none&subsetIndex=no&watchFile=no", "test", "delimitedtext")
+        self.assertEqual( l1.isValid(), True )
+        QgsMapLayerRegistry.instance().addMapLayer(l1)
+
+        l2 = QgsVectorLayer( "?layer_id=%s&field=x:double" % l1.id(), "vtab", "virtual" )
+        self.assertEqual( l2.isValid(), True )
+        for f in l2.dataProvider().fields():
+            if f.name() == "x":
+                self.assertEqual( f.type(), QVariant.Double )
+
+    def test_ShapefileWithGeometry(self):
         l1 = QgsVectorLayer( os.path.join(self.testDataDir_, "france_parts.shp"), "france_parts", "ogr" )
         self.assertEqual( l1.isValid(), True )
         QgsMapLayerRegistry.instance().addMapLayer(l1)
@@ -70,7 +81,7 @@ class TestQgsVirtualLayerProvider(TestCase):
         l2 = QgsVectorLayer( "?layer_id=" + l1.id(), "vtab", "virtual" )
         self.assertEqual( l2.isValid(), True )
 
-    def testQuery(self):
+    def test_Query(self):
         l1 = QgsVectorLayer( os.path.join(self.testDataDir_, "france_parts.shp"), "france_parts", "ogr" )
         self.assertEqual( l1.isValid(), True )
         QgsMapLayerRegistry.instance().addMapLayer(l1)
@@ -136,7 +147,7 @@ class TestQgsVirtualLayerProvider(TestCase):
         l2 = QgsVectorLayer( "?layer_id=%s&query=SELECT * FROM vtab1&geometry=geo" % l1.id(), "vtab", "virtual" )
         self.assertEqual( l2.isValid(), False )
 
-    def testQueryTableName(self):
+    def test_QueryTableName(self):
         l1 = QgsVectorLayer( os.path.join(self.testDataDir_, "france_parts.shp"), "france_parts", "ogr" )
         self.assertEqual( l1.isValid(), True )
         QgsMapLayerRegistry.instance().addMapLayer(l1)
@@ -145,7 +156,7 @@ class TestQgsVirtualLayerProvider(TestCase):
         self.assertEqual( l2.isValid(), True )
         self.assertEqual( l2.dataProvider().geometryType(), 100 ) # NoGeometry
 
-    def testJoin(self):
+    def test_Join(self):
         l1 = QgsVectorLayer( os.path.join(self.testDataDir_, "points.shp"), "points", "ogr" )
         self.assertEqual( l1.isValid(), True )
         QgsMapLayerRegistry.instance().addMapLayer(l1)

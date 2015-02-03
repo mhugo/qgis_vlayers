@@ -123,6 +123,9 @@ QgsVirtualLayerProvider::QgsVirtualLayerProvider( QString const &uri )
 
     bool noGeometry = false;
 
+    // overwritten fields
+    QgsFields forcedFields;
+
     int layer_idx = 0;
     QList<QPair<QString, QString> > items = url.queryItems();
     for ( int i = 0; i < items.size(); i++ ) {
@@ -173,6 +176,23 @@ QgsVirtualLayerProvider::QgsVirtualLayerProvider( QString const &uri )
         }
         else if ( key == "nogeometry" ) {
             noGeometry = true;
+        }
+        else if ( key == "field" ) {
+            QRegExp reGeom( "(\\w+):(int|integer|real|double|string|text)" );
+            int pos = reGeom.indexIn( value );
+            if ( pos >= 0 ) {
+                QVariant::Type type;
+                if ( (reGeom.cap(2) == "int")||(reGeom.cap(2) == "integer") ) {
+                    type = QVariant::Int;
+                }
+                else if ( (reGeom.cap(2) == "real")||(reGeom.cap(2) == "double") ) {
+                    type = QVariant::Double;
+                }
+                else {
+                    type = QVariant::String;
+                }
+                forcedFields.append( QgsField( reGeom.cap(1), type, reGeom.cap(2) ) );
+            }
         }
         else if ( key == "uid" ) {
             mUid = value;
@@ -398,6 +418,16 @@ QgsVirtualLayerProvider::QgsVirtualLayerProvider( QString const &uri )
         GeometryField g_field;
         g_field.name = "geometry";
         mGeometryFields << g_field;
+    }
+
+    // force type of fields, if needed
+    for ( int i = 0; i < mFields.count(); i++ ) {
+        for ( int j = 0; j < forcedFields.count(); j++ ) {
+            if (forcedFields[j].name() == mFields[i].name()) {
+                mFields[i] = forcedFields[j];
+                break;
+            }
+        }
     }
 
     mValid = mSpatialite->isValid();
