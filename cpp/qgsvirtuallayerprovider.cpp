@@ -245,6 +245,12 @@ QgsVirtualLayerProvider::QgsVirtualLayerProvider( QString const &uri )
         return;
     }
 
+    if ( mLayers.empty() ) {
+        mValid = false;
+        PROVIDER_ERROR( QString("Please specify at least one source layer") );
+        return;
+    }
+
     spatialite_init(0);
 
     // use a temporary file if needed

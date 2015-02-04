@@ -215,5 +215,14 @@ class TestQgsVirtualLayerProvider(TestCase):
         l = QgsVectorLayer("?layer=ogr:%s:nn" % source, "vtab", "virtual")
         self.assertEqual(l.isValid(), True)
 
+    def test_recursiveLayer( self ):
+        source = QUrl.toPercentEncoding(os.path.join(self.testDataDir_, "france_parts.shp"))
+        l = QgsVectorLayer("?layer=ogr:%s" % source, "vtab", "virtual")
+        self.assertEqual(l.isValid(), True)
+        QgsMapLayerRegistry.instance().addMapLayer(l)
+
+        l2 = QgsVectorLayer("?layer_ref=" + l.id(), "vtab2", "virtual")
+        self.assertEqual( l2.isValid(), True )
+
 if __name__ == '__main__':
     unittest.main()
