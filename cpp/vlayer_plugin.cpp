@@ -6,18 +6,23 @@
 
 #include <QIcon>
 #include <QAction>
+#include <QDialog>
 #include <QDomNode>
+#include <QMenu>
+#include <QToolBar>
 
 #include <qgsmaplayer.h>
 #include <qgsvectorlayer.h>
 #include <qgsvectordataprovider.h>
 #include <qgsmaplayerregistry.h>
+#include <qgsproviderregistry.h>
+#include <qgsmessagebar.h>
 
 #include <unistd.h>
 #include <iostream>
 
 static const QString sName = "Virtual layer plugin";
-static const QString sDescription = "This is a POC virtual layer plugin";
+static const QString sDescription = "This is the plugin companion for the virtual layer provider";
 static const QString sCategory = "Plugins";
 static const QgisPlugin::PLUGINTYPE sType = QgisPlugin::UI;
 static const QString sVersion = "Version 0.1";
@@ -29,36 +34,43 @@ VLayerPlugin::VLayerPlugin( QgisInterface *iface ) :
     iface_(iface),
     action_(0)
 {
+    std::cout << "vlayer_plugin" << std::endl;
 }
 
 void VLayerPlugin::initGui()
 {
-    action_ = new QAction( QIcon( ":/vlayer/vlayer.png" ), tr( "Virtual layer" ), this );
-    action_->setObjectName( "action_" );
+    std::cout << "initGui" << std::endl;
+    action_ = new QAction( QIcon( ":/vlayer/vlayer.png" ), tr( "Create a virtual layer" ), this );
+
+    //    iface_->newLayerMenu()->addAction( action_ );
+    iface_->layerToolBar()->addAction( action_ );
 
     connect( action_, SIGNAL( triggered() ), this, SLOT( run() ) );
-
-    iface_->addPluginToMenu( "&Virtual layer", action_ );
 }
 
 void VLayerPlugin::run()
 {
     std::cout << "run" << std::endl;
 
-    QgsMapLayer* layer = iface_->activeLayer();
+    QDialog* ss = dynamic_cast<QDialog*>(QgsProviderRegistry::instance()->selectWidget( "virtual", iface_->mainWindow() ));
 
-    if ( !layer || layer->type() != QgsMapLayer::VectorLayer ) {
-        std::cout << "return" << std::endl;
-        return;
+    connect( ss, SIGNAL( addVectorLayer( QString const &, QString const &, QString const & ) ),
+             this, SLOT( addVectorLayer( QString const &, QString const &, QString const & ) ) );
+    ss->exec();
+    delete ss;
+}
+
+void VLayerPlugin::addVectorLayer( const QString& source, const QString& name, const QString& provider )
+{
+    QgsVectorLayer* l = new QgsVectorLayer( source, name, provider, false );
+    if ( l && l->isValid() ) {
+        QgsMapLayerRegistry::instance()->addMapLayer( l );
     }
-    QgsVectorLayer *vlayer = static_cast<QgsVectorLayer*>(layer);
-
-    unlink( "/tmp/test_vtable.sqlite" );
-    QgsVectorLayer* vl = new QgsVectorLayer( QString("/tmp/test_vtable.sqlite?layer_id=%1").arg(vlayer->id()), "vtab", "virtual" );
-    std::cout << "vl= " << vl << std::endl;
-    std::cout << "isValid = " << vl->isValid() << std::endl;
-    QgsMapLayer* new_vl = QgsMapLayerRegistry::instance()->addMapLayer( vl );
-    std::cout << "new_vl = " << new_vl << std::endl;
+    else {
+        QString msg = tr( "The layer %1 is not a valid layer and can not be added to the map" ).arg( source );
+        iface_->messageBar()->pushMessage( tr( "Layer is not valid" ), msg, QgsMessageBar::CRITICAL, 5 );
+        delete l;
+    }
 }
 
 void VLayerPlugin::unload()

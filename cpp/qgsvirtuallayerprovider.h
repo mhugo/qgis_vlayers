@@ -1,7 +1,7 @@
 /***************************************************************************
            qgsvirtuallayerprovider.cpp Virtual layer data provider
-begin                : Jan, 2014
-copyright            : (C) 2014 Hugo Mercier, Oslandia
+begin                : Jan, 2015
+copyright            : (C) 2015 Hugo Mercier, Oslandia
 email                : hugo dot mercier at oslandia dot com
  ***************************************************************************/
 
