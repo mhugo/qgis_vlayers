@@ -19,9 +19,14 @@ email                : hugo dot mercier at oslandia dot com
 #include "qgsvirtuallayersourceselect.h"
 
 #include <QUrl>
+#include <QMainWindow>
 
 #include <qgsmaplayerregistry.h>
 #include <qgsvectorlayer.h>
+#include <qgslayertreeview.h>
+#include <qgslayertreemodel.h>
+#include <qgslayertreegroup.h>
+#include <qgslayertreelayer.h>
 
 QgsVirtualLayerSourceSelect::QgsVirtualLayerSourceSelect( QWidget* parent, Qt::WindowFlags fl, bool embedded )
     : QDialog( parent, fl )
@@ -31,12 +36,16 @@ QgsVirtualLayerSourceSelect::QgsVirtualLayerSourceSelect( QWidget* parent, Qt::W
     QObject::connect( mAddSourceBtn, SIGNAL(clicked()), this, SLOT(onAddSource()) );
     QObject::connect( mRemoveSourceBtn, SIGNAL(clicked()), this, SLOT(onRemoveSource()) );
 
-    // populate the layer combo box
-    auto mapLayers = QgsMapLayerRegistry::instance()->mapLayers();
-    for ( auto& m : mapLayers.keys() ) {
-        QgsMapLayer* l = mapLayers.value(m);
-        if (l->type() == QgsMapLayer::VectorLayer) {
-            mLayersCombo->addItem( mapLayers.value(m)->name(), QVariant::fromValue(static_cast<void*>(l)) );
+    if ( sMainApp ) {
+        // look for the layer tree view
+        QgsLayerTreeView *tv = sMainApp->findChild<QgsLayerTreeView*>( "theLayerTreeView" );
+        if ( tv ) {
+            auto layers = tv->layerTreeModel()->rootGroup()->findLayers();
+            for ( auto& l : layers ) {
+                if ( l->layer() && l->layer()->type() == QgsMapLayer::VectorLayer ) {
+                    mLayersCombo->addItem( l->layer()->name(), QVariant::fromValue(static_cast<void*>(l->layer())) );
+                }
+            }
         }
     }
 }
@@ -98,4 +107,11 @@ void QgsVirtualLayerSourceSelect::on_buttonBox_accepted()
 QGISEXTERN QgsVirtualLayerSourceSelect *selectWidget( QWidget *parent, Qt::WindowFlags fl )
 {
   return new QgsVirtualLayerSourceSelect( parent, fl );
+}
+
+QMainWindow *QgsVirtualLayerSourceSelect::sMainApp = 0;
+
+QGISEXTERN void registerGui( QMainWindow *mainWindow )
+{
+    QgsVirtualLayerSourceSelect::sMainApp = mainWindow;
 }

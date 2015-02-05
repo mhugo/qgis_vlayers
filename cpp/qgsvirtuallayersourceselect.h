@@ -23,6 +23,8 @@ email                : hugo dot mercier at oslandia dot com
 #include <qgis.h>
 #include <qgisgui.h>
 
+class QMainWindow;
+
 class QgsVirtualLayerSourceSelect : public QDialog, private Ui::QgsVirtualLayerSourceSelectBase
 {
     Q_OBJECT
@@ -30,6 +32,8 @@ class QgsVirtualLayerSourceSelect : public QDialog, private Ui::QgsVirtualLayerS
   public:
     QgsVirtualLayerSourceSelect( QWidget * parent, Qt::WindowFlags fl = QgisGui::ModalDialogFlags, bool embedded = false );
     ~QgsVirtualLayerSourceSelect();
+
+    static QMainWindow* sMainApp;
 
   private slots:
     void on_buttonBox_accepted();
