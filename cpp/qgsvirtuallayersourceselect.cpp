@@ -65,18 +65,18 @@ void QgsVirtualLayerSourceSelect::onAddSource()
     QTableWidgetItem *item;
 
     item = new QTableWidgetItem( l->id() );
-    item->setFlags( item->flags() & ~Qt::ItemIsEditable ); // no editable
+    item->setFlags( item->flags() & ~Qt::ItemIsEditable ); // not editable
     mSourceLayers->setItem(n, 0, item );
 
     item = new QTableWidgetItem( local_name );
     mSourceLayers->setItem(n, 1, item );
 
     item = new QTableWidgetItem( l->source() );
-    item->setFlags( item->flags() & ~Qt::ItemIsEditable ); // no editable
+    item->setFlags( item->flags() & ~Qt::ItemIsEditable ); // not editable
     mSourceLayers->setItem(n, 2, item );
 
     item = new QTableWidgetItem( l->providerType() );
-    item->setFlags( item->flags() & ~Qt::ItemIsEditable ); // no editable
+    item->setFlags( item->flags() & ~Qt::ItemIsEditable ); // not editable
     mSourceLayers->setItem(n, 3, item );
 
     item = new QTableWidgetItem();
