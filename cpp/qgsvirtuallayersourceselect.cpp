@@ -18,6 +18,8 @@ email                : hugo dot mercier at oslandia dot com
 
 #include "qgsvirtuallayersourceselect.h"
 
+#include <QUrl>
+
 #include <qgsmaplayerregistry.h>
 #include <qgsvectorlayer.h>
 
@@ -54,6 +56,7 @@ void QgsVirtualLayerSourceSelect::onAddSource()
     mSourceLayers->setItem(n, 0, new QTableWidgetItem( l->id() ) );
     mSourceLayers->setItem(n, 1, new QTableWidgetItem( local_name ) );
     mSourceLayers->setItem(n, 2, new QTableWidgetItem( l->source() ) );
+    mSourceLayers->setItem(n, 3, new QTableWidgetItem( l->providerType() ) );
 }
 
 void QgsVirtualLayerSourceSelect::onRemoveSource()
@@ -71,10 +74,25 @@ void QgsVirtualLayerSourceSelect::on_buttonBox_accepted()
     if ( ! mLayerName->text().isEmpty() ) {
         layer_name = mLayerName->text();
     }
-    if ( mSourceLayers->rowCount() >= 1 ) {
-        emit addVectorLayer( QString("?layer_ref=%1").arg(mSourceLayers->itemAt(0,0)->text()), layer_name, "virtual" );
+    QUrl url;
+    for ( int i = 0; i < mSourceLayers->rowCount(); i++ ) {
+        QString encodedSource( QUrl::toPercentEncoding(mSourceLayers->item(i,2)->text(), "", ":%") );
+        QString v = QString("%1:%2:%3")
+            .arg(mSourceLayers->item(i, 3)->text(), encodedSource, mSourceLayers->item(i,1)->text() );
+        QString vv( QUrl::toPercentEncoding(v, "", "%") );
+        url.addQueryItem( "layer", vv );
     }
-    QDialog::accepted();
+    QString q = mQueryEdit->toPlainText();
+    if ( ! q.isEmpty() ) {
+        url.addQueryItem( "query", q );
+    }
+    if ( ! mUidField->text().isEmpty() ) {
+        url.addQueryItem( "uid", mUidField->text() );
+    }
+    if ( ! mGeometryField->text().isEmpty() ) {
+        url.addQueryItem( "geometry", mGeometryField->text() );
+    }
+    emit addVectorLayer( url.toString(), layer_name, "virtual" );
 }
 
 QGISEXTERN QgsVirtualLayerSourceSelect *selectWidget( QWidget *parent, Qt::WindowFlags fl )

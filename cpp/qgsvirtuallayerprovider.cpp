@@ -72,7 +72,6 @@ void QgsVirtualLayerProvider::getSqliteFields( sqlite3* db, const QString& table
     while ( (r=sqlite3_step( stmt )) == SQLITE_ROW ) {
         QString field_name((const char*)sqlite3_column_text( stmt, 1 ));
         QString field_type((const char*)sqlite3_column_text( stmt, 2 ));
-        std::cout << field_name.toUtf8().constData() << " - " << field_type.toUtf8().constData() << std::endl;
 
         if ( field_type == "INT" ) {
             fields.append( QgsField( field_name, QVariant::Int ) );
