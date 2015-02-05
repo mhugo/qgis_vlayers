@@ -129,7 +129,10 @@ void QgsVirtualLayerSourceSelect::on_buttonBox_accepted()
     if ( ! mUidField->text().isEmpty() ) {
         url.addQueryItem( "uid", mUidField->text() );
     }
-    if ( ! mGeometryField->text().isEmpty() ) {
+    if ( mHasGeometry->checkState() == Qt::Unchecked ) {
+        url.addQueryItem( "nogeometry", "" );
+    }
+    else if ( ! mGeometryField->text().isEmpty() ) {
         url.addQueryItem( "geometry", mGeometryField->text() );
     }
     emit addVectorLayer( url.toString(), layer_name, "virtual" );

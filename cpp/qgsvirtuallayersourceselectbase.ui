@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>584</width>
+    <width>714</width>
     <height>428</height>
    </rect>
   </property>
@@ -125,15 +125,6 @@
       <item>
        <widget class="QPlainTextEdit" name="mQueryEdit"/>
       </item>
-     </layout>
-    </widget>
-   </item>
-   <item>
-    <widget class="QGroupBox" name="groupBox_3">
-     <property name="title">
-      <string>Fields</string>
-     </property>
-     <layout class="QVBoxLayout" name="verticalLayout_3">
       <item>
        <layout class="QHBoxLayout" name="horizontalLayout_3">
         <item>
@@ -147,18 +138,33 @@
          <widget class="QLineEdit" name="mUidField"/>
         </item>
         <item>
-         <widget class="QLabel" name="label_3">
+         <widget class="QCheckBox" name="mHasGeometry">
           <property name="text">
            <string>Geometry</string>
+          </property>
+          <property name="checked">
+           <bool>true</bool>
           </property>
          </widget>
         </item>
         <item>
-         <widget class="QLineEdit" name="mGeometryField"/>
+         <widget class="QLineEdit" name="mGeometryField">
+          <property name="text">
+           <string>geometry</string>
+          </property>
+         </widget>
         </item>
        </layout>
       </item>
      </layout>
+    </widget>
+   </item>
+   <item>
+    <widget class="QGroupBox" name="groupBox_3">
+     <property name="title">
+      <string>Fields</string>
+     </property>
+     <layout class="QVBoxLayout" name="verticalLayout_3"/>
     </widget>
    </item>
    <item>
@@ -204,6 +210,22 @@
     <hint type="destinationlabel">
      <x>291</x>
      <y>213</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>mHasGeometry</sender>
+   <signal>toggled(bool)</signal>
+   <receiver>mGeometryField</receiver>
+   <slot>setEnabled(bool)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>377</x>
+     <y>359</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>563</x>
+     <y>360</y>
     </hint>
    </hints>
   </connection>
