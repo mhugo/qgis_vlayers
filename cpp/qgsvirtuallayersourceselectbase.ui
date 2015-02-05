@@ -91,6 +91,11 @@
             <string>Provider</string>
            </property>
           </column>
+          <column>
+           <property name="text">
+            <string>Reference?</string>
+           </property>
+          </column>
          </widget>
         </item>
         <item>

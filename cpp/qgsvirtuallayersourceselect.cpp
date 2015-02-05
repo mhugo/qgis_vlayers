@@ -37,7 +37,7 @@ QgsVirtualLayerSourceSelect::QgsVirtualLayerSourceSelect( QWidget* parent, Qt::W
     QObject::connect( mRemoveSourceBtn, SIGNAL(clicked()), this, SLOT(onRemoveSource()) );
 
     if ( sMainApp ) {
-        // look for the layer tree view
+        // look for layers in the layer tree view
         QgsLayerTreeView *tv = sMainApp->findChild<QgsLayerTreeView*>( "theLayerTreeView" );
         if ( tv ) {
             auto layers = tv->layerTreeModel()->rootGroup()->findLayers();
@@ -62,10 +62,32 @@ void QgsVirtualLayerSourceSelect::onAddSource()
     QgsVectorLayer* l = static_cast<QgsVectorLayer*>(mLayersCombo->itemData( mLayersCombo->currentIndex() ).value<void*>());
     int n = mSourceLayers->rowCount() ? mSourceLayers->rowCount()-1 : 0;
     mSourceLayers->insertRow(n);
-    mSourceLayers->setItem(n, 0, new QTableWidgetItem( l->id() ) );
-    mSourceLayers->setItem(n, 1, new QTableWidgetItem( local_name ) );
-    mSourceLayers->setItem(n, 2, new QTableWidgetItem( l->source() ) );
-    mSourceLayers->setItem(n, 3, new QTableWidgetItem( l->providerType() ) );
+    QTableWidgetItem *item;
+
+    item = new QTableWidgetItem( l->id() );
+    item->setFlags( item->flags() & ~Qt::ItemIsEditable ); // no editable
+    mSourceLayers->setItem(n, 0, item );
+
+    item = new QTableWidgetItem( local_name );
+    mSourceLayers->setItem(n, 1, item );
+
+    item = new QTableWidgetItem( l->source() );
+    item->setFlags( item->flags() & ~Qt::ItemIsEditable ); // no editable
+    mSourceLayers->setItem(n, 2, item );
+
+    item = new QTableWidgetItem( l->providerType() );
+    item->setFlags( item->flags() & ~Qt::ItemIsEditable ); // no editable
+    mSourceLayers->setItem(n, 3, item );
+
+    item = new QTableWidgetItem();
+    if ( l->providerType() == "memory" ) {
+        // memory layers are by default "referenced" rather than "embedded"
+        item->setCheckState(Qt::Checked);
+    }
+    else {
+        item->setCheckState(Qt::Unchecked);
+    }
+    mSourceLayers->setItem(n, 4, item );
 }
 
 void QgsVirtualLayerSourceSelect::onRemoveSource()
@@ -85,11 +107,20 @@ void QgsVirtualLayerSourceSelect::on_buttonBox_accepted()
     }
     QUrl url;
     for ( int i = 0; i < mSourceLayers->rowCount(); i++ ) {
-        QString encodedSource( QUrl::toPercentEncoding(mSourceLayers->item(i,2)->text(), "", ":%") );
-        QString v = QString("%1:%2:%3")
-            .arg(mSourceLayers->item(i, 3)->text(), encodedSource, mSourceLayers->item(i,1)->text() );
-        QString vv( QUrl::toPercentEncoding(v, "", "%") );
-        url.addQueryItem( "layer", vv );
+        if ( mSourceLayers->item(i,4)->checkState() != Qt::Checked ) {
+            // an embedded layer
+            QString encodedSource( QUrl::toPercentEncoding(mSourceLayers->item(i,2)->text(), "", ":%") );
+            QString v = QString("%1:%2:%3")
+                .arg(mSourceLayers->item(i, 3)->text(), encodedSource, mSourceLayers->item(i,1)->text() );
+            QString vv( QUrl::toPercentEncoding(v, "", "%") );
+            url.addQueryItem( "layer", vv );
+        }
+        else {
+            // a referenced layer
+            QString v = QString("%1:%2").arg(mSourceLayers->item(i, 0)->text(), mSourceLayers->item(i,1)->text() );
+            QString vv( QUrl::toPercentEncoding(v, "", "%") );
+            url.addQueryItem( "layer_ref", vv );
+        }
     }
     QString q = mQueryEdit->toPlainText();
     if ( ! q.isEmpty() ) {
