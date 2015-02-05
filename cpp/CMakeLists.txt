@@ -5,9 +5,9 @@ FIND_PACKAGE(Qt4 4.7.0 REQUIRED)
 
 QT4_WRAP_CPP (vlayer_plugin_MOC_SRCS  vlayer_plugin.h)
 
-QT4_WRAP_CPP (vlayer_provider_MOC_SRCS qgsvirtuallayerprovider.h qgsvirtuallayersourceselect.h )
+QT4_WRAP_CPP (vlayer_provider_MOC_SRCS qgsvirtuallayerprovider.h qgsvirtuallayersourceselect.h qgslinkedlayerselectdialog.h qgsembeddedlayerselectdialog.h)
 
-QT4_WRAP_UI( vlayer_provider_UI_H qgsvirtuallayersourceselectbase.ui )
+QT4_WRAP_UI( vlayer_provider_UI_H qgsvirtuallayersourceselectbase.ui qgslinkedlayerselect.ui qgsembeddedlayerselect.ui)
 
 QT4_ADD_RESOURCES(vlayer_plugin_RCC_SRCS vlayer_plugin.qrc)
 
@@ -21,7 +21,16 @@ LINK_DIRECTORIES(
 
 ADD_DEFINITIONS( -DCORE_EXPORT= -DGUI_EXPORT= -std=c++11 -DQGISDEBUG=1 -DQGIS_DEBUG=1)
 
-ADD_LIBRARY(virtuallayerprovider MODULE ${vlayer_provider_MOC_SRCS} ${vlayer_provider_UI_H} qgsvirtuallayerprovider.cpp qgsvirtuallayersourceselect.cpp vlayer_module.c vtable.cpp )
+ADD_LIBRARY(virtuallayerprovider MODULE
+  ${vlayer_provider_MOC_SRCS}
+  ${vlayer_provider_UI_H}
+  qgsvirtuallayerprovider.cpp
+  qgsvirtuallayersourceselect.cpp
+  qgslinkedlayerselectdialog.cpp
+  qgsembeddedlayerselectdialog.cpp
+  vlayer_module.c
+  vtable.cpp
+)
 
 TARGET_LINK_LIBRARIES( virtuallayerprovider
   spatialiteprovider

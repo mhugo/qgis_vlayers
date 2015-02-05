@@ -1,5 +1,4 @@
 /***************************************************************************
-           qgsvirtuallayersourceselect.cpp
       Virtual layer data provider selection widget
 
 begin                : Feb, 2015
@@ -16,37 +15,30 @@ email                : hugo dot mercier at oslandia dot com
  *                                                                         *
  ***************************************************************************/
 
-#ifndef QGSVIRTUAL_LAYER_SOURCE_SELECT_H
-#define QGSVIRTUAL_LAYER_SOURCE_SELECT_H
+#ifndef QGSVIRTUAL_EMBEDDED_LAYER_SELECT_DIALOG_H
+#define QGSVIRTUAL_EMBEDDED_LAYER_SELECT_DIALOG_H
 
-#include "ui_qgsvirtuallayersourceselectbase.h"
-#include <qgis.h>
-#include <qgisgui.h>
+#include "ui_qgsembeddedlayerselect.h"
 
+#include <QDialog>
+
+class QgsVectorLayer;
 class QMainWindow;
 
-class QgsVirtualLayerSourceSelect : public QDialog, private Ui::QgsVirtualLayerSourceSelectBase
+class QgsEmbeddedLayerSelectDialog : public QDialog, private Ui::QgsEmbeddedLayerSelectDialog
 {
     Q_OBJECT
 
   public:
-    QgsVirtualLayerSourceSelect( QWidget * parent, Qt::WindowFlags fl = QgisGui::ModalDialogFlags, bool embedded = false );
-    ~QgsVirtualLayerSourceSelect();
+    QgsEmbeddedLayerSelectDialog( QWidget * parent, QMainWindow* mainApp );
+    ~QgsEmbeddedLayerSelectDialog();
 
-    static QMainWindow* sMainApp;
+    QString getLocalName() const;
+    QString getProvider() const;
+    QString getSource() const;
 
-  private slots:
-    void on_buttonBox_accepted();
-
-    void onAddSource();
-    void onRemoveSource();
-    void onAddLinkedSource();
-    void onRemoveLinkedSource();
-    void onAddField();
-    void onRemoveField();
-
-  signals:
-    void addVectorLayer( QString, QString, QString );
+private slots:
+    void onImport();
 };
 
 #endif
