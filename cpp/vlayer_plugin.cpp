@@ -68,7 +68,10 @@ void VLayerPlugin::addVectorLayer( const QString& source, const QString& name, c
     }
     else {
         QString msg = tr( "The layer %1 is not a valid layer and can not be added to the map" ).arg( source );
-        iface_->messageBar()->pushMessage( tr( "Layer is not valid" ), msg, QgsMessageBar::CRITICAL, 5 );
+        iface_->messageBar()->pushMessage( tr( "Layer is not valid" ), msg, QgsMessageBar::CRITICAL );
+        if (l) {
+            iface_->messageBar()->pushMessage( tr( "Layer is not valid" ), l->dataProvider()->error().message(), QgsMessageBar::CRITICAL );
+        }
         delete l;
     }
 }
