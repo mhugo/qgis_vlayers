@@ -10,6 +10,7 @@
 #include <QDomNode>
 #include <QMenu>
 #include <QToolBar>
+#include <QUrl>
 
 #include <qgsmaplayer.h>
 #include <qgsvectorlayer.h>
@@ -17,6 +18,7 @@
 #include <qgsmaplayerregistry.h>
 #include <qgsproviderregistry.h>
 #include <qgsmessagebar.h>
+#include <qgsrendererv2.h>
 
 #include <unistd.h>
 #include <iostream>
@@ -34,30 +36,145 @@ VLayerPlugin::VLayerPlugin( QgisInterface *iface ) :
     iface_(iface),
     action_(0)
 {
-    std::cout << "vlayer_plugin" << std::endl;
 }
 
 void VLayerPlugin::initGui()
 {
-    std::cout << "initGui" << std::endl;
-    action_ = new QAction( QIcon( ":/vlayer/vlayer.png" ), tr( "Create a virtual layer" ), this );
+    action_ = new QAction( QIcon( ":/vlayer/vlayer.png" ), tr( "New virtual layer" ), this );
 
-    //    iface_->newLayerMenu()->addAction( action_ );
-    iface_->layerToolBar()->addAction( action_ );
+    convertAction_ = new QAction( QIcon( ":/vlayer/vlayer.png" ), tr( "Convert to virtual layer" ), this );
+
+    iface_->newLayerMenu()->addAction( action_ );
+
+    iface_->layerToolBar()->addAction( convertAction_ );
 
     connect( action_, SIGNAL( triggered() ), this, SLOT( run() ) );
+    connect( convertAction_, SIGNAL( triggered() ), this, SLOT( onConvert() ) );
+}
+
+void VLayerPlugin::unload()
+{
+    if (action_) {
+        iface_->layerToolBar()->removeAction( action_ );
+        delete action_;
+    }
 }
 
 void VLayerPlugin::run()
 {
-    std::cout << "run" << std::endl;
-
     QDialog* ss = dynamic_cast<QDialog*>(QgsProviderRegistry::instance()->selectWidget( "virtual", iface_->mainWindow() ));
 
     connect( ss, SIGNAL( addVectorLayer( QString const &, QString const &, QString const & ) ),
              this, SLOT( addVectorLayer( QString const &, QString const &, QString const & ) ) );
     ss->exec();
     delete ss;
+}
+
+void VLayerPlugin::onConvert()
+{
+    QgsMapLayer* l = iface_->activeLayer();
+    if ( l && l->type() == QgsMapLayer::VectorLayer ) {
+        QgsVectorLayer* vl = static_cast<QgsVectorLayer*>(l);
+
+        QUrl url;
+
+        if ( !vl->vectorJoins().isEmpty() ) {
+            QStringList columns, tables, wheres;
+            columns << "t.*";
+            int join_idx = 0;
+            for ( auto& join : vl->vectorJoins() ) {
+                // join name for the query
+                QString join_name = QString("j%1").arg(++join_idx);
+
+                // real layer name (to prefix joined field names)
+                QgsMapLayer* l = QgsMapLayerRegistry::instance()->mapLayer( join.joinLayerId );
+                if (!l || l->type() != QgsMapLayer::VectorLayer) {
+                    // shoudl not happen
+                    iface_->messageBar()->pushMessage( tr( "Layer not found" ),
+                                                       tr( "Unable to found the joined layer %1" ).arg(join.joinLayerId),
+                                                       QgsMessageBar::CRITICAL );
+                    return;
+                }
+                QgsVectorLayer* joined_layer = static_cast<QgsVectorLayer*>(l);
+
+                tables << join_name;
+
+                // is there a subset of joined fields ?
+                if ( join.joinFieldNamesSubset() ) {
+                    for ( auto& f : *join.joinFieldNamesSubset() ) {
+                        columns << join_name + "." + f + " AS " + joined_layer->name() + "_" + f;
+                    }
+                }
+                else {
+                    const QgsFields& joined_fields = joined_layer->dataProvider()->fields();
+                    for ( int i = 0; i < joined_fields.count(); i++ ) {
+                        const QgsField& f = joined_fields.field(i);
+                        columns << join_name + "." + f.name() + " AS " + joined_layer->name() + "_" + f.name();
+                    }
+                }
+
+                wheres << "t." + join.targetFieldName + "=" + join_name + "." + join.joinFieldName;
+
+                // add reference to the joined layer
+                url.addQueryItem( "layer_ref", join.joinLayerId + ":" + join_name );
+            }
+
+            // find uid column if any
+            QString pk_field;
+            const QgsFields& fields = vl->dataProvider()->fields();
+            {
+                auto pk = vl->dataProvider()->pkAttributeIndexes();
+                if ( pk.size() == 1 ) {
+                    pk_field = fields.field(pk[0]).name();
+                }
+                else {
+                    // find an uid name
+                    pk_field = "uid";
+                    {
+                        bool uid_exists;
+                        do {
+                            uid_exists = false;
+                            for ( int i = 0; i < fields.count(); i++ ) {
+                                if ( fields.field(i).name() == pk_field ) {
+                                    pk_field += "_";
+                                    uid_exists = true;
+                                    break;
+                                }
+                            }
+                        } while (uid_exists);
+                    }
+                    // add a column
+                    columns << "t.rowid AS " + pk_field;
+                }
+            }
+
+            // QGIS joins are pseudo left joins
+            QString left_joins;
+            for ( int i = 0; i < tables.size(); i++ ) {
+                left_joins += " LEFT JOIN " + tables[i] + " ON " + wheres[i];
+            }
+
+            url.addQueryItem( "query", "SELECT " + columns.join(",") + " FROM t" + left_joins );
+            url.addQueryItem( "uid", pk_field );
+            url.addQueryItem( "geometry", "geometry");
+        }
+
+        QString source = QUrl::toPercentEncoding(vl->source(), "", ":%");
+        url.addQueryItem( "layer", vl->providerType() + ":" + source + ":t" );
+
+        QScopedPointer<QgsVectorLayer> new_vl( new QgsVectorLayer( url.toString(), vl->name() + tr( " (virtual)" ), "virtual" ) );
+        if ( !new_vl || !new_vl->isValid() ) {
+            if ( new_vl ) {
+                iface_->messageBar()->pushMessage( tr( "Layer is not valid" ), new_vl->dataProvider()->error().message(), QgsMessageBar::CRITICAL );
+            }
+            return;
+        }
+
+        // copy symbology
+        new_vl->setRendererV2( vl->rendererV2()->clone() );
+
+        QgsMapLayerRegistry::instance()->addMapLayer(new_vl.take());
+    }
 }
 
 void VLayerPlugin::addVectorLayer( const QString& source, const QString& name, const QString& provider )
@@ -74,15 +191,6 @@ void VLayerPlugin::addVectorLayer( const QString& source, const QString& name, c
         }
         delete l;
     }
-}
-
-void VLayerPlugin::unload()
-{
-    if (action_) {
-        iface_->removePluginMenu( "&Virtual layer", action_ );
-        delete action_;
-    }
-    std::cout << "VLayer unload" << std::endl;
 }
 
 QGISEXTERN QgisPlugin * classFactory( QgisInterface * iface )

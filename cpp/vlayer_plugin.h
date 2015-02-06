@@ -14,9 +14,11 @@ public:
     void unload();
 public slots:
     void run();
+    void onConvert();
 private slots:
     void addVectorLayer( const QString& source, const QString& name, const QString& provider );
 private:
     QgisInterface* iface_;
     QAction* action_;
+    QAction* convertAction_;
 };

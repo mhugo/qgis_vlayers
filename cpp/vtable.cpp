@@ -110,7 +110,7 @@ struct VTable
         const QgsFields& fields = pr->fields();
         QStringList sql_fields;
         for ( int i = 0; i < fields.count(); i++ ) {
-            std::cout << fields.at(i).name().toUtf8().constData() << " " << fields.at(i).type() << std::endl;
+            //            std::cout << fields.at(i).name().toUtf8().constData() << " " << fields.at(i).type() << std::endl;
             QString typeName = "TEXT";
             switch (fields.at(i).type()) {
             case QVariant::Int:
@@ -193,16 +193,16 @@ struct VTableCursor
 
 int vtable_create( sqlite3* sql, void* aux, int argc, const char* const* argv, sqlite3_vtab **out_vtab, char** out_err)
 {
-    std::cout << "vtable_create" << std::endl;
+    //    std::cout << "vtable_create" << std::endl;
     if ( argc < 4 ) {
         std::string err( "Missing arguments: layer id" );
         *out_err = (char*)sqlite3_malloc(err.size()+1);
         strncpy( *out_err, err.c_str(), err.size() );
         return SQLITE_ERROR;
     }
-    for ( int i = 0; i < argc; i++ ) {
+    /*    for ( int i = 0; i < argc; i++ ) {
         std::cout << i << "=" << argv[i] << std::endl;
-    }
+        }*/
 
     QgsMapLayer *l = QgsMapLayerRegistry::instance()->mapLayer( argv[3] );
     if ( l == 0 || l->type() != QgsMapLayer::VectorLayer ) {
@@ -223,20 +223,20 @@ int vtable_create( sqlite3* sql, void* aux, int argc, const char* const* argv, s
         return r;
     }
 
-    std::cout << "vtab created @" << new_vtab << std::endl;
+    //    std::cout << "vtab created @" << new_vtab << std::endl;
     *out_vtab = (sqlite3_vtab*)new_vtab;
     return SQLITE_OK;
 }
 
 int vtable_rename( sqlite3_vtab *vtab, const char *new_name )
 {
-    std::cout << "vtable_rename" << std::endl;
+    //    std::cout << "vtable_rename" << std::endl;
     return SQLITE_OK;
 }
 
 int vtable_bestindex( sqlite3_vtab *vtab, sqlite3_index_info* index_info )
 {
-    std::cout << "vtable_bestindex @" << vtab << " index_info: " << index_info << std::endl;
+    //    std::cout << "vtable_bestindex @" << vtab << " index_info: " << index_info << std::endl;
     index_info->idxNum = 0;
     index_info->estimatedCost = 1.0;
     index_info->estimatedRows = 10;
@@ -246,7 +246,7 @@ int vtable_bestindex( sqlite3_vtab *vtab, sqlite3_index_info* index_info )
 }
 int vtable_destroy( sqlite3_vtab *vtab )
 {
-    std::cout << "vtable_destroy @" << vtab << std::endl;
+    //    std::cout << "vtable_destroy @" << vtab << std::endl;
     if (vtab) {
         delete reinterpret_cast<VTable*>(vtab);
     }
@@ -255,7 +255,7 @@ int vtable_destroy( sqlite3_vtab *vtab )
 
 int vtable_open( sqlite3_vtab *vtab, sqlite3_vtab_cursor **out_cursor )
 {
-    std::cout << "vtable_open @" << vtab << std::endl;
+    //    std::cout << "vtable_open @" << vtab << std::endl;
     VTableCursor *ncursor = new VTableCursor((VTable*)vtab);
     *out_cursor = (sqlite3_vtab_cursor*)ncursor;
     return SQLITE_OK;
@@ -263,7 +263,7 @@ int vtable_open( sqlite3_vtab *vtab, sqlite3_vtab_cursor **out_cursor )
 
 int vtable_close( sqlite3_vtab_cursor * cursor)
 {
-    std::cout << "vtable_close" << std::endl;
+    //    std::cout << "vtable_close" << std::endl;
     if ( cursor ) {
         delete reinterpret_cast<VTableCursor*>(cursor);
     }
@@ -272,7 +272,7 @@ int vtable_close( sqlite3_vtab_cursor * cursor)
 
 int vtable_filter( sqlite3_vtab_cursor * cursor, int idxNum, const char *idxStr, int argc, sqlite3_value **argv )
 {
-    std::cout << "vtable_filter" << std::endl;
+    //    std::cout << "vtable_filter" << std::endl;
     VTableCursor *c = reinterpret_cast<VTableCursor*>(cursor);
     c->filter();
     return SQLITE_OK;
@@ -280,7 +280,7 @@ int vtable_filter( sqlite3_vtab_cursor * cursor, int idxNum, const char *idxStr,
 
 int vtable_next( sqlite3_vtab_cursor *cursor )
 {
-    std::cout << "vtable_next" << std::endl;
+    //    std::cout << "vtable_next" << std::endl;
     VTableCursor* c = reinterpret_cast<VTableCursor*>(cursor);
     c->next();
     return SQLITE_OK;
@@ -288,14 +288,14 @@ int vtable_next( sqlite3_vtab_cursor *cursor )
 
 int vtable_eof( sqlite3_vtab_cursor *cursor )
 {
-    std::cout << "vtable_eof" << std::endl;
+    //    std::cout << "vtable_eof" << std::endl;
     VTableCursor* c = reinterpret_cast<VTableCursor*>(cursor);
     return c->eof();
 }
 
 int vtable_rowid( sqlite3_vtab_cursor *cursor, sqlite3_int64 *out_rowid )
 {
-    std::cout << "vtable_rowid" << std::endl;
+    //    std::cout << "vtable_rowid" << std::endl;
     VTableCursor* c = reinterpret_cast<VTableCursor*>(cursor);
     *out_rowid = c->current_row();
 
@@ -304,37 +304,37 @@ int vtable_rowid( sqlite3_vtab_cursor *cursor, sqlite3_int64 *out_rowid )
 
 int vtable_column( sqlite3_vtab_cursor *cursor, sqlite3_context* ctxt, int idx )
 {
-    std::cout << "vtable_column " << idx << " ";
+    //    std::cout << "vtable_column " << idx << " ";
     VTableCursor* c = reinterpret_cast<VTableCursor*>(cursor);
     if ( idx == c->n_columns() ) {
         QPair<unsigned char*, size_t> g = c->current_geometry();
         sqlite3_result_blob( ctxt, g.first, g.second, delete_geometry_blob );
-        std::cout << "geometry" << std::endl;
+        //        std::cout << "geometry" << std::endl;
         return SQLITE_OK;
     }
     QVariant v = c->current_attribute( idx );
     if ( v.isNull() ) {
-        std::cout << "null";
+        //        std::cout << "null";
         sqlite3_result_null( ctxt );
     }
     else {
         switch ( v.type() ) {
         case QVariant::Int:
         case QVariant::UInt:
-            std::cout << "int " << v.toInt();
+            //            std::cout << "int " << v.toInt();
             sqlite3_result_int( ctxt, v.toInt() );
             break;
         case QVariant::Double:
-            std::cout << "double " << v.toDouble();
+            //            std::cout << "double " << v.toDouble();
             sqlite3_result_double( ctxt, v.toDouble() );
             break;
         default:
-            std::cout << "text " << v.toString().toUtf8().constData();
+            //            std::cout << "text " << v.toString().toUtf8().constData();
             sqlite3_result_text( ctxt, v.toString().toUtf8(), -1, SQLITE_TRANSIENT );
             break;
         }
     }
-    std::cout << std::endl;
+    //    std::cout << std::endl;
     return SQLITE_OK;
 }
 
@@ -344,6 +344,6 @@ int vtable_findfunction( sqlite3_vtab *pVtab,
                          void (**pxFunc)(sqlite3_context*,int,sqlite3_value**),
                          void **ppArg )
 {
-    std::cout << "find function: " << zName << std::endl;
+    //    std::cout << "find function: " << zName << std::endl;
     return SQLITE_OK;
 }
