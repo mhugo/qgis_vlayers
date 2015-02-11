@@ -194,13 +194,7 @@ class QgsVirtualLayerProvider: public QgsVectorDataProvider
     struct SourceLayers : public QVector<SourceLayer>
     {
         SourceLayers() : QVector<SourceLayer>() {}
-        virtual ~SourceLayers() {
-            for (int i=0; i < count(); i++) {
-                if (at(i).owned && at(i).layer) {
-                    delete at(i).layer;
-                }
-            }
-        }
+        virtual ~SourceLayers();
     };
     SourceLayers mLayers;
 
@@ -212,7 +206,7 @@ class QgsVirtualLayerProvider: public QgsVectorDataProvider
     QString mUid;
 
     // the underlying spatialite provider
-    QgsSpatiaLiteProvider* mSpatialite;
+    QScopedPointer<QgsSpatiaLiteProvider> mSpatialite;
 
     // temporary file used for temporary virtual layer
     QScopedPointer<QTemporaryFile> mTempFile;

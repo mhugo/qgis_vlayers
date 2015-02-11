@@ -101,8 +101,7 @@ void QgsVirtualLayerProvider::getSqliteFields( sqlite3* db, const QString& table
 
 QgsVirtualLayerProvider::QgsVirtualLayerProvider( QString const &uri )
     : QgsVectorDataProvider( uri ),
-      mValid( true ),
-      mSpatialite( 0 )
+      mValid( true )
 {
     QUrl url = QUrl::fromEncoded( uri.toUtf8() );
     if ( !url.isValid() ) {
@@ -438,7 +437,7 @@ QgsVirtualLayerProvider::QgsVirtualLayerProvider( QString const &uri )
         source.setDatabase( mPath );
         source.setDataSource( "", "(" + mQuery + ")", geometryField.name.isEmpty() ? "" : geometryField.name, "", mUid );
         std::cout << "Spatialite uri: " << source.uri().toUtf8().constData() << std::endl;
-        mSpatialite = new QgsSpatiaLiteProvider( source.uri() );
+        mSpatialite.reset( new QgsSpatiaLiteProvider( source.uri() ) );
         
     }
     else {
@@ -447,7 +446,7 @@ QgsVirtualLayerProvider::QgsVirtualLayerProvider( QString const &uri )
         source.setDatabase( mPath );
         source.setDataSource( "", mLayers[0].name, has_geometry ? "geometry" : "" );
         std::cout << "Spatialite uri: " << source.uri().toUtf8().constData() << std::endl;
-        mSpatialite = new QgsSpatiaLiteProvider( source.uri() );
+        mSpatialite.reset( new QgsSpatiaLiteProvider( source.uri() ) );
 
         mFields = mSpatialite->fields();
         GeometryField g_field;
@@ -468,11 +467,18 @@ QgsVirtualLayerProvider::QgsVirtualLayerProvider( QString const &uri )
     mValid = mSpatialite->isValid();
 }
 
+QgsVirtualLayerProvider::SourceLayers::~SourceLayers() {
+    for (int i=0; i < count(); i++) {
+        if (at(i).owned && at(i).layer) {
+            QgsMapLayerRegistry::instance()->removeMapLayer(at(i).layer->id());
+            delete at(i).layer;
+        }
+    }
+};
+
+
 QgsVirtualLayerProvider::~QgsVirtualLayerProvider()
 {
-    if (mSpatialite) {
-        delete mSpatialite;
-    }
 }
 
 QgsAbstractFeatureSource* QgsVirtualLayerProvider::featureSource() const
