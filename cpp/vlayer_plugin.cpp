@@ -70,6 +70,21 @@ void VLayerPlugin::run()
     delete ss;
 }
 
+void copy_layer_symbology( const QgsVectorLayer* source, QgsVectorLayer* dest )
+{
+    QDomImplementation DomImplementation;
+    QDomDocumentType documentType =
+      DomImplementation.createDocumentType(
+        "qgis", "http://mrcc.com/qgis.dtd", "SYSTEM" );
+    QDomDocument doc( documentType );
+    QDomElement rootNode = doc.createElement( "qgis" );
+    rootNode.setAttribute( "version", QString( "%1" ).arg( QGis::QGIS_VERSION ) );
+    doc.appendChild( rootNode );
+    QString errorMsg;
+    source->writeSymbology( rootNode, doc, errorMsg );
+    dest->readSymbology( rootNode, errorMsg );
+}
+
 void VLayerPlugin::onConvert()
 {
     QgsMapLayer* l = iface_->activeLayer();
@@ -171,7 +186,7 @@ void VLayerPlugin::onConvert()
         }
 
         // copy symbology
-        new_vl->setRendererV2( vl->rendererV2()->clone() );
+        copy_layer_symbology( vl, new_vl.data() );
 
         QgsMapLayerRegistry::instance()->addMapLayer(new_vl.take());
     }
