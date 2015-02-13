@@ -100,10 +100,13 @@ struct VTable
     // pointer to the underlying vector layer, not owned
     QgsVectorLayer* layer_;
 
+    // primary key column (default = -1: none)
+    int pk_column_;
+
     // CREATE TABLE string
     QString creation_str_;
 
-    VTable( QgsVectorLayer* layer ) : layer_(layer), zErrMsg(0)
+    VTable( QgsVectorLayer* layer ) : layer_(layer), pk_column_(-1), zErrMsg(0)
     {
         // FIXME : connect to layer deletion signal
         QgsVectorDataProvider *pr = layer_->dataProvider();
@@ -133,6 +136,10 @@ struct VTable
             sql_fields << "geometry " + geometry_type_string(layer_->dataProvider()->geometryType());
         }
 
+        if ( layer_->dataProvider()->pkAttributeIndexes().size() == 1 ) {
+            pk_column_ = layer_->dataProvider()->pkAttributeIndexes()[0];
+        }
+
         creation_str_ = "CREATE TABLE vtable (" + sql_fields.join(",") + ")";
     }
 
@@ -155,9 +162,10 @@ struct VTableCursor
 
     VTableCursor( VTable *vtab ) : vtab_(vtab), current_row_(-1), eof_(true) {}
 
-    void filter()
+    void filter( QgsFeatureRequest request )
     {
-        iterator_ = vtab_->layer()->dataProvider()->getFeatures();
+        std::cout << "filter" << std::endl;
+        iterator_ = vtab_->layer()->dataProvider()->getFeatures( request );
         current_row_ = -1;
         // get on the first record
         eof_ = false;
@@ -167,6 +175,7 @@ struct VTableCursor
     void next()
     {
         if ( !eof_ ) {
+            std::cout << "nextFeature" << std::endl;
             eof_ = !iterator_.nextFeature( current_feature_ );
         }
         if ( !eof_ ) {
@@ -234,9 +243,25 @@ int vtable_rename( sqlite3_vtab *vtab, const char *new_name )
     return SQLITE_OK;
 }
 
-int vtable_bestindex( sqlite3_vtab *vtab, sqlite3_index_info* index_info )
+int vtable_bestindex( sqlite3_vtab *pvtab, sqlite3_index_info* index_info )
 {
-    //    std::cout << "vtable_bestindex @" << vtab << " index_info: " << index_info << std::endl;
+    VTable *vtab = (VTable*)pvtab;
+    std::cout << "vtable_bestindex" << std::endl;
+    for ( int i = 0; i < index_info->nConstraint; i++ ) {
+        if ( (index_info->aConstraint[i].usable) &&
+             (vtab->pk_column_ == index_info->aConstraint[i].iColumn) && 
+             (index_info->aConstraint[i].op == SQLITE_INDEX_CONSTRAINT_EQ) ) {
+            // request for primary key filter
+            std::cout << "PK filter" << std::endl;
+            index_info->aConstraintUsage[i].argvIndex = 1;
+            index_info->idxNum = 1; // PK filter
+            index_info->estimatedCost = 1.0; // ??
+            index_info->estimatedRows = 1;
+            index_info->idxStr = NULL;
+            index_info->needToFreeIdxStr = 0;
+            return SQLITE_OK;
+        }
+    }
     index_info->idxNum = 0;
     index_info->estimatedCost = 1.0;
     index_info->estimatedRows = 10;
@@ -272,9 +297,14 @@ int vtable_close( sqlite3_vtab_cursor * cursor)
 
 int vtable_filter( sqlite3_vtab_cursor * cursor, int idxNum, const char *idxStr, int argc, sqlite3_value **argv )
 {
-    //    std::cout << "vtable_filter" << std::endl;
+    std::cout << "vtable_filter idxNum=" << idxNum << std::endl;
+    QgsFeatureRequest request;
+    if ( idxNum == 1 ) {
+        // id filter
+        request.setFilterFid( sqlite3_value_int(argv[0]) );
+    }
     VTableCursor *c = reinterpret_cast<VTableCursor*>(cursor);
-    c->filter();
+    c->filter( request );
     return SQLITE_OK;
 }
 
