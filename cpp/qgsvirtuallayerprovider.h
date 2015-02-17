@@ -186,15 +186,17 @@ class QgsVirtualLayerProvider: public QgsVectorDataProvider
     // underlying vector layers
     struct SourceLayer
     {
-        SourceLayer( QgsVectorLayer *l = 0, const QString& n = "", bool o = false ) : layer(l), name(n), owned(o) {}
+        SourceLayer(): layer(0) {}
+        SourceLayer( QgsVectorLayer *l, const QString& n = "" ) : layer(l), name(n) {}
+        SourceLayer( const QString& p, const QString& s, const QString& n ) : layer(0), name(n), source(s), provider(p) {}
         QgsVectorLayer* layer;
         QString name;
-        bool owned;
+        QString source;
+        QString provider;
     };
     struct SourceLayers : public QVector<SourceLayer>
     {
         SourceLayers() : QVector<SourceLayer>() {}
-        virtual ~SourceLayers();
     };
     SourceLayers mLayers;
 

@@ -2,8 +2,10 @@
 extern "C" {
 #endif
 int vtable_create( sqlite3* sql, void* aux, int argc, const char* const* argv, sqlite3_vtab **out_vtab, char** out_err);
+int vtable_connect( sqlite3* sql, void* aux, int argc, const char* const* argv, sqlite3_vtab **out_vtab, char** out_err);
 int vtable_rename( sqlite3_vtab *vtab, const char *new_name );
 int vtable_bestindex( sqlite3_vtab *vtab, sqlite3_index_info* );
+int vtable_disconnect( sqlite3_vtab *vtab );
 int vtable_destroy( sqlite3_vtab *vtab );
 
 int vtable_open( sqlite3_vtab *vtab, sqlite3_vtab_cursor **out_cursor );

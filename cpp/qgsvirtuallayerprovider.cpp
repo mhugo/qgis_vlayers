@@ -173,15 +173,7 @@ QgsVirtualLayerProvider::QgsVirtualLayerProvider( QString const &uri )
                     vlayer_name = QString("vtab%1").arg(layer_idx);
                 }
 
-                QgsVectorLayer *l = new QgsVectorLayer(source, vlayer_name, providerKey );
-                if ( (l == 0) || (!l->isValid()) ) {
-                    mValid = false;
-                    PROVIDER_ERROR( QString("Problem loading layer source=%1 provider=%2").arg(source).arg(providerKey) );
-                    return;
-                }
-                QgsMapLayerRegistry::instance()->addMapLayer(l, /*addToLegend=*/ false, /* takeOwnership */ false );
-
-                mLayers << SourceLayer(l, vlayer_name, /* owned */ true );
+                mLayers << SourceLayer(providerKey, source, vlayer_name);
             }
         }
         else if ( key == "geometry" ) {
@@ -269,102 +261,20 @@ QgsVirtualLayerProvider::QgsVirtualLayerProvider( QString const &uri )
     }
     mSqlite.reset(db);
 
-    // now create virtual tables based on layers
     bool has_geometry = false;
+    // now create virtual tables based on layers
     for ( int i = 0; i < mLayers.size(); i++ ) {
+        QString createStr;
+
         QgsVectorLayer* vlayer = mLayers.at(i).layer;
         QString vname = mLayers.at(i).name;
-
-        QString geometry_type_str;
-        int geometry_dim;
-        int geometry_wkb_type;
-        {
-            switch ( vlayer->dataProvider()->geometryType() ) {
-            case QGis::WKBNoGeometry:
-                geometry_type_str = "";
-                geometry_dim = 0;
-                geometry_wkb_type = 0;
-                break;
-            case QGis::WKBPoint:
-                geometry_type_str = "POINT";
-                geometry_dim = 2;
-                geometry_wkb_type = 1;
-                break;
-            case QGis::WKBPoint25D:
-                geometry_type_str = "POINT";
-                geometry_dim = 3;
-                geometry_wkb_type = 1001;
-                break;
-            case QGis::WKBMultiPoint:
-                geometry_type_str = "MULTIPOINT";
-                geometry_dim = 2;
-                geometry_wkb_type = 4;
-                break;
-            case QGis::WKBMultiPoint25D:
-                geometry_type_str = "MULTIPOINT";
-                geometry_dim = 3;
-                geometry_wkb_type = 1004;
-                break;
-            case QGis::WKBLineString:
-                geometry_type_str = "LINESTRING";
-                geometry_dim = 2;
-                geometry_wkb_type = 2;
-                break;
-            case QGis::WKBLineString25D:
-                geometry_type_str = "LINESTRING";
-                geometry_dim = 3;
-                geometry_wkb_type = 1002;
-                break;
-            case QGis::WKBMultiLineString:
-                geometry_type_str = "MULTILINESTRING";
-                geometry_dim = 2;
-                geometry_wkb_type = 5;
-                break;
-            case QGis::WKBMultiLineString25D:
-                geometry_type_str = "MULTILINESTRING";
-                geometry_dim = 3;
-                geometry_wkb_type = 1005;
-                break;
-            case QGis::WKBPolygon:
-                geometry_type_str = "POLYGON";
-                geometry_dim = 2;
-                geometry_wkb_type = 3;
-                break;
-            case QGis::WKBPolygon25D:
-                geometry_type_str = "POLYGON";
-                geometry_dim = 3;
-                geometry_wkb_type = 1003;
-                break;
-            case QGis::WKBMultiPolygon:
-                geometry_type_str = "MULTIPOLYGON";
-                geometry_dim = 2;
-                geometry_wkb_type = 6;
-                break;
-            case QGis::WKBMultiPolygon25D:
-                geometry_type_str = "MULTIPOLYGON";
-                geometry_dim = 3;
-                geometry_wkb_type = 1006;
-                break;
-            }
+        if ( vlayer ) {
+            createStr += QString("DROP TABLE IF EXISTS %1; CREATE VIRTUAL TABLE %1 USING QgsVLayer(%2);").arg(vname).arg(vlayer->id());
         }
-        long srid = vlayer->crs().postgisSrid();
-
-        QString createStr = QString("SELECT InitSpatialMetadata(1); DROP TABLE IF EXISTS %1; CREATE VIRTUAL TABLE %1 USING QgsVLayer(%2);").arg(vname).arg(vlayer->id());
-        if ( geometry_wkb_type ) {
-            has_geometry = true;
-            createStr += QString( "INSERT OR REPLACE INTO virts_geometry_columns (virt_name, virt_geometry, geometry_type, coord_dimension, srid) "
-                                  "VALUES ('%1', 'geometry', %2, %3, %4 );" ).arg(vname).arg(geometry_wkb_type).arg(geometry_dim).arg(srid);
-
-            // manually set column statistics (needed for QGIS spatialite provider)
-            QgsRectangle extent = vlayer->extent();
-            createStr += QString("INSERT OR REPLACE INTO virts_geometry_columns_statistics (virt_name, virt_geometry, last_verified, row_count, extent_min_x, extent_min_y, extent_max_x, extent_max_y) "
-                                 "VALUES ('%1', 'geometry', datetime('now'), %2, %3, %4, %5, %6);")
-                .arg(vname)
-                .arg(vlayer->featureCount())
-                .arg(extent.xMinimum())
-                .arg(extent.yMinimum())
-                .arg(extent.xMaximum())
-                .arg(extent.yMaximum());
+        else {
+            QString provider = mLayers.at(i).provider;
+            QString source = mLayers.at(i).source;
+            createStr += QString("DROP TABLE IF EXISTS %1; CREATE VIRTUAL TABLE %1 USING QgsVLayer(%2,%3);").arg(vname).arg(provider).arg(source);
         }
 
         char *errMsg;
@@ -374,6 +284,15 @@ QgsVirtualLayerProvider::QgsVirtualLayerProvider( QString const &uri )
             PROVIDER_ERROR( errMsg );
             return;
         }
+
+        // check geometry field
+        QString query = QString("SELECT * FROM virts_geometry_columns WHERE virt_name='%1'").arg(vname);
+        sqlite3_stmt* stmt;
+        r = sqlite3_prepare_v2( mSqlite.data(), query.toLocal8Bit().constData(), -1, &stmt, NULL );
+        if ( sqlite3_step( stmt ) == SQLITE_ROW ) {
+            has_geometry = true;
+        }
+        sqlite3_finalize( stmt );
     }
 
     if ( !mQuery.isEmpty() ) {
@@ -466,15 +385,6 @@ QgsVirtualLayerProvider::QgsVirtualLayerProvider( QString const &uri )
 
     mValid = mSpatialite->isValid();
 }
-
-QgsVirtualLayerProvider::SourceLayers::~SourceLayers() {
-    for (int i=0; i < count(); i++) {
-        if (at(i).owned && at(i).layer) {
-            QgsMapLayerRegistry::instance()->removeMapLayer(at(i).layer->id());
-            delete at(i).layer;
-        }
-    }
-};
 
 
 QgsVirtualLayerProvider::~QgsVirtualLayerProvider()

@@ -224,5 +224,15 @@ class TestQgsVirtualLayerProvider(TestCase):
         l2 = QgsVectorLayer("?layer_ref=" + l.id(), "vtab2", "virtual")
         self.assertEqual( l2.isValid(), True )
 
+    def test_filter_rect( self ):
+        l = QgsVectorLayer( os.path.join(self.testDataDir_, "france_parts.shp"), "france_parts", "ogr" )
+        self.assertEqual(l.isValid(), True)
+        QgsMapLayerRegistry.instance().addMapLayer(l)
+
+        #l2 = QgsVectorLayer("?layer=ogr:%s:vtab&query=select * from vtab where intersects(geometry,BuildMbr(-2.10,49.38,-1.3,49.99,4326))&uid=objectid" % l.source(), "vtab2", "virtual")
+        l2 = QgsVectorLayer("?layer=ogr:%s:vtab&query=select * from vtab where _search_frame_=BuildMbr(-2.10,49.38,-1.3,49.99,4326)&uid=objectid" % l.source(), "vtab2", "virtual")
+        self.assertEqual( l2.isValid(), True )
+        self.assertEqual(l2.dataProvider().featureCount(), 1)
+
 if __name__ == '__main__':
     unittest.main()
