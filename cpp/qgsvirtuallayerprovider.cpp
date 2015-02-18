@@ -497,6 +497,7 @@ QgsAttributeList QgsVirtualLayerProvider::pkAttributeIndexes()
  */
 QGISEXTERN QgsVirtualLayerProvider *classFactory( const QString * uri )
 {
+    spatialite_init(0);
     // register sqlite extension
     sqlite3_auto_extension( (void(*)())qgsvlayer_module_init );
 

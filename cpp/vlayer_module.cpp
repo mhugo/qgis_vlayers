@@ -91,8 +91,9 @@ int qgsvlayer_module_init(
         printf("%s\n", QgsApplication::showSettings().toLocal8Bit().constData() );
     }
 
+    int r;
     // initialize spatialite tables
-    int r = sqlite3_exec( db, "SELECT InitSpatialMetadata(1);", NULL, NULL, pzErrMsg );
+    r = sqlite3_exec( db, "SELECT InitSpatialMetadata(1);", NULL, NULL, pzErrMsg );
     if (r) {
         return SQLITE_ERROR;
     }

@@ -555,14 +555,16 @@ int vtable_rename( sqlite3_vtab *vtab, const char *new_name )
 int vtable_bestindex( sqlite3_vtab *pvtab, sqlite3_index_info* index_info )
 {
     VTable *vtab = (VTable*)pvtab;
-    std::cout << "vtable_bestindex" << std::endl;
+    //std::cout << "vtable_bestindex" << std::endl;
     for ( int i = 0; i < index_info->nConstraint; i++ ) {
+        //std::cout << index_info->aConstraint[i].iColumn << " " << (int)index_info->aConstraint[i].op << std::endl;
         if ( (index_info->aConstraint[i].usable) &&
              (vtab->pk_column_ == index_info->aConstraint[i].iColumn) && 
              (index_info->aConstraint[i].op == SQLITE_INDEX_CONSTRAINT_EQ) ) {
             // request for primary key filter
-            std::cout << "PK filter" << std::endl;
+            //std::cout << "PK filter" << std::endl;
             index_info->aConstraintUsage[i].argvIndex = 1;
+            index_info->aConstraintUsage[i].omit = 1;
             index_info->idxNum = 1; // PK filter
             index_info->estimatedCost = 1.0; // ??
             index_info->estimatedRows = 1;
@@ -574,8 +576,10 @@ int vtable_bestindex( sqlite3_vtab *pvtab, sqlite3_index_info* index_info )
              (0 == index_info->aConstraint[i].iColumn) && 
              (index_info->aConstraint[i].op == SQLITE_INDEX_CONSTRAINT_EQ) ) {
             // request for rtree filtering
-            std::cout << "RTree filter" << std::endl;
+            //std::cout << "RTree filter" << std::endl;
             index_info->aConstraintUsage[i].argvIndex = 1;
+            // do not test for equality, since it is used for filtering, not to return an actual value
+            index_info->aConstraintUsage[i].omit = 1;
             index_info->idxNum = 2; // RTree filter
             index_info->estimatedCost = 1.0; // ??
             index_info->estimatedRows = 1;
@@ -611,7 +615,7 @@ int vtable_close( sqlite3_vtab_cursor * cursor)
 
 int vtable_filter( sqlite3_vtab_cursor * cursor, int idxNum, const char *idxStr, int argc, sqlite3_value **argv )
 {
-    std::cout << "vtable_filter idxNum=" << idxNum << std::endl;
+    //std::cout << "vtable_filter idxNum=" << idxNum << std::endl;
     QgsFeatureRequest request;
     if ( idxNum == 1 ) {
         // id filter
@@ -619,12 +623,12 @@ int vtable_filter( sqlite3_vtab_cursor * cursor, int idxNum, const char *idxStr,
     }
     else if ( idxNum == 2 ) {
         // rtree filter
-        std::cout << "argc= " << argc << std::endl;
+        //std::cout << "argc= " << argc << std::endl;
         const unsigned char* blob = (const unsigned char*)sqlite3_value_blob( argv[0] );
         int bytes = sqlite3_value_bytes( argv[0] );
         std::unique_ptr<QgsGeometry> geom( spatialite_blob_to_qgsgeometry( blob, bytes ) );
         QgsRectangle r( geom->boundingBox() );
-        std::cout << "rect filter: " << r.xMinimum() << " " << r.yMinimum() << " " << r.xMaximum() << " " << r.yMaximum() << std::endl;
+        //std::cout << "rect filter: " << r.xMinimum() << " " << r.yMinimum() << " " << r.xMaximum() << " " << r.yMaximum() << std::endl;
         request.setFilterRect( r );
     }
     VTableCursor *c = reinterpret_cast<VTableCursor*>(cursor);
@@ -658,42 +662,42 @@ int vtable_rowid( sqlite3_vtab_cursor *cursor, sqlite3_int64 *out_rowid )
 
 int vtable_column( sqlite3_vtab_cursor *cursor, sqlite3_context* ctxt, int idx )
 {
-    //    std::cout << "vtable_column " << idx << " ";
+    //std::cout << "vtable_column " << idx << " ";
     VTableCursor* c = reinterpret_cast<VTableCursor*>(cursor);
     if ( idx == 0 ) {
-        // _search_frame_
+        // _search_frame_, return null
         sqlite3_result_null( ctxt );
         return SQLITE_OK;
     }
     if ( idx == c->n_columns() + 1) {
         QPair<unsigned char*, size_t> g = c->current_geometry();
         sqlite3_result_blob( ctxt, g.first, g.second, delete_geometry_blob );
-        //        std::cout << "geometry" << std::endl;
+        //std::cout << "geometry" << std::endl;
         return SQLITE_OK;
     }
     QVariant v = c->current_attribute( idx - 1 );
     if ( v.isNull() ) {
-        //        std::cout << "null";
+        //std::cout << "null";
         sqlite3_result_null( ctxt );
     }
     else {
         switch ( v.type() ) {
         case QVariant::Int:
         case QVariant::UInt:
-            //            std::cout << "int " << v.toInt();
+            //std::cout << "int " << v.toInt();
             sqlite3_result_int( ctxt, v.toInt() );
             break;
         case QVariant::Double:
-            //            std::cout << "double " << v.toDouble();
+            //std::cout << "double " << v.toDouble();
             sqlite3_result_double( ctxt, v.toDouble() );
             break;
         default:
-            //            std::cout << "text " << v.toString().toUtf8().constData();
+            //std::cout << "text " << v.toString().toUtf8().constData();
             sqlite3_result_text( ctxt, v.toString().toUtf8(), -1, SQLITE_TRANSIENT );
             break;
         }
     }
-    //    std::cout << std::endl;
+    //std::cout << std::endl;
     return SQLITE_OK;
 }
 
