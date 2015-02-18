@@ -416,11 +416,12 @@ QgsFeatureIterator QgsVirtualLayerProvider::getFeatures( const QgsFeatureRequest
 
 QString QgsVirtualLayerProvider::subsetString()
 {
-    return "";
+    return mSpatialite->subsetString();
 }
 
 bool QgsVirtualLayerProvider::setSubsetString( QString theSQL, bool updateFeatureCount )
 {
+    return mSpatialite->setSubsetString( theSQL, updateFeatureCount );
 }
 
 
