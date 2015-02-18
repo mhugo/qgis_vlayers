@@ -42,8 +42,14 @@ class TestQgsVirtualLayerProvider(TestCase):
         #        cls.testDataDir_ = unitTestDataPath()
         cls.testDataDir_ = os.path.abspath(os.path.join(os.path.dirname(__file__), "../testdata"))
 
+    def setUp(self):
+        print "****************************************************"
+        print "In method", self._testMethodName
+        print "****************************************************"
+
     def tearDown(self):
         QgsMapLayerRegistry.instance().removeAllMapLayers()
+        print "===================================================="
 
     def test_CsvNoGeometry(self):
         l1 = QgsVectorLayer( os.path.join(self.testDataDir_, "delimitedtext/test.csv") + "?type=csv&geomType=none&subsetIndex=no&watchFile=no", "test", "delimitedtext")
@@ -215,6 +221,16 @@ class TestQgsVirtualLayerProvider(TestCase):
         l = QgsVectorLayer("?layer=ogr:%s:nn" % source, "vtab", "virtual")
         self.assertEqual(l.isValid(), True)
 
+    def test_filter_rect( self ):
+        source = QUrl.toPercentEncoding(os.path.join(self.testDataDir_, "france_parts.shp"))
+        query = QUrl.toPercentEncoding("select * from vtab where _search_frame_=BuildMbr(-2.10,49.38,-1.3,49.99,4326)")
+        ## FIXME bug if we don't use a file here
+        l2 = QgsVectorLayer("/tmp/t.sqlit?layer=ogr:%s:vtab&query=%s&uid=objectid" % (source,query), "vtab2", "virtual")
+        self.assertEqual( l2.isValid(), True )
+        self.assertEqual(l2.dataProvider().featureCount(), 1)
+        a = [fit.attributes()[4] for fit in l2.getFeatures()]
+        self.assertEqual(a, [u"Basse-Normandie"])
+
     def test_recursiveLayer( self ):
         source = QUrl.toPercentEncoding(os.path.join(self.testDataDir_, "france_parts.shp"))
         l = QgsVectorLayer("?layer=ogr:%s" % source, "vtab", "virtual")
@@ -223,17 +239,6 @@ class TestQgsVirtualLayerProvider(TestCase):
 
         l2 = QgsVectorLayer("?layer_ref=" + l.id(), "vtab2", "virtual")
         self.assertEqual( l2.isValid(), True )
-
-    def test_filter_rect( self ):
-        l = QgsVectorLayer( os.path.join(self.testDataDir_, "france_parts.shp"), "france_parts", "ogr" )
-        self.assertEqual(l.isValid(), True)
-        QgsMapLayerRegistry.instance().addMapLayer(l)
-
-        l2 = QgsVectorLayer("?layer=ogr:%s:vtab&query=select * from vtab where _search_frame_=BuildMbr(-2.10,49.38,-1.3,49.99,4326)&uid=objectid" % l.source(), "vtab2", "virtual")
-        self.assertEqual( l2.isValid(), True )
-        self.assertEqual(l2.dataProvider().featureCount(), 1)
-        fit = next(l2.getFeatures())
-        self.assertEqual(fit.attributes()[4], u"Basse-Normandie")
 
 if __name__ == '__main__':
     unittest.main()

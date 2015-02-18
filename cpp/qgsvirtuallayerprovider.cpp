@@ -241,8 +241,6 @@ QgsVirtualLayerProvider::QgsVirtualLayerProvider( QString const &uri )
         return;
     }
 
-    spatialite_init(0);
-
     // use a temporary file if needed
     if ( mPath.isEmpty() ) {
         mTempFile.reset( new QTemporaryFile() );
@@ -250,6 +248,8 @@ QgsVirtualLayerProvider::QgsVirtualLayerProvider( QString const &uri )
         mPath = mTempFile->fileName();
         mTempFile->close();
     }
+
+    spatialite_init(0);
 
     sqlite3* db;
     // open and create if it does not exist
@@ -265,6 +265,9 @@ QgsVirtualLayerProvider::QgsVirtualLayerProvider( QString const &uri )
     // now create virtual tables based on layers
     for ( int i = 0; i < mLayers.size(); i++ ) {
         QString createStr;
+        if ( i == 0 ) {
+            createStr = "SELECT InitSpatialMetadata(1);";
+        }
 
         QgsVectorLayer* vlayer = mLayers.at(i).layer;
         QString vname = mLayers.at(i).name;
@@ -497,8 +500,8 @@ QgsAttributeList QgsVirtualLayerProvider::pkAttributeIndexes()
  */
 QGISEXTERN QgsVirtualLayerProvider *classFactory( const QString * uri )
 {
-    spatialite_init(0);
     // register sqlite extension
+    // BE CAREFUL it will also be loaded for every new SQLite connections
     sqlite3_auto_extension( (void(*)())qgsvlayer_module_init );
 
     return new QgsVirtualLayerProvider( *uri );
