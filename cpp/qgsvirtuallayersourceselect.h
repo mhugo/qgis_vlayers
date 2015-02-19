@@ -23,25 +23,28 @@ email                : hugo dot mercier at oslandia dot com
 #include <qgis.h>
 #include <qgisgui.h>
 
+class QgsVectorLayer;
 class QMainWindow;
 
 class QgsVirtualLayerSourceSelect : public QDialog, private Ui::QgsVirtualLayerSourceSelectBase
 {
     Q_OBJECT
 
-  public:
-    QgsVirtualLayerSourceSelect( QWidget * parent, Qt::WindowFlags fl = QgisGui::ModalDialogFlags, bool embedded = false );
+public:
+    QgsVirtualLayerSourceSelect( QWidget * parent, Qt::WindowFlags fl = QgisGui::ModalDialogFlags );
     ~QgsVirtualLayerSourceSelect();
 
     static QMainWindow* sMainApp;
 
-  private slots:
+    void addSource( const QString& name, const QString& source, const QString& provider );
+
+private slots:
     void on_buttonBox_accepted();
 
     void onAddSource();
     void onRemoveSource();
-    void onAddLinkedSource();
-    void onRemoveLinkedSource();
+    //    void onAddLinkedSource();
+    //    void onRemoveLinkedSource();
     void onAddField();
     void onRemoveField();
 

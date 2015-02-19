@@ -17,7 +17,6 @@ email                : hugo dot mercier at oslandia dot com
  ***************************************************************************/
 
 #include "qgsvirtuallayersourceselect.h"
-#include "qgslinkedlayerselectdialog.h"
 #include "qgsembeddedlayerselectdialog.h"
 
 #include <QUrl>
@@ -26,21 +25,39 @@ email                : hugo dot mercier at oslandia dot com
 #include <qgsmaplayerregistry.h>
 #include <qgsvectorlayer.h>
 
-QgsVirtualLayerSourceSelect::QgsVirtualLayerSourceSelect( QWidget* parent, Qt::WindowFlags fl, bool embedded )
+QgsVirtualLayerSourceSelect::QgsVirtualLayerSourceSelect( QWidget* parent, Qt::WindowFlags fl )
     : QDialog( parent, fl )
 {
     setupUi( this );
 
     QObject::connect( mAddSourceBtn, SIGNAL(clicked()), this, SLOT(onAddSource()) );
     QObject::connect( mRemoveSourceBtn, SIGNAL(clicked()), this, SLOT(onRemoveSource()) );
-    QObject::connect( mAddLinkedSourceBtn, SIGNAL(clicked()), this, SLOT(onAddLinkedSource()) );
-    QObject::connect( mRemoveLinkedSourceBtn, SIGNAL(clicked()), this, SLOT(onRemoveLinkedSource()) );
+    //QObject::connect( mAddLinkedSourceBtn, SIGNAL(clicked()), this, SLOT(onAddLinkedSource()) );
+    //QObject::connect( mRemoveLinkedSourceBtn, SIGNAL(clicked()), this, SLOT(onRemoveLinkedSource()) );
     QObject::connect( mAddFieldBtn, SIGNAL(clicked()), this, SLOT(onAddField()) );
     QObject::connect( mRemoveFieldBtn, SIGNAL(clicked()), this, SLOT(onRemoveField()) );
 }
 
 QgsVirtualLayerSourceSelect::~QgsVirtualLayerSourceSelect()
 {
+}
+
+void QgsVirtualLayerSourceSelect::addSource( const QString& name, const QString& source, const QString& provider )
+{
+    int n = mSourceLayers->rowCount() ? mSourceLayers->rowCount()-1 : 0;
+    mSourceLayers->insertRow(n);
+    QTableWidgetItem *item;
+
+    item = new QTableWidgetItem( name );
+    mSourceLayers->setItem(n, 0, item );
+
+    item = new QTableWidgetItem( source );
+    item->setFlags( item->flags() & ~Qt::ItemIsEditable ); // not editable
+    mSourceLayers->setItem(n, 1, item );
+
+    item = new QTableWidgetItem( provider );
+    item->setFlags( item->flags() & ~Qt::ItemIsEditable ); // not editable
+    mSourceLayers->setItem(n, 2, item );
 }
 
 void QgsVirtualLayerSourceSelect::onAddSource()
@@ -51,22 +68,10 @@ void QgsVirtualLayerSourceSelect::onAddSource()
         return;
     }
 
-    int n = mSourceLayers->rowCount() ? mSourceLayers->rowCount()-1 : 0;
-    mSourceLayers->insertRow(n);
-    QTableWidgetItem *item;
-
-    item = new QTableWidgetItem( dlg->getLocalName() );
-    mSourceLayers->setItem(n, 0, item );
-
-    item = new QTableWidgetItem( dlg->getSource() );
-    item->setFlags( item->flags() & ~Qt::ItemIsEditable ); // not editable
-    mSourceLayers->setItem(n, 1, item );
-
-    item = new QTableWidgetItem( dlg->getProvider() );
-    item->setFlags( item->flags() & ~Qt::ItemIsEditable ); // not editable
-    mSourceLayers->setItem(n, 2, item );
+    addSource( dlg->getLocalName(), dlg->getSource(), dlg->getProvider() );
 }
 
+#if 0
 void QgsVirtualLayerSourceSelect::onAddLinkedSource()
 {
     QScopedPointer<QgsLinkedLayerSelectDialog> dlg( new QgsLinkedLayerSelectDialog( this, sMainApp ) );
@@ -87,6 +92,7 @@ void QgsVirtualLayerSourceSelect::onAddLinkedSource()
     item->setFlags( item->flags() & ~Qt::ItemIsEditable ); // not editable
     mLinkedSourceLayers->setItem( n, 1, item );
 }
+#endif
 
 void QgsVirtualLayerSourceSelect::onRemoveSource()
 {
@@ -97,6 +103,7 @@ void QgsVirtualLayerSourceSelect::onRemoveSource()
     mSourceLayers->removeRow(n);
 }
 
+#if 0
 void QgsVirtualLayerSourceSelect::onRemoveLinkedSource()
 {
     int n = mLinkedSourceLayers->currentRow();
@@ -105,6 +112,7 @@ void QgsVirtualLayerSourceSelect::onRemoveLinkedSource()
     }
     mLinkedSourceLayers->removeRow(n);
 }
+#endif
 
 void QgsVirtualLayerSourceSelect::onAddField()
 {
@@ -147,6 +155,7 @@ void QgsVirtualLayerSourceSelect::on_buttonBox_accepted()
             QString vv( QUrl::toPercentEncoding(v, "", "%") );
             url.addQueryItem( "layer", vv );
     }
+#if 0
     // linked layers
     for ( int i = 0; i < mLinkedSourceLayers->rowCount(); i++ ) {
         // a referenced layer
@@ -154,6 +163,7 @@ void QgsVirtualLayerSourceSelect::on_buttonBox_accepted()
         QString vv( QUrl::toPercentEncoding(v, "", "%") );
         url.addQueryItem( "layer_ref", vv );
     }
+#endif
     // overloaded fields
     for ( int i = 0; i < mFields->rowCount(); i++ ) {
         QString name = mFields->item(i,0)->text();
@@ -180,7 +190,25 @@ void QgsVirtualLayerSourceSelect::on_buttonBox_accepted()
 
 QGISEXTERN QgsVirtualLayerSourceSelect *selectWidget( QWidget *parent, Qt::WindowFlags fl )
 {
-  return new QgsVirtualLayerSourceSelect( parent, fl );
+    return new QgsVirtualLayerSourceSelect( parent, fl );
+}
+
+QGISEXTERN QgsVirtualLayerSourceSelect *createWidget( QWidget *parent, Qt::WindowFlags fl, QList<QPair<QString, QString> > parameters )
+{
+    QgsVirtualLayerSourceSelect *w = new QgsVirtualLayerSourceSelect( parent, fl );
+    QString name, source;
+    for ( auto& p : parameters ) {
+        if (p.first == "name") {
+            name = p.second;
+        }
+        else if (p.first == "source") {
+            source = p.second;
+        }
+        else if (p.first == "provider") {
+            w->addSource( name, source, p.second );
+        }
+    }
+    return w;
 }
 
 QMainWindow *QgsVirtualLayerSourceSelect::sMainApp = 0;

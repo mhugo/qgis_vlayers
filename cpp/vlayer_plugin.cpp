@@ -26,6 +26,8 @@
 #include <qgslayertreegroup.h>
 #include <qgslayertreelayer.h>
 
+#include "qgsvirtuallayersourceselect.h"
+
 #include <unistd.h>
 #include <iostream>
 
@@ -40,21 +42,19 @@ static const QString sExperimental = "true";
 VLayerPlugin::VLayerPlugin( QgisInterface *iface ) :
     QgisPlugin( sName, sDescription, sCategory, sVersion, sType ),
     iface_(iface),
-    action_(0)
+    createAction_(0)
 {
 }
 
 void VLayerPlugin::initGui()
 {
-    action_ = new QAction( QIcon( ":/vlayer/vlayer.png" ), tr( "New virtual layer" ), this );
-
+    createAction_ = new QAction( QIcon( ":/vlayer/vlayer.png" ), tr( "New virtual layer" ), this );
     convertAction_ = new QAction( QIcon( ":/vlayer/vlayer.png" ), tr( "Convert to virtual layer" ), this );
 
-    iface_->newLayerMenu()->addAction( action_ );
-
+    iface_->newLayerMenu()->addAction( createAction_ );
     iface_->layerToolBar()->addAction( convertAction_ );
 
-    connect( action_, SIGNAL( triggered() ), this, SLOT( run() ) );
+    connect( createAction_, SIGNAL( triggered() ), this, SLOT( onCreate() ) );
     connect( convertAction_, SIGNAL( triggered() ), this, SLOT( onConvert() ) );
 
     // override context menu
@@ -153,23 +153,40 @@ void VLayerPlugin::onLayerFilter()
 
 void VLayerPlugin::unload()
 {
-    // restor context menu policy
+    // restore context menu policy
     iface_->layerTreeView()->setContextMenuPolicy( Qt::DefaultContextMenu );
 
-    if (action_) {
-        iface_->layerToolBar()->removeAction( action_ );
-        delete action_;
+    if (createAction_) {
+        iface_->layerToolBar()->removeAction( createAction_ );
+        delete createAction_;
     }
 }
 
-void VLayerPlugin::run()
+void VLayerPlugin::onCreate()
 {
-    QDialog* ss = dynamic_cast<QDialog*>(QgsProviderRegistry::instance()->selectWidget( "virtual", iface_->mainWindow() ));
+    creationDialog( QList<QgsVectorLayer*>() );
+}
 
-    connect( ss, SIGNAL( addVectorLayer( QString const &, QString const &, QString const & ) ),
+typedef QDialog * creationFunction_t( QWidget * parent, Qt::WindowFlags fl, QList<QPair<QString,QString> > );
+
+void VLayerPlugin::creationDialog( QList<QgsVectorLayer*> sourceLayers )
+{
+    QList<QPair<QString, QString> > parameters;
+    foreach ( QgsVectorLayer* l, sourceLayers ) {
+        parameters.append( qMakePair( QString("name"), l->name() ) );
+        parameters.append( qMakePair( QString("source"), l->source() ) );
+        parameters.append( qMakePair( QString("provider"), l->providerType() ) );
+    }
+
+    creationFunction_t* fun = (creationFunction_t*)(QgsProviderRegistry::instance()->function( "virtual", "createWidget" ));
+    QScopedPointer<QDialog> ss( fun( iface_->mainWindow(), QgisGui::ModalDialogFlags, parameters ) );
+    if (!ss) {
+        return;
+    }
+
+    connect( ss.data(), SIGNAL( addVectorLayer( QString const &, QString const &, QString const & ) ),
              this, SLOT( addVectorLayer( QString const &, QString const &, QString const & ) ) );
     ss->exec();
-    delete ss;
 }
 
 void copy_layer_symbology( const QgsVectorLayer* source, QgsVectorLayer* dest )
@@ -297,11 +314,13 @@ QgsVectorLayer* VLayerPlugin::createVirtualLayer( QgsVectorLayer* vl )
 
 void VLayerPlugin::onConvert()
 {
-    QgsMapLayer* l = iface_->activeLayer();
-    if ( l && l->type() == QgsMapLayer::VectorLayer ) {
-        QgsVectorLayer* vl = static_cast<QgsVectorLayer*>(l);
-        createVirtualLayer( vl );
+    QList<QgsVectorLayer*> selection;
+    foreach( QgsMapLayer *l, iface_->layerTreeView()->selectedLayers() ) {
+        if ( l && l->type() == QgsMapLayer::VectorLayer ) {
+            selection.append( static_cast<QgsVectorLayer*>(l) );
+        }
     }
+    creationDialog( selection );
 }
 
 void VLayerPlugin::addVectorLayer( const QString& source, const QString& name, const QString& provider )

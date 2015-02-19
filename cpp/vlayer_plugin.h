@@ -15,7 +15,7 @@ public:
     void initGui();
     void unload();
 public slots:
-    void run();
+    void onCreate();
     void onConvert();
 private slots:
     void addVectorLayer( const QString& source, const QString& name, const QString& provider );
@@ -25,8 +25,10 @@ private slots:
     void onLayerFilterFromContextMenu();
 private:
     QgsVectorLayer* createVirtualLayer( QgsVectorLayer* vl );
+    void creationDialog( QList<QgsVectorLayer*> sourceLayers );
+
     QgisInterface* iface_;
-    QAction* action_;
+    QAction* createAction_;
     QAction* convertAction_;
     QAction* origFilterAction_;
     QAction* origLayerMenuAction_;
