@@ -57,11 +57,24 @@ void VLayerPlugin::initGui()
     connect( action_, SIGNAL( triggered() ), this, SLOT( run() ) );
     connect( convertAction_, SIGNAL( triggered() ), this, SLOT( onConvert() ) );
 
-    // save current context menu provider
-
+    // override context menu
     iface_->layerTreeView()->setContextMenuPolicy( Qt::CustomContextMenu );
     connect( iface_->layerTreeView(), SIGNAL( customContextMenuRequested( const QPoint& ) ), this, SLOT( onContextMenu( const QPoint& ) ) );
     origMenuProvider_ = iface_->layerTreeView()->menuProvider();
+
+    // override entry in layer menu
+    QMenu* layerMenu = iface_->layerMenu();
+    for ( auto action: layerMenu->actions() ) {
+        if (action->objectName() == "mActionLayerSubsetString" ) {
+            origLayerMenuAction_ = action;
+            QAction* myAction = new QAction( action->text(), layerMenu );
+            myAction->setShortcut( action->shortcut() );
+            connect( myAction, SIGNAL(triggered()), this, SLOT(onLayerFilterFromMenu()) );
+            layerMenu->insertAction( action, myAction );
+            action->setVisible( false );
+            break;
+        }
+    }
 }
 
 void VLayerPlugin::onContextMenu( const QPoint& pos )
@@ -79,7 +92,7 @@ void VLayerPlugin::onContextMenu( const QPoint& pos )
     QString actionText = QCoreApplication::translate("QgsAppLayerTreeViewMenuProvider", "&Filter...");
 
     QAction* myAction = new QAction(actionText, menu);
-    connect( myAction, SIGNAL(triggered()), this, SLOT(onLayerFilter()) );
+    connect( myAction, SIGNAL(triggered()), this, SLOT(onLayerFilterFromContextMenu()) );
 
     for ( auto action : menu->actions() ) {
         std::cout << action->text().toUtf8().constData() << std::endl;
@@ -95,6 +108,22 @@ void VLayerPlugin::onContextMenu( const QPoint& pos )
     }
     menu->exec( v->mapToGlobal( pos ) );
     delete menu;
+}
+
+void VLayerPlugin::onLayerFilterFromMenu()
+{
+    onLayerFilter();
+
+    // forward to the original action
+    origLayerMenuAction_->trigger();
+}
+
+void VLayerPlugin::onLayerFilterFromContextMenu()
+{
+    onLayerFilter();
+    
+    // forward to the original action
+    origFilterAction_->trigger();
 }
 
 void VLayerPlugin::onLayerFilter()
@@ -120,9 +149,6 @@ void VLayerPlugin::onLayerFilter()
             }
         }
     }
-    
-    // forward to the original action
-    origFilterAction_->trigger();
 }
 
 void VLayerPlugin::unload()
