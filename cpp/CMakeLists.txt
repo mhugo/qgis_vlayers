@@ -1,40 +1,36 @@
 cmake_minimum_required(VERSION 2.6)
 PROJECT( vlayer_plugin )
 
+#############################################################
+
+# set path to additional CMake modules
+SET(CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake ${CMAKE_MODULE_PATH})
+
 FIND_PACKAGE(Qt4 4.7.0 REQUIRED)
 
-QT4_WRAP_CPP (vlayer_plugin_MOC_SRCS  vlayer_plugin.h)
+INCLUDE(Flex)
 
-QT4_WRAP_CPP (vlayer_provider_MOC_SRCS qgsvirtuallayerprovider.h qgsvirtuallayersourceselect.h qgslinkedlayerselectdialog.h qgsembeddedlayerselectdialog.h)
+FIND_FLEX()
 
-QT4_WRAP_UI( vlayer_provider_UI_H qgsvirtuallayersourceselectbase.ui qgslinkedlayerselect.ui qgsembeddedlayerselect.ui)
+IF (NOT FLEX_EXECUTABLE)
+  MESSAGE(FATAL_ERROR "Couldn't find Flex")
+ENDIF (NOT FLEX_EXECUTABLE)
 
-QT4_ADD_RESOURCES(vlayer_plugin_RCC_SRCS vlayer_plugin.qrc)
+INCLUDE(Bison)
 
-ADD_LIBRARY(vlayer_plugin MODULE vlayer_plugin.cpp ${vlayer_plugin_RCC_SRCS} ${vlayer_plugin_MOC_SRCS} )
+FIND_BISON()
 
-#ADD_LIBRARY(vlayer_ext MODULE vtable_ext.c vtable.cpp vtable.h)
+IF (NOT BISON_EXECUTABLE)
+  MESSAGE(FATAL_ERROR "Couldn't find Bison")
+ENDIF (NOT BISON_EXECUTABLE)
+
+#############################################################
 
 LINK_DIRECTORIES(
   /usr/local/lib/qgis/plugins
 )
 
 ADD_DEFINITIONS( -DCORE_EXPORT= -DGUI_EXPORT= -std=c++11 -DQGISDEBUG=1 -DQGIS_DEBUG=1)
-
-ADD_LIBRARY(virtuallayerprovider MODULE
-  ${vlayer_provider_MOC_SRCS}
-  ${vlayer_provider_UI_H}
-  qgsvirtuallayerprovider.cpp
-  qgsvirtuallayersourceselect.cpp
-  qgslinkedlayerselectdialog.cpp
-  qgsembeddedlayerselectdialog.cpp
-  vlayer_module.c
-  vtable.cpp
-)
-
-TARGET_LINK_LIBRARIES( virtuallayerprovider
-  spatialiteprovider
-)
 
 INCLUDE_DIRECTORIES(
   ~/src/QGIS/src/providers
@@ -44,7 +40,47 @@ INCLUDE_DIRECTORIES(
   ${QT_INCLUDE_DIR}/QtXml
   /usr/local/include/qgis
   ${CMAKE_BINARY_DIR}
+  ${CMAKE_SOURCE_DIR}
 )
+
+#############################################################
+#    Virtual layer provider
+#############################################################
+
+QT4_WRAP_CPP(vlayer_provider_MOC_SRCS qgsvirtuallayerprovider.h qgsvirtuallayersourceselect.h qgsembeddedlayerselectdialog.h)
+
+QT4_WRAP_UI(vlayer_provider_UI_H qgsvirtuallayersourceselectbase.ui qgsembeddedlayerselect.ui)
+
+SET(QGIS_VLAYER_PROVIDER_SRCS
+  ${vlayer_provider_MOC_SRCS}
+  ${vlayer_provider_UI_H}
+  qgsvirtuallayerprovider.cpp
+  qgsvirtuallayersourceselect.cpp
+  qgsembeddedlayerselectdialog.cpp
+  vlayer_module.cpp
+)
+
+#ADD_FLEX_FILES(QGIS_VLAYER_PROVIDER_SRCS qgssqllexer.ll)
+
+#ADD_BISON_FILES(QGIS_VLAYER_PROVIDER_SRCS qgssqlparser.yy)
+
+ADD_LIBRARY(virtuallayerprovider MODULE
+  ${QGIS_VLAYER_PROVIDER_SRCS}
+)
+
+TARGET_LINK_LIBRARIES( virtuallayerprovider
+  spatialiteprovider
+)
+
+#############################################################
+#    Virtual layer plugin
+#############################################################
+
+QT4_WRAP_CPP (vlayer_plugin_MOC_SRCS  vlayer_plugin.h)
+
+QT4_ADD_RESOURCES(vlayer_plugin_RCC_SRCS vlayer_plugin.qrc)
+
+ADD_LIBRARY(vlayer_plugin MODULE vlayer_plugin.cpp ${vlayer_plugin_RCC_SRCS} ${vlayer_plugin_MOC_SRCS} )
 
 TARGET_LINK_LIBRARIES( vlayer_plugin
   qgis_core
