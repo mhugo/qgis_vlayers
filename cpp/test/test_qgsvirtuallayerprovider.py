@@ -34,6 +34,7 @@ from utilities import (getQgisTestApp,
 QGISAPP, CANVAS, IFACE, PARENT = getQgisTestApp()
 
 import os
+import tempfile
 
 class TestQgsVirtualLayerProvider(TestCase):
 
@@ -248,40 +249,44 @@ class TestQgsVirtualLayerProvider(TestCase):
 
     def test_reopen( self ):
         source = QUrl.toPercentEncoding(os.path.join(self.testDataDir_, "france_parts.shp"))
-        l = QgsVectorLayer("/tmp/t.sqlite?layer=ogr:%s:vtab" % source, "vtab2", "virtual")
+        tmp = os.path.join(tempfile.gettempdir(), "t.sqlite")
+        l = QgsVectorLayer("%s?layer=ogr:%s:vtab" % (tmp, source), "vtab2", "virtual")
         self.assertEqual( l.isValid(), True )
 
-        l2 = QgsVectorLayer("/tmp/t.sqlite", "tt", "virtual")
+        l2 = QgsVectorLayer( tmp, "tt", "virtual" )
         self.assertEqual( l2.isValid(), True )
         self.assertEqual( l2.dataProvider().geometryType(), 3 )
         self.assertEqual( l2.dataProvider().featureCount(), 4 )
 
     def test_reopen2( self ):
         source = QUrl.toPercentEncoding(os.path.join(self.testDataDir_, "france_parts.shp"))
-        l = QgsVectorLayer("/tmp/t.sqlite?layer=ogr:%s:vtab&nogeometry" % source, "vtab2", "virtual")
+        tmp = os.path.join(tempfile.gettempdir(), "t.sqlite")
+        l = QgsVectorLayer("%s?layer=ogr:%s:vtab&nogeometry" % (tmp,source), "vtab2", "virtual")
         self.assertEqual( l.isValid(), True )
 
-        l2 = QgsVectorLayer("/tmp/t.sqlite", "tt", "virtual")
+        l2 = QgsVectorLayer( tmp, "tt", "virtual" )
         self.assertEqual( l2.isValid(), True )
         self.assertEqual( l2.dataProvider().geometryType(), 100 )
         self.assertEqual( l2.dataProvider().featureCount(), 4 )
 
     def test_reopen3( self ):
         source = QUrl.toPercentEncoding(os.path.join(self.testDataDir_, "france_parts.shp"))
-        l = QgsVectorLayer("/tmp/t.sqlite?layer=ogr:%s:vtab&query=select * from vtab&geometry=geometry&uid=objectid" % source, "vtab2", "virtual")
+        tmp = os.path.join(tempfile.gettempdir(), "t.sqlite")
+        l = QgsVectorLayer("%s?layer=ogr:%s:vtab&query=select * from vtab&geometry=geometry&uid=objectid" % (tmp,source), "vtab2", "virtual")
         self.assertEqual( l.isValid(), True )
 
-        l2 = QgsVectorLayer("/tmp/t.sqlite", "tt", "virtual")
+        l2 = QgsVectorLayer(tmp, "tt", "virtual")
         self.assertEqual( l2.isValid(), True )
         self.assertEqual( l2.dataProvider().geometryType(), 3 )
         self.assertEqual( l2.dataProvider().featureCount(), 4 )
 
     def test_reopen4( self ):
         source = QUrl.toPercentEncoding(os.path.join(self.testDataDir_, "france_parts.shp"))
-        l = QgsVectorLayer("/tmp/t.sqlite?layer=ogr:%s:vtab&query=select * from vtab&nogeometry&uid=objectid" % source, "vtab2", "virtual")
+        tmp = os.path.join(tempfile.gettempdir(), "t.sqlite")
+        l = QgsVectorLayer("%s?layer=ogr:%s:vtab&query=select * from vtab&nogeometry&uid=objectid" % (tmp,source), "vtab2", "virtual")
         self.assertEqual( l.isValid(), True )
 
-        l2 = QgsVectorLayer("/tmp/t.sqlite", "tt", "virtual")
+        l2 = QgsVectorLayer(tmp, "tt", "virtual")
         self.assertEqual( l2.isValid(), True )
         self.assertEqual( l2.dataProvider().geometryType(), 100 )
         self.assertEqual( l2.dataProvider().featureCount(), 4 )
