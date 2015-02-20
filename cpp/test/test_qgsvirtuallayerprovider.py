@@ -57,7 +57,7 @@ class TestQgsVirtualLayerProvider(TestCase):
         QgsMapLayerRegistry.instance().addMapLayer(l1)
 
         l2 = QgsVectorLayer( "?layer_ref=" + l1.id(), "vtab", "virtual" )
-        self.assertEqual( l2.isValid(), True )
+        self.assertEqual(l2.isValid(), True)
 
     def test_DynamicGeometry(self):
         l1 = QgsVectorLayer( os.path.join(self.testDataDir_, "delimitedtext/testextpt.txt") + "?type=csv&delimiter=%7C&geomType=none&subsetIndex=no&watchFile=no", "test", "delimitedtext")
@@ -225,7 +225,7 @@ class TestQgsVirtualLayerProvider(TestCase):
         source = QUrl.toPercentEncoding(os.path.join(self.testDataDir_, "france_parts.shp"))
         query = QUrl.toPercentEncoding("select * from vtab where _search_frame_=BuildMbr(-2.10,49.38,-1.3,49.99,4326)")
         ## FIXME bug if we don't use a file here
-        l2 = QgsVectorLayer("/tmp/t.sqlit?layer=ogr:%s:vtab&query=%s&uid=objectid" % (source,query), "vtab2", "virtual")
+        l2 = QgsVectorLayer("/tmp/t.sqlite?layer=ogr:%s:vtab&query=%s&uid=objectid" % (source,query), "vtab2", "virtual")
         self.assertEqual( l2.isValid(), True )
         self.assertEqual(l2.dataProvider().featureCount(), 1)
         a = [fit.attributes()[4] for fit in l2.getFeatures()]
@@ -239,6 +239,52 @@ class TestQgsVirtualLayerProvider(TestCase):
 
         l2 = QgsVectorLayer("?layer_ref=" + l.id(), "vtab2", "virtual")
         self.assertEqual( l2.isValid(), True )
+
+    def test_no_geometry( self ):
+        source = QUrl.toPercentEncoding(os.path.join(self.testDataDir_, "france_parts.shp"))
+        l2 = QgsVectorLayer("?layer=ogr:%s:vtab&nogeometry" % source, "vtab2", "virtual")
+        self.assertEqual( l2.isValid(), True )
+        self.assertEqual( l2.dataProvider().geometryType(), 100 ) # NoGeometry
+
+    def test_reopen( self ):
+        source = QUrl.toPercentEncoding(os.path.join(self.testDataDir_, "france_parts.shp"))
+        l = QgsVectorLayer("/tmp/t.sqlite?layer=ogr:%s:vtab" % source, "vtab2", "virtual")
+        self.assertEqual( l.isValid(), True )
+
+        l2 = QgsVectorLayer("/tmp/t.sqlite", "tt", "virtual")
+        self.assertEqual( l2.isValid(), True )
+        self.assertEqual( l2.dataProvider().geometryType(), 3 )
+        self.assertEqual( l2.dataProvider().featureCount(), 4 )
+
+    def test_reopen2( self ):
+        source = QUrl.toPercentEncoding(os.path.join(self.testDataDir_, "france_parts.shp"))
+        l = QgsVectorLayer("/tmp/t.sqlite?layer=ogr:%s:vtab&nogeometry" % source, "vtab2", "virtual")
+        self.assertEqual( l.isValid(), True )
+
+        l2 = QgsVectorLayer("/tmp/t.sqlite", "tt", "virtual")
+        self.assertEqual( l2.isValid(), True )
+        self.assertEqual( l2.dataProvider().geometryType(), 100 )
+        self.assertEqual( l2.dataProvider().featureCount(), 4 )
+
+    def test_reopen3( self ):
+        source = QUrl.toPercentEncoding(os.path.join(self.testDataDir_, "france_parts.shp"))
+        l = QgsVectorLayer("/tmp/t.sqlite?layer=ogr:%s:vtab&query=select * from vtab&geometry=geometry&uid=objectid" % source, "vtab2", "virtual")
+        self.assertEqual( l.isValid(), True )
+
+        l2 = QgsVectorLayer("/tmp/t.sqlite", "tt", "virtual")
+        self.assertEqual( l2.isValid(), True )
+        self.assertEqual( l2.dataProvider().geometryType(), 3 )
+        self.assertEqual( l2.dataProvider().featureCount(), 4 )
+
+    def test_reopen4( self ):
+        source = QUrl.toPercentEncoding(os.path.join(self.testDataDir_, "france_parts.shp"))
+        l = QgsVectorLayer("/tmp/t.sqlite?layer=ogr:%s:vtab&query=select * from vtab&nogeometry&uid=objectid" % source, "vtab2", "virtual")
+        self.assertEqual( l.isValid(), True )
+
+        l2 = QgsVectorLayer("/tmp/t.sqlite", "tt", "virtual")
+        self.assertEqual( l2.isValid(), True )
+        self.assertEqual( l2.dataProvider().geometryType(), 100 )
+        self.assertEqual( l2.dataProvider().featureCount(), 4 )
 
 if __name__ == '__main__':
     unittest.main()
