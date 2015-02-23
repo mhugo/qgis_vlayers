@@ -214,10 +214,12 @@ struct VTable
     sqlite3* sql;
 
     // specific members
-    // pointer to the underlying vector layer
-    QgsVectorLayer* layer_;
-    // whether the underlying is owned or not
+    // pointer to the underlying vector provider
+    QgsVectorDataProvider* provider_;
+    // whether the underlying provider is owned or not
     bool owned_;
+
+    QString name_;
 
     // primary key column (default = -1: none)
     int pk_column_;
@@ -225,17 +227,17 @@ struct VTable
     // CREATE TABLE string
     QString creation_str_;
 
-    VTable( QgsVectorLayer* layer ) : layer_(layer), pk_column_(-1), zErrMsg(0), owned_(false)
+    VTable( QgsVectorLayer* layer ) : provider_(layer->dataProvider()), pk_column_(-1), zErrMsg(0), owned_(false), name_(layer->name())
     {
         init_();
     }
 
-    VTable( const QString& provider, const QString& source, const QString& name ) : pk_column_(-1), zErrMsg(0)
+    VTable( const QString& provider, const QString& source, const QString& name ) : pk_column_(-1), zErrMsg(0), name_(name)
     {
         std::cout << "source=" << source.toLocal8Bit().constData() << " name=" << name.toLocal8Bit().constData() << " provider=" << provider.toLocal8Bit().constData() << std::endl;
-        layer_ = new QgsVectorLayer( source, name, provider, false );
-        if ( layer_ == 0 || !layer_->isValid() ) {
-            throw std::runtime_error( "Invalid layer" );
+        provider_ = static_cast<QgsVectorDataProvider*>(QgsProviderRegistry::instance()->provider( provider, source ));
+        if ( provider_ == 0 || !provider_->isValid() ) {
+            throw std::runtime_error( "Invalid provider" );
         }
         owned_ = true;
         init_();
@@ -243,16 +245,15 @@ struct VTable
 
     ~VTable()
     {
-        if (owned_ && layer_ ) {
-            delete layer_;
+        if (owned_ && provider_ ) {
+            delete provider_;
         }
     }
 
     void init_()
     {
         // FIXME : connect to layer deletion signal
-        QgsVectorDataProvider *pr = layer_->dataProvider();
-        const QgsFields& fields = pr->fields();
+        const QgsFields& fields = provider_->fields();
         QStringList sql_fields;
 
         // add a hidden field for rtree filtering
@@ -278,18 +279,20 @@ struct VTable
             sql_fields << fields.at(i).name() + " " + typeName;
         }
 
-        if ( layer_->hasGeometryType() ) {
-            sql_fields << "geometry " + geometry_type_string(layer_->dataProvider()->geometryType());
+        if ( provider_->geometryType() != QGis::WKBNoGeometry ) {
+            sql_fields << "geometry " + geometry_type_string(provider_->geometryType());
         }
 
-        if ( layer_->dataProvider()->pkAttributeIndexes().size() == 1 ) {
-            pk_column_ = layer_->dataProvider()->pkAttributeIndexes()[0] + 1;
+        if ( provider_->pkAttributeIndexes().size() == 1 ) {
+            pk_column_ = provider_->pkAttributeIndexes()[0] + 1;
         }
 
         creation_str_ = "CREATE TABLE vtable (" + sql_fields.join(",") + ")";
     }
 
-    QgsVectorLayer* layer() { return layer_; }
+    QgsVectorDataProvider* provider() { return provider_; }
+
+    QString name() const { return name_; }
 
     QString creation_string() const { return creation_str_; }
 };
@@ -311,7 +314,7 @@ struct VTableCursor
     void filter( QgsFeatureRequest request )
     {
         std::cout << "filter" << std::endl;
-        iterator_ = vtab_->layer()->dataProvider()->getFeatures( request );
+        iterator_ = vtab_->provider()->getFeatures( request );
         current_row_ = -1;
         // get on the first record
         eof_ = false;
@@ -331,7 +334,7 @@ struct VTableCursor
 
     bool eof() const { return eof_; }
 
-    int n_columns() const { return vtab_->layer()->dataProvider()->fields().count(); }
+    int n_columns() const { return vtab_->provider()->fields().count(); }
 
     sqlite3_int64 current_row() const { return current_row_; }
 
@@ -341,15 +344,15 @@ struct VTableCursor
     {
         size_t blob_len;
         unsigned char* blob;
-        qgsgeometry_to_spatialite_blob( *current_feature_.geometry(), vtab_->layer()->crs().postgisSrid(), blob, blob_len );
+        qgsgeometry_to_spatialite_blob( *current_feature_.geometry(), vtab_->provider()->crs().postgisSrid(), blob, blob_len );
         return qMakePair( blob, blob_len );
     }
 };
 
-void get_geometry_type( const QgsVectorLayer* vlayer, QString& geometry_type_str, int& geometry_dim, int& geometry_wkb_type, long& srid )
+void get_geometry_type( const QgsVectorDataProvider* provider, QString& geometry_type_str, int& geometry_dim, int& geometry_wkb_type, long& srid )
 {
-    srid = vlayer->crs().postgisSrid();
-    switch ( vlayer->dataProvider()->geometryType() ) {
+    srid = const_cast<QgsVectorDataProvider*>(provider)->crs().postgisSrid();
+    switch ( provider->geometryType() ) {
     case QGis::WKBNoGeometry:
         geometry_type_str = "";
         geometry_dim = 0;
@@ -517,7 +520,7 @@ int vtable_create_connect( sqlite3* sql, void* aux, int argc, const char* const*
         sqlite3_finalize( table_creation_stmt );
 
         sqlite3_int64 table_id = sqlite3_last_insert_rowid( sql );
-        const QgsFields& fields = new_vtab->layer()->dataProvider()->fields();
+        const QgsFields& fields = new_vtab->provider()->fields();
         QString columns_str;
 
         for ( int i = 0; i < fields.count(); i++ ) {
@@ -531,7 +534,7 @@ int vtable_create_connect( sqlite3* sql, void* aux, int argc, const char* const*
         long srid;
         QString geometry_str;
         int geometry_dim, geometry_wkb_type = 0;
-        get_geometry_type( new_vtab->layer(), geometry_str, geometry_dim, geometry_wkb_type, srid );
+        get_geometry_type( new_vtab->provider(), geometry_str, geometry_dim, geometry_wkb_type, srid );
         std::cout << "geometry_wkb_type= " << geometry_wkb_type << std::endl;
         if ( geometry_wkb_type ) {
             columns_str += QString("INSERT INTO _columns VALUES(%1,'*geometry*','%2:%3:%4');").arg(table_id).arg(geometry_wkb_type).arg(geometry_dim).arg(srid);
@@ -542,11 +545,11 @@ int vtable_create_connect( sqlite3* sql, void* aux, int argc, const char* const*
                 .arg(geometry_dim)
                 .arg(srid);
             // manually set column statistics (needed for QGIS spatialite provider)
-            QgsRectangle extent = new_vtab->layer()->extent();
+            QgsRectangle extent = new_vtab->provider()->extent();
             columns_str += QString("INSERT OR REPLACE INTO virts_geometry_columns_statistics (virt_name, virt_geometry, last_verified, row_count, extent_min_x, extent_min_y, extent_max_x, extent_max_y) "
                                  "VALUES ('%1', 'geometry', datetime('now'), %2, %3, %4, %5, %6);")
                 .arg(vname)
-                .arg(new_vtab->layer()->featureCount())
+                .arg(new_vtab->provider()->featureCount())
                 .arg(extent.xMinimum())
                 .arg(extent.yMinimum())
                 .arg(extent.xMaximum())
@@ -610,7 +613,7 @@ int vtable_destroy( sqlite3_vtab *vtab )
 
         VTable* vtable = reinterpret_cast<VTable*>(vtab);
 
-        QString query( "SELECT id FROM _tables WHERE name='" + vtable->layer()->name() + "'" );
+        QString query( "SELECT id FROM _tables WHERE name='" + vtable->name() + "'" );
         char *errMsg;
         sqlite3_stmt* stmt;
         int r = sqlite3_prepare_v2( vtable->sql, query.toLocal8Bit().constData(), -1, &stmt, NULL );
@@ -624,7 +627,7 @@ int vtable_destroy( sqlite3_vtab *vtab )
         sqlite3_finalize(stmt);
 
         if ( table_id ) {
-            QString q = QString("DELETE FROM _columns WHERE table_id=%1;DELETE FROM _tables WHERE id=%1;DELETE FROM virts_geometry_columns WHERE virt_name='%2';").arg(table_id).arg(vtable->layer()->name());
+            QString q = QString("DELETE FROM _columns WHERE table_id=%1;DELETE FROM _tables WHERE id=%1;DELETE FROM virts_geometry_columns WHERE virt_name='%2';").arg(table_id).arg(vtable->name());
             char *errMsg;
             r = sqlite3_exec( vtable->sql, q.toLocal8Bit().constData(), NULL, NULL, &errMsg );
             if ( r ) return r;
