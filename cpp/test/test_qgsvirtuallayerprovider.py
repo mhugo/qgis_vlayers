@@ -225,8 +225,7 @@ class TestQgsVirtualLayerProvider(TestCase):
     def test_filter_rect( self ):
         source = QUrl.toPercentEncoding(os.path.join(self.testDataDir_, "france_parts.shp"))
         query = QUrl.toPercentEncoding("select * from vtab where _search_frame_=BuildMbr(-2.10,49.38,-1.3,49.99,4326)")
-        ## FIXME bug if we don't use a file here
-        l2 = QgsVectorLayer("/tmp/t.sqlite?layer=ogr:%s:vtab&query=%s&uid=objectid" % (source,query), "vtab2", "virtual")
+        l2 = QgsVectorLayer("?layer=ogr:%s:vtab&query=%s&uid=objectid" % (source,query), "vtab2", "virtual")
         self.assertEqual( l2.isValid(), True )
         self.assertEqual(l2.dataProvider().featureCount(), 1)
         a = [fit.attributes()[4] for fit in l2.getFeatures()]
