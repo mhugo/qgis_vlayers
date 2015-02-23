@@ -60,6 +60,12 @@ class TestQgsVirtualLayerProvider(TestCase):
         l2 = QgsVectorLayer( "?layer_ref=" + l1.id(), "vtab", "virtual" )
         self.assertEqual(l2.isValid(), True)
 
+    def test_source_escaping(self):
+        # the source contains ':'
+        source = QUrl.toPercentEncoding("file:///" + os.path.join(self.testDataDir_, "delimitedtext/test.csv") + "?type=csv&geomType=none&subsetIndex=no&watchFile=no")
+        l = QgsVectorLayer( "?layer=delimitedtext:%s:t" % source, "vtab", "virtual" )
+        self.assertEqual(l.isValid(), True)
+
     def test_DynamicGeometry(self):
         l1 = QgsVectorLayer( os.path.join(self.testDataDir_, "delimitedtext/testextpt.txt") + "?type=csv&delimiter=%7C&geomType=none&subsetIndex=no&watchFile=no", "test", "delimitedtext")
         self.assertEqual( l1.isValid(), True )

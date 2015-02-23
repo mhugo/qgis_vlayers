@@ -120,10 +120,10 @@ QgsVirtualLayerProvider::QgsVirtualLayerProvider( QString const &uri )
 
     try {
     int layer_idx = 0;
-    QList<QPair<QString, QString> > items = url.queryItems();
+    QList<QPair<QByteArray, QByteArray> > items = url.encodedQueryItems();
     for ( int i = 0; i < items.size(); i++ ) {
-        QString key = items.at(i).first;
-        QString value = items.at(i).second;
+        QString key = QString(items.at(i).first);
+        QString value = QString(items.at(i).second);
         if ( key == "layer_ref" ) {
             layer_idx++;
             // layer id, with optional layer_name
@@ -268,27 +268,23 @@ QgsVirtualLayerProvider::QgsVirtualLayerProvider( QString const &uri )
     bool has_geometry = false;
     // now create virtual tables based on layers
     for ( int i = 0; i < mLayers.size(); i++ ) {
-        QString createStr;
-
         QgsVectorLayer* vlayer = mLayers.at(i).layer;
         QString vname = mLayers.at(i).name;
         if ( vlayer ) {
-            std::cout << "layer id" << vlayer->id().toLocal8Bit().constData() << std::endl;
-            createStr += QString("DROP TABLE IF EXISTS %1; CREATE VIRTUAL TABLE %1 USING QgsVLayer(%2);").arg(vname).arg(vlayer->id());
+            QString createStr = QString("DROP TABLE IF EXISTS %1; CREATE VIRTUAL TABLE %1 USING QgsVLayer(%2);").arg(vname).arg(vlayer->id());
+            SqliteQuery::exec( mSqlite.data(), createStr );
         }
         else {
             QString provider = mLayers.at(i).provider;
             QString source = mLayers.at(i).source;
-            createStr += QString("DROP TABLE IF EXISTS %1; CREATE VIRTUAL TABLE %1 USING QgsVLayer(%2,%3);").arg(vname).arg(provider).arg(source);
+            QString createStr = QString( "DROP TABLE IF EXISTS %1; CREATE VIRTUAL TABLE %1 USING QgsVLayer(%2,'%3')").arg(vname).arg(provider).arg(source);
+            SqliteQuery::exec( mSqlite.data(), createStr );
         }
-        std::cout << createStr.toLocal8Bit().constData() << std::endl;
-
-        SqliteQuery::exec( mSqlite.data(), createStr );
 
         // check geometry field
         {
             SqliteQuery q( db, QString("SELECT * FROM virts_geometry_columns WHERE virt_name='%1'").arg(vname) );
-            if ( sqlite3_step( q.stmt() ) == SQLITE_ROW ) {
+            if ( q.step() == SQLITE_ROW ) {
                 has_geometry = true;
             }
         }

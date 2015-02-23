@@ -441,7 +441,11 @@ int vtable_create_connect( sqlite3* sql, void* aux, int argc, const char* const*
         // vtab = argv[2]
         // layer_id = argv[3]
         std::cout << argv[0] << " " << argv[1] << " " << argv[2] << " " << argv[3] << std::endl;
-        QgsMapLayer *l = QgsMapLayerRegistry::instance()->mapLayer( argv[3] );
+        QString layerid( argv[3] );
+        if ( layerid.size() >= 1 && layerid[0] == '\'' ) {
+            layerid = layerid.mid(1, layerid.size()-2);
+        }
+        QgsMapLayer *l = QgsMapLayerRegistry::instance()->mapLayer( layerid );
         std::cout << l << std::endl;
         if ( l == 0 || l->type() != QgsMapLayer::VectorLayer ) {
             if ( out_err ) {

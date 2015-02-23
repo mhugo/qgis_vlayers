@@ -95,7 +95,6 @@ void VLayerPlugin::onContextMenu( const QPoint& pos )
     connect( myAction, SIGNAL(triggered()), this, SLOT(onLayerFilterFromContextMenu()) );
 
     for ( auto action : menu->actions() ) {
-        std::cout << action->text().toUtf8().constData() << std::endl;
         // look for the action by its text (!)
         if ( action->text() == actionText ) {
             origFilterAction_ = action;

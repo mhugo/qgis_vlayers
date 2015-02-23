@@ -11,7 +11,8 @@ struct SqliteQuery
 {
 SqliteQuery( sqlite3* db, const QString& q ) : db_(db), nBind_(1)
     {
-        int r = sqlite3_prepare_v2( db, q.toLocal8Bit().constData(), q.size(), &stmt_, NULL );
+        QByteArray ba( q.toLocal8Bit() );
+        int r = sqlite3_prepare_v2( db, ba.constData(), ba.size(), &stmt_, NULL );
         if (r) {
             throw std::runtime_error( sqlite3_errmsg(db) );
         }
@@ -21,7 +22,8 @@ SqliteQuery( sqlite3* db, const QString& q ) : db_(db), nBind_(1)
 
     SqliteQuery& bind( const QString& str, int idx )
     {
-        int r = sqlite3_bind_text( stmt_, idx, str.toLocal8Bit().constData(), str.size(), SQLITE_TRANSIENT );
+        QByteArray ba( str.toLocal8Bit() );
+        int r = sqlite3_bind_text( stmt_, idx, ba.constData(), ba.size(), SQLITE_TRANSIENT );
         if (r) {
             throw std::runtime_error( sqlite3_errmsg(db_) );
         }

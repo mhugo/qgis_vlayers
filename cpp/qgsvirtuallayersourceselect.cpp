@@ -152,8 +152,7 @@ void QgsVirtualLayerSourceSelect::on_buttonBox_accepted()
             QString encodedSource( QUrl::toPercentEncoding(mSourceLayers->item(i,1)->text(), "", ":%") );
             QString v = QString("%1:%2:%3")
                 .arg(mSourceLayers->item(i, 2)->text(), encodedSource, mSourceLayers->item(i,0)->text() );
-            QString vv( QUrl::toPercentEncoding(v, "", "%") );
-            url.addQueryItem( "layer", vv );
+            url.addQueryItem( "layer", v );
     }
 #if 0
     // linked layers
