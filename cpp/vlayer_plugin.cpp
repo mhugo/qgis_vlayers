@@ -36,7 +36,7 @@ static const QString sDescription = "This is the plugin companion for the virtua
 static const QString sCategory = "Plugins";
 static const QgisPlugin::PLUGINTYPE sType = QgisPlugin::UI;
 static const QString sVersion = "Version 0.1";
-static const QString sIcon = ":/vlayer/vlayer.png";
+static const QString sIcon = ":/vlayer/vlayer.svg";
 static const QString sExperimental = "true";
 
 VLayerPlugin::VLayerPlugin( QgisInterface *iface ) :
@@ -48,8 +48,8 @@ VLayerPlugin::VLayerPlugin( QgisInterface *iface ) :
 
 void VLayerPlugin::initGui()
 {
-    createAction_ = new QAction( QIcon( ":/vlayer/vlayer.png" ), tr( "New virtual layer" ), this );
-    convertAction_ = new QAction( QIcon( ":/vlayer/vlayer.png" ), tr( "Convert to virtual layer" ), this );
+    createAction_ = new QAction( QIcon( ":/vlayer/vlayer.svg" ), tr( "New virtual layer" ), this );
+    convertAction_ = new QAction( QIcon( ":/vlayer/vlayer.svg" ), tr( "Convert to virtual layer" ), this );
 
     iface_->newLayerMenu()->addAction( createAction_ );
     iface_->layerToolBar()->addAction( convertAction_ );
