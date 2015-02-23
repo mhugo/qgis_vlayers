@@ -448,11 +448,25 @@ QgsVirtualLayerProvider::QgsVirtualLayerProvider( QString const &uri )
         PROVIDER_ERROR( e.what() );
         return;
     }
+
+    // connect to layer removal signals
+    connect( QgsMapLayerRegistry::instance(), SIGNAL(layerRemoved(QString)), this, SLOT(onLayerRemoved(QString)) );
 }
 
 
 QgsVirtualLayerProvider::~QgsVirtualLayerProvider()
 {
+    disconnect( QgsMapLayerRegistry::instance(), SIGNAL(layerRemoved(QString)), this, SLOT(onLayerRemoved(QString)) );
+}
+
+void QgsVirtualLayerProvider::onLayerRemoved( QString layerid )
+{
+    for ( auto& layer : mLayers ) {
+        if (layer.layer && layer.layer->id() == layerid ) {
+            // must drop the corresponding virtual table
+            SqliteQuery::exec( mSqlite.data(), QString("DROP TABLE %1").arg(layer.name) );
+        }
+    }
 }
 
 QgsAbstractFeatureSource* QgsVirtualLayerProvider::featureSource() const

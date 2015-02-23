@@ -225,6 +225,9 @@ class QgsVirtualLayerProvider: public QgsVectorDataProvider
     GeometryFields mGeometryFields;
 
     void getSqliteFields( sqlite3* db, const QString& table, QgsFields& fields, GeometryFields& gFields );
+
+private slots:
+    void onLayerRemoved( QString layerid );
 };
 
 #endif
