@@ -233,7 +233,7 @@ struct VTable
     VTable( const QString& provider, const QString& source, const QString& name ) : pk_column_(-1), zErrMsg(0)
     {
         std::cout << "source=" << source.toLocal8Bit().constData() << " name=" << name.toLocal8Bit().constData() << " provider=" << provider.toLocal8Bit().constData() << std::endl;
-        layer_ = new QgsVectorLayer( source, name, provider );
+        layer_ = new QgsVectorLayer( source, name, provider, false );
         if ( layer_ == 0 || !layer_->isValid() ) {
             throw std::runtime_error( "Invalid layer" );
         }
