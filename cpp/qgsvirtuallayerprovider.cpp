@@ -450,23 +450,29 @@ QgsVirtualLayerProvider::QgsVirtualLayerProvider( QString const &uri )
     }
 
     // connect to layer removal signals
-    connect( QgsMapLayerRegistry::instance(), SIGNAL(layerRemoved(QString)), this, SLOT(onLayerRemoved(QString)) );
+    for ( auto& layer : mLayers ) {
+        if ( layer.layer ) {
+            connect( layer.layer, SIGNAL(layerDeleted()), this, SLOT(onLayerDeleted()) );
+        }
+    }
 }
 
 
 QgsVirtualLayerProvider::~QgsVirtualLayerProvider()
 {
-    disconnect( QgsMapLayerRegistry::instance(), SIGNAL(layerRemoved(QString)), this, SLOT(onLayerRemoved(QString)) );
 }
 
-void QgsVirtualLayerProvider::onLayerRemoved( QString layerid )
+void QgsVirtualLayerProvider::onLayerDeleted()
 {
+    std::cout << "layer deleted " << sender() << std::endl;
+    QgsVectorLayer* vl = static_cast<QgsVectorLayer*>(sender());
     for ( auto& layer : mLayers ) {
-        if (layer.layer && layer.layer->id() == layerid ) {
+        if (layer.layer && layer.layer->id() == vl->id() ) {
             // must drop the corresponding virtual table
+            std::cout << "layer removed, drop virtual table " << layer.name.toUtf8().constData() << std::endl;
             SqliteQuery::exec( mSqlite.data(), QString("DROP TABLE %1").arg(layer.name) );
         }
-    }
+    }    
 }
 
 QgsAbstractFeatureSource* QgsVirtualLayerProvider::featureSource() const

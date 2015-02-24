@@ -227,14 +227,15 @@ struct VTable
     // CREATE TABLE string
     QString creation_str_;
 
-    VTable( QgsVectorLayer* layer ) : provider_(layer->dataProvider()), pk_column_(-1), zErrMsg(0), owned_(false), name_(layer->name())
+    VTable( sqlite3* db, QgsVectorLayer* layer ) : sql(db), provider_(layer->dataProvider()), pk_column_(-1), zErrMsg(0), owned_(false), name_(layer->name())
     {
+        std::cout << "VTable ref ctor sql@" << sql << " =" << this << " provider@" << provider_ << std::endl;
         init_();
     }
 
-    VTable( const QString& provider, const QString& source, const QString& name ) : pk_column_(-1), zErrMsg(0), name_(name)
+    VTable( sqlite3* db, const QString& provider, const QString& source, const QString& name ) : sql(db), pk_column_(-1), zErrMsg(0), name_(name)
     {
-        std::cout << "source=" << source.toLocal8Bit().constData() << " name=" << name.toLocal8Bit().constData() << " provider=" << provider.toLocal8Bit().constData() << std::endl;
+        //std::cout << "source=" << source.toLocal8Bit().constData() << " name=" << name.toLocal8Bit().constData() << " provider=" << provider.toLocal8Bit().constData() << std::endl;
         provider_ = static_cast<QgsVectorDataProvider*>(QgsProviderRegistry::instance()->provider( provider, source ));
         if ( provider_ == 0 || !provider_->isValid() ) {
             throw std::runtime_error( "Invalid provider" );
@@ -245,6 +246,7 @@ struct VTable
 
     ~VTable()
     {
+        std::cout << "VTable dtor sql@" << sql << " @" << this << std::endl;
         if (owned_ && provider_ ) {
             delete provider_;
         }
@@ -290,7 +292,10 @@ struct VTable
         creation_str_ = "CREATE TABLE vtable (" + sql_fields.join(",") + ")";
     }
 
-    QgsVectorDataProvider* provider() { return provider_; }
+    QgsVectorDataProvider* provider()
+    {
+        return provider_;
+    }
 
     QString name() const { return name_; }
 
@@ -313,7 +318,6 @@ struct VTableCursor
 
     void filter( QgsFeatureRequest request )
     {
-        std::cout << "filter" << std::endl;
         iterator_ = vtab_->provider()->getFeatures( request );
         current_row_ = -1;
         // get on the first record
@@ -426,14 +430,11 @@ int vtable_create_connect( sqlite3* sql, void* aux, int argc, const char* const*
 #define RETURN_CSTR_ERROR(err) if (out_err) {size_t s = strlen(err); *out_err=(char*)sqlite3_malloc(s+1); strncpy(*out_err, err, s);}
 #define RETURN_CPPSTR_ERROR(err) if (out_err) {*out_err=(char*)sqlite3_malloc(err.size()+1); strncpy(*out_err, err.c_str(), err.size());}
 
-    std::cout << "vtable_create" << std::endl;
     if ( argc < 4 ) {
         std::string err( "Missing arguments: layer_id | provider, source" );
         RETURN_CPPSTR_ERROR(err);
         return SQLITE_ERROR;
     }
-
-    std::cout << "#providers: " << QgsProviderRegistry::instance()->providerList().size() << std::endl;
 
     QScopedPointer<VTable> new_vtab;
     QString vname( argv[2] );
@@ -458,7 +459,7 @@ int vtable_create_connect( sqlite3* sql, void* aux, int argc, const char* const*
             }
             return SQLITE_ERROR;
         }
-        new_vtab.reset(new VTable( static_cast<QgsVectorLayer*>(l) ));
+        new_vtab.reset(new VTable( sql, static_cast<QgsVectorLayer*>(l) ));
 
         if ( is_created ) {
             r = sqlite3_prepare_v2( sql, "INSERT INTO _tables (name, layer_id) VALUES(?,?);", -1, &table_creation_stmt, NULL );
@@ -484,7 +485,7 @@ int vtable_create_connect( sqlite3* sql, void* aux, int argc, const char* const*
             source = source.mid(1, source.size()-2);
         }
         try {
-            new_vtab.reset(new VTable( provider, source, argv[2] ));
+            new_vtab.reset(new VTable( sql, provider, source, argv[2] ));
         }
         catch (std::runtime_error& e) {
             std::string err(e.what());
@@ -564,7 +565,6 @@ int vtable_create_connect( sqlite3* sql, void* aux, int argc, const char* const*
         }
     }
 
-    new_vtab->sql = sql;
     *out_vtab = (sqlite3_vtab*)new_vtab.take();
     return SQLITE_OK;
 #undef RETURN_CSTR_ERROR
@@ -587,6 +587,7 @@ void db_init( sqlite3* db, ModuleContext* context )
 
 int vtable_create( sqlite3* sql, void* aux, int argc, const char* const* argv, sqlite3_vtab **out_vtab, char** out_err)
 {
+    std::cout << "vtable_create sql@" << sql << std::endl;
     try {
         db_init( sql, reinterpret_cast<ModuleContext*>(aux) );
     }
@@ -603,12 +604,13 @@ int vtable_create( sqlite3* sql, void* aux, int argc, const char* const* argv, s
 
 int vtable_connect( sqlite3* sql, void* aux, int argc, const char* const* argv, sqlite3_vtab **out_vtab, char** out_err)
 {
+    std::cout << "vtable_connect sql@" << sql << std::endl;
     return vtable_create_connect( sql, aux, argc, argv, out_vtab, out_err, /* is_created */ false );
 }
 
 int vtable_destroy( sqlite3_vtab *vtab )
 {
-    std::cout << "vtable_destroy @" << vtab << std::endl;
+    std::cout << "vtable_destroy sql@" << ((VTable*)vtab)->sql << " vtab@" << vtab << std::endl;
     if (vtab) {
 
         VTable* vtable = reinterpret_cast<VTable*>(vtab);
@@ -621,7 +623,7 @@ int vtable_destroy( sqlite3_vtab *vtab )
             return r;
         }
         sqlite3_int64 table_id = 0;
-        if ( sqlite3_step(stmt) ) {
+        if ( sqlite3_step(stmt) == SQLITE_ROW ) {
             table_id = sqlite3_column_int64( stmt, 0 );
         }
         sqlite3_finalize(stmt);
@@ -640,7 +642,7 @@ int vtable_destroy( sqlite3_vtab *vtab )
 
 int vtable_disconnect( sqlite3_vtab *vtab )
 {
-    //    std::cout << "vtable_disconnect @" << vtab << std::endl;
+    std::cout << "vtable_disconnect sql@" << ((VTable*)vtab)->sql << " vtab@" << vtab << std::endl;
     if (vtab) {
         delete reinterpret_cast<VTable*>(vtab);
     }
@@ -655,7 +657,7 @@ int vtable_rename( sqlite3_vtab *vtab, const char *new_name )
 int vtable_bestindex( sqlite3_vtab *pvtab, sqlite3_index_info* index_info )
 {
     VTable *vtab = (VTable*)pvtab;
-    //std::cout << "vtable_bestindex" << std::endl;
+    std::cout << "vtable_bestindex sql@" << vtab->sql << " vtab@" << vtab << std::endl;
     for ( int i = 0; i < index_info->nConstraint; i++ ) {
         //std::cout << index_info->aConstraint[i].iColumn << " " << (int)index_info->aConstraint[i].op << std::endl;
         if ( (index_info->aConstraint[i].usable) &&
@@ -698,15 +700,16 @@ int vtable_bestindex( sqlite3_vtab *pvtab, sqlite3_index_info* index_info )
 
 int vtable_open( sqlite3_vtab *vtab, sqlite3_vtab_cursor **out_cursor )
 {
-    //    std::cout << "vtable_open @" << vtab << std::endl;
+    std::cout << "vtable_open @" << vtab;
     VTableCursor *ncursor = new VTableCursor((VTable*)vtab);
     *out_cursor = (sqlite3_vtab_cursor*)ncursor;
+    std::cout << " = " << *out_cursor << std::endl;
     return SQLITE_OK;
 }
 
 int vtable_close( sqlite3_vtab_cursor * cursor)
 {
-    //    std::cout << "vtable_close" << std::endl;
+    std::cout << "vtable_close vtab@" << cursor->pVtab << " cursor@" << cursor << std::endl;
     if ( cursor ) {
         delete reinterpret_cast<VTableCursor*>(cursor);
     }
@@ -715,7 +718,7 @@ int vtable_close( sqlite3_vtab_cursor * cursor)
 
 int vtable_filter( sqlite3_vtab_cursor * cursor, int idxNum, const char *idxStr, int argc, sqlite3_value **argv )
 {
-    //std::cout << "vtable_filter idxNum=" << idxNum << std::endl;
+    std::cout << "vtable_filter vtab@" << cursor->pVtab << " cursor@" << cursor << " idxNum=" << idxNum << std::endl;
     QgsFeatureRequest request;
     if ( idxNum == 1 ) {
         // id filter
@@ -820,7 +823,7 @@ static QCoreApplication* core_app = 0;
 extern "C" {
 void module_destroy( void * d )
 {
-    std::cout << "module destroy " << d << std::endl;
+    //    std::cout << "module destroy " << d << std::endl;
     delete reinterpret_cast<ModuleContext*>(d);
 
     if (core_app) {
@@ -838,7 +841,7 @@ int qgsvlayer_module_init(
   void * unused /*const sqlite3_api_routines *pApi*/
 )
 {
-    std::cout << "qgsvlayer_module_init" << std::endl;
+    //    std::cout << "qgsvlayer_module_init" << std::endl;
     int rc = SQLITE_OK;
 
     // check if qgis providers are loaded
@@ -874,7 +877,7 @@ int qgsvlayer_module_init(
     module.xRollbackTo = NULL;
 
     ModuleContext* context = new ModuleContext;
-    std::cout << "context = " << context << std::endl;
+    //std::cout << "context = " << context << std::endl;
     sqlite3_create_module_v2( db, "QgsVLayer", &module, context, module_destroy );
 
     return rc;
