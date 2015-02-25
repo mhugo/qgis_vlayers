@@ -93,6 +93,8 @@ void QgsVirtualLayerProvider::getSqliteFields( sqlite3* db, const QString& table
     }
 }
 
+int QgsVirtualLayerProvider::mNonce = 0;
+
 QgsVirtualLayerProvider::QgsVirtualLayerProvider( QString const &uri )
     : QgsVectorDataProvider( uri ),
       mValid( true )
@@ -245,7 +247,10 @@ QgsVirtualLayerProvider::QgsVirtualLayerProvider( QString const &uri )
     if ( mPath.isEmpty() ) {
         mTempFile.reset( new QTemporaryFile() );
         mTempFile->open();
-        mPath = mTempFile->fileName();
+        // The spatialite QGIS provider has a strange behaviour when the same filename is used, even after closing and re-opening (bug #12266)
+        // handles are not freed. It results in tables that are not found, because it is still pointing on an old version of the file (in memory ?)
+        // We then add something changing to the filename to make sure it is unique
+        mPath = mTempFile->fileName() + QString("%1").arg(mNonce++);
         mTempFile->close();
     }
 

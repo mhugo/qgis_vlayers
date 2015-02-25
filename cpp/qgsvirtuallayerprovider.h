@@ -226,6 +226,9 @@ class QgsVirtualLayerProvider: public QgsVectorDataProvider
 
     void getSqliteFields( sqlite3* db, const QString& table, QgsFields& fields, GeometryFields& gFields );
 
+    // nonce used for temporary file
+    static int mNonce;
+
 private slots:
     void onLayerDeleted();
 };

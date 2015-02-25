@@ -200,7 +200,7 @@ std::unique_ptr<QgsGeometry> spatialite_blob_to_qgsgeometry( const unsigned char
 
 void delete_geometry_blob( void * p )
 {
-    delete (unsigned char*)p;
+    delete[] (unsigned char*)p;
 }
 
 struct VTable
@@ -587,7 +587,7 @@ void db_init( sqlite3* db, ModuleContext* context )
 
 int vtable_create( sqlite3* sql, void* aux, int argc, const char* const* argv, sqlite3_vtab **out_vtab, char** out_err)
 {
-    std::cout << "vtable_create sql@" << sql << std::endl;
+    std::cout << "vtable_create sql@" << sql << " " << sqlite3_db_filename(sql, "main") << std::endl;
     try {
         db_init( sql, reinterpret_cast<ModuleContext*>(aux) );
     }
@@ -610,10 +610,10 @@ int vtable_connect( sqlite3* sql, void* aux, int argc, const char* const* argv, 
 
 int vtable_destroy( sqlite3_vtab *vtab )
 {
-    std::cout << "vtable_destroy sql@" << ((VTable*)vtab)->sql << " vtab@" << vtab << std::endl;
     if (vtab) {
 
         VTable* vtable = reinterpret_cast<VTable*>(vtab);
+        std::cout << "vtable_destroy sql@" << vtable->sql << " " << sqlite3_db_filename( vtable->sql, "main") << " vtab@" << vtab << " " << vtable->name().toUtf8().constData() << std::endl;
 
         QString query( "SELECT id FROM _tables WHERE name='" + vtable->name() + "'" );
         char *errMsg;
@@ -657,7 +657,7 @@ int vtable_rename( sqlite3_vtab *vtab, const char *new_name )
 int vtable_bestindex( sqlite3_vtab *pvtab, sqlite3_index_info* index_info )
 {
     VTable *vtab = (VTable*)pvtab;
-    std::cout << "vtable_bestindex sql@" << vtab->sql << " vtab@" << vtab << std::endl;
+    std::cout << "vtable_bestindex sql@" << vtab->sql << " " << sqlite3_db_filename(vtab->sql, "main")<< " vtab@" << vtab << std::endl;
     for ( int i = 0; i < index_info->nConstraint; i++ ) {
         //std::cout << index_info->aConstraint[i].iColumn << " " << (int)index_info->aConstraint[i].op << std::endl;
         if ( (index_info->aConstraint[i].usable) &&

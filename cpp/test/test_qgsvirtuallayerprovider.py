@@ -162,15 +162,14 @@ class TestQgsVirtualLayerProvider(TestCase):
         self.assertEqual( ref_sum, ref_sum3 )
 
         # the same, without geometry
-        query = QUrl.toPercentEncoding("SELECT * FROM vtab1")
-        l2 = QgsVectorLayer( "?layer_ref=%s&query=%s&uid=ObJeCtId&nogeometry" % (l1.id(), query), "vtab", "virtual", False )
+        query = QUrl.toPercentEncoding("SELECT * FROM ww")
+        l2 = QgsVectorLayer( "?layer_ref=%s:ww&query=%s&uid=ObJeCtId&nogeometry" % (l1.id(), query), "vtab", "virtual", False )
         self.assertEqual( l2.isValid(), True )
         self.assertEqual( l2.dataProvider().geometryType(), 100 ) # NoGeometry
         ref_sum2 = sum(f.attributes()[0] for f in l2.getFeatures())
         ref_sum3 = sum(f.id() for f in l2.getFeatures())
-        # FIXME
-        #self.assertEqual( ref_sum, ref_sum2 )
-        #self.assertEqual( ref_sum, ref_sum3 )
+        self.assertEqual( ref_sum, ref_sum2 )
+        self.assertEqual( ref_sum, ref_sum3 )
 
         # check that it fails when a query and no uid are specified
         query = QUrl.toPercentEncoding("SELECT * FROM vtab1")
@@ -355,6 +354,21 @@ class TestQgsVirtualLayerProvider(TestCase):
         QgsMapLayerRegistry.instance().removeMapLayer( l1.id() )
         # check that it does not crash
         print sum([f.id() for f in l2.getFeatures()])
+
+    def test_refLayers(self):
+        l1 = QgsVectorLayer( os.path.join(self.testDataDir_, "delimitedtext/test.csv") + "?type=csv&geomType=none&subsetIndex=no&watchFile=no", "test", "delimitedtext", False)
+        self.assertEqual( l1.isValid(), True )
+        QgsMapLayerRegistry.instance().addMapLayer(l1)
+        
+        # cf qgis bug #12266
+        for i in range(10):
+            q = QUrl.toPercentEncoding("select * from t" + str(i))
+            l2 = QgsVectorLayer( "?layer_ref=%s:t%d&query=%s&uid=id" % (l1.id(),i,q), "vtab", "virtual", False )
+            QgsMapLayerRegistry.instance().addMapLayer(l2)
+            self.assertEqual(l2.isValid(), True)
+            s = sum([f.id() for f in l2.dataProvider().getFeatures()])
+            self.assertEqual(sum([f.id() for f in l2.getFeatures()]), 21)
+            QgsMapLayerRegistry.instance().removeMapLayer(l2.id())
 
 if __name__ == '__main__':
     unittest.main()
