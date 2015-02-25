@@ -37,6 +37,9 @@ public:
     static QMainWindow* sMainApp;
 
     void addSource( const QString& name, const QString& source, const QString& provider );
+    void setQuery( const QString& q );
+    void setUid( const QString& uid );
+    void setGeometryColumn( const QString& uid );
 
 private slots:
     void on_buttonBox_accepted();

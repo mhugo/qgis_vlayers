@@ -14,6 +14,9 @@ public:
     VLayerPlugin( QgisInterface *iface );
     void initGui();
     void unload();
+
+    // type for parameter storage
+    typedef QList<QPair<QString, QString> > ParameterPairs;
 public slots:
     void onCreate();
     void onConvert();
@@ -24,8 +27,13 @@ private slots:
     void onLayerFilterFromMenu();
     void onLayerFilterFromContextMenu();
 private:
-    QgsVectorLayer* createVirtualLayer( QgsVectorLayer* vl );
-    void creationDialog( QList<QgsVectorLayer*> sourceLayers );
+    // return the virtual layer parameters for a set of vector layers
+    ParameterPairs createVirtualLayer( const QList<QgsVectorLayer*>& layers );
+
+    // create a virtual layer out of the passed layer insert it in the legend
+    void duplicateLayerToVirtual( QgsVectorLayer* vl );
+
+    void creationDialog( const ParameterPairs&  );
 
     QgisInterface* iface_;
     QAction* createAction_;

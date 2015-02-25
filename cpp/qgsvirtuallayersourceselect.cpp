@@ -58,6 +58,21 @@ void QgsVirtualLayerSourceSelect::addSource( const QString& name, const QString&
     mSourceLayers->setItem(n, 2, item );
 }
 
+void QgsVirtualLayerSourceSelect::setQuery( const QString& query )
+{
+    mQueryEdit->setPlainText( query );
+}
+
+void QgsVirtualLayerSourceSelect::setUid( const QString& uid )
+{
+    mUidField->setText( uid );
+}
+
+void QgsVirtualLayerSourceSelect::setGeometryColumn( const QString& geom )
+{
+    mGeometryField->setText( geom );
+}
+
 void QgsVirtualLayerSourceSelect::onAddSource()
 {
     QScopedPointer<QgsEmbeddedLayerSelectDialog> dlg( new QgsEmbeddedLayerSelectDialog( this, sMainApp ) );
@@ -148,19 +163,28 @@ QGISEXTERN QgsVirtualLayerSourceSelect *selectWidget( QWidget *parent, Qt::Windo
     return new QgsVirtualLayerSourceSelect( parent, fl );
 }
 
-QGISEXTERN QgsVirtualLayerSourceSelect *createWidget( QWidget *parent, Qt::WindowFlags fl, QList<QPair<QString, QString> > parameters )
+QGISEXTERN QgsVirtualLayerSourceSelect *createWidget( QWidget *parent, Qt::WindowFlags fl, const QList<QPair<QString, QString> >& parameters )
 {
     QgsVirtualLayerSourceSelect *w = new QgsVirtualLayerSourceSelect( parent, fl );
     QString name, source;
     for ( auto& p : parameters ) {
-        if (p.first == "name") {
+        if (p.first == "layer") {
             name = p.second;
         }
         else if (p.first == "source") {
-            source = p.second;
+            source = QUrl::fromPercentEncoding(p.second.toLocal8Bit());
         }
         else if (p.first == "provider") {
             w->addSource( name, source, p.second );
+        }
+        else if (p.first == "query") {
+            w->setQuery( QUrl::fromPercentEncoding(p.second.toLocal8Bit()) );
+        }
+        else if (p.first == "uid") {
+            w->setUid( p.second );
+        }
+        else if (p.first == "geometry") {
+            w->setGeometryColumn( p.second );
         }
     }
     return w;
