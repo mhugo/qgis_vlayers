@@ -43,8 +43,6 @@ private slots:
 
     void onAddSource();
     void onRemoveSource();
-    //    void onAddLinkedSource();
-    //    void onRemoveLinkedSource();
     void onAddField();
     void onRemoveField();
 

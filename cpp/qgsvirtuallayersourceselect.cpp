@@ -32,8 +32,6 @@ QgsVirtualLayerSourceSelect::QgsVirtualLayerSourceSelect( QWidget* parent, Qt::W
 
     QObject::connect( mAddSourceBtn, SIGNAL(clicked()), this, SLOT(onAddSource()) );
     QObject::connect( mRemoveSourceBtn, SIGNAL(clicked()), this, SLOT(onRemoveSource()) );
-    //QObject::connect( mAddLinkedSourceBtn, SIGNAL(clicked()), this, SLOT(onAddLinkedSource()) );
-    //QObject::connect( mRemoveLinkedSourceBtn, SIGNAL(clicked()), this, SLOT(onRemoveLinkedSource()) );
     QObject::connect( mAddFieldBtn, SIGNAL(clicked()), this, SLOT(onAddField()) );
     QObject::connect( mRemoveFieldBtn, SIGNAL(clicked()), this, SLOT(onRemoveField()) );
 }
@@ -71,29 +69,6 @@ void QgsVirtualLayerSourceSelect::onAddSource()
     addSource( dlg->getLocalName(), dlg->getSource(), dlg->getProvider() );
 }
 
-#if 0
-void QgsVirtualLayerSourceSelect::onAddLinkedSource()
-{
-    QScopedPointer<QgsLinkedLayerSelectDialog> dlg( new QgsLinkedLayerSelectDialog( this, sMainApp ) );
-    int r = dlg->exec();
-    if ( r == QDialog::Rejected ) {
-        return;
-    }
-
-    int n = mLinkedSourceLayers->rowCount() ? mLinkedSourceLayers->rowCount()-1 : 0;
-    mLinkedSourceLayers->insertRow(n);
-    QTableWidgetItem *item;
-
-    QgsVectorLayer* l = dlg->getLayer();
-    item = new QTableWidgetItem( dlg->getLocalName() );
-    mLinkedSourceLayers->setItem( n, 0, item );
-
-    item = new QTableWidgetItem( l->id() );
-    item->setFlags( item->flags() & ~Qt::ItemIsEditable ); // not editable
-    mLinkedSourceLayers->setItem( n, 1, item );
-}
-#endif
-
 void QgsVirtualLayerSourceSelect::onRemoveSource()
 {
     int n = mSourceLayers->currentRow();
@@ -102,17 +77,6 @@ void QgsVirtualLayerSourceSelect::onRemoveSource()
     }
     mSourceLayers->removeRow(n);
 }
-
-#if 0
-void QgsVirtualLayerSourceSelect::onRemoveLinkedSource()
-{
-    int n = mLinkedSourceLayers->currentRow();
-    if ( n == -1 ) {
-        return;
-    }
-    mLinkedSourceLayers->removeRow(n);
-}
-#endif
 
 void QgsVirtualLayerSourceSelect::onAddField()
 {
@@ -154,15 +118,7 @@ void QgsVirtualLayerSourceSelect::on_buttonBox_accepted()
                 .arg(mSourceLayers->item(i, 2)->text(), encodedSource, mSourceLayers->item(i,0)->text() );
             url.addQueryItem( "layer", v );
     }
-#if 0
-    // linked layers
-    for ( int i = 0; i < mLinkedSourceLayers->rowCount(); i++ ) {
-        // a referenced layer
-        QString v = QString("%1:%2").arg(mLinkedSourceLayers->item(i, 1)->text(), mLinkedSourceLayers->item(i,0)->text() );
-        QString vv( QUrl::toPercentEncoding(v, "", "%") );
-        url.addQueryItem( "layer_ref", vv );
-    }
-#endif
+
     // overloaded fields
     for ( int i = 0; i < mFields->rowCount(); i++ ) {
         QString name = mFields->item(i,0)->text();
