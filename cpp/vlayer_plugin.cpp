@@ -164,7 +164,6 @@ void VLayerPlugin::onCreate()
     QList<QgsVectorLayer*> selection;
     foreach( QgsMapLayer *l, iface_->layerTreeView()->selectedLayers() ) {
         if ( l && l->type() == QgsMapLayer::VectorLayer ) {
-            std::cout << "add " << l->name().toUtf8().constData() << " to selection" << std::endl;
             selection.append( static_cast<QgsVectorLayer*>(l) );
         }
     }
@@ -208,101 +207,117 @@ VLayerPlugin::ParameterPairs VLayerPlugin::createVirtualLayer( const QList<QgsVe
 {
     ParameterPairs params;
 
+    QList<const QgsVectorLayer*> layersInJoins;
+
+    // first pass on layers with joins
     foreach( const QgsVectorLayer* vl, layers ) {
+        if ( vl->vectorJoins().isEmpty() ) {
+            // skip non joined layers for now
+            continue;
+        }
+        // else mark it has joined
+        layersInJoins.append( vl );
 
-        if ( !vl->vectorJoins().isEmpty() ) {
-            QStringList columns, tables, wheres;
-            columns << "t.*";
-            int join_idx = 0;
-            for ( auto& join : vl->vectorJoins() ) {
-                // join name for the query
-                QString join_name = QString("j%1").arg(++join_idx);
+        QStringList columns, tables, wheres;
+        columns << "t.*";
+        int join_idx = 0;
+        for ( auto& join : vl->vectorJoins() ) {
+            // join name for the query
+            QString join_name = QString("j%1").arg(++join_idx);
 
-                // real layer name (to prefix joined field names)
-                QgsMapLayer* l = QgsMapLayerRegistry::instance()->mapLayer( join.joinLayerId );
-                if (!l || l->type() != QgsMapLayer::VectorLayer) {
-                    // shoudl not happen
-                    iface_->messageBar()->pushMessage( tr( "Layer not found" ),
-                                                       tr( "Unable to find the joined layer %1" ).arg(join.joinLayerId),
-                                                       QgsMessageBar::CRITICAL );
-                    return ParameterPairs();
+            // real layer name (to prefix joined field names)
+            QgsMapLayer* l = QgsMapLayerRegistry::instance()->mapLayer( join.joinLayerId );
+            if (!l || l->type() != QgsMapLayer::VectorLayer) {
+                // shoudl not happen
+                iface_->messageBar()->pushMessage( tr( "Layer not found" ),
+                                                   tr( "Unable to find the joined layer %1" ).arg(join.joinLayerId),
+                                                   QgsMessageBar::CRITICAL );
+                return ParameterPairs();
+            }
+            QgsVectorLayer* joined_layer = static_cast<QgsVectorLayer*>(l);
+            // mark it
+            layersInJoins.append( joined_layer );
+
+            tables << join_name;
+
+            // is there a subset of joined fields ?
+            if ( join.joinFieldNamesSubset() ) {
+                for ( auto& f : *join.joinFieldNamesSubset() ) {
+                    columns << join_name + "." + f + " AS " + joined_layer->name() + "_" + f;
                 }
-                QgsVectorLayer* joined_layer = static_cast<QgsVectorLayer*>(l);
-
-                tables << join_name;
-
-                // is there a subset of joined fields ?
-                if ( join.joinFieldNamesSubset() ) {
-                    for ( auto& f : *join.joinFieldNamesSubset() ) {
-                        columns << join_name + "." + f + " AS " + joined_layer->name() + "_" + f;
-                    }
+            }
+            else {
+                const QgsFields& joined_fields = joined_layer->dataProvider()->fields();
+                for ( int i = 0; i < joined_fields.count(); i++ ) {
+                    const QgsField& f = joined_fields.field(i);
+                    columns << join_name + "." + f.name() + " AS " + joined_layer->name() + "_" + f.name();
                 }
-                else {
-                    const QgsFields& joined_fields = joined_layer->dataProvider()->fields();
-                    for ( int i = 0; i < joined_fields.count(); i++ ) {
-                        const QgsField& f = joined_fields.field(i);
-                        columns << join_name + "." + f.name() + " AS " + joined_layer->name() + "_" + f.name();
-                    }
-                }
-
-                wheres << "t." + join.targetFieldName + "=" + join_name + "." + join.joinFieldName;
-
-                // add reference to the joined layer
-                params.append( qMakePair( QString("layer"), join_name ) );
-                params.append( qMakePair( QString("source"), QString(QUrl::toPercentEncoding(joined_layer->source(), VLAYER_CHAR_ESCAPING)) ) );
-                params.append( qMakePair( QString("provider"), joined_layer->providerType() ) );
             }
 
-            // find uid column if any
-            QString pk_field;
-            const QgsFields& fields = vl->dataProvider()->fields();
-            {
-                auto pk = const_cast<QgsVectorLayer*>(vl)->dataProvider()->pkAttributeIndexes();
-                if ( pk.size() == 1 ) {
-                    pk_field = fields.field(pk[0]).name();
-                }
-                else {
-                    // find an uid name
-                    pk_field = "uid";
-                    {
-                        bool uid_exists;
-                        do {
-                            uid_exists = false;
-                            for ( int i = 0; i < fields.count(); i++ ) {
-                                if ( fields.field(i).name() == pk_field ) {
-                                    pk_field += "_";
-                                    uid_exists = true;
-                                    break;
-                                }
+            wheres << "t." + join.targetFieldName + "=" + join_name + "." + join.joinFieldName;
+
+            // add reference to the joined layer
+            params.append( qMakePair( QString("layer"), join_name ) );
+            params.append( qMakePair( QString("source"), QString(QUrl::toPercentEncoding(joined_layer->source(), VLAYER_CHAR_ESCAPING)) ) );
+            params.append( qMakePair( QString("provider"), joined_layer->providerType() ) );
+        }
+
+        // find uid column if any
+        QString pk_field;
+        const QgsFields& fields = vl->dataProvider()->fields();
+        {
+            auto pk = const_cast<QgsVectorLayer*>(vl)->dataProvider()->pkAttributeIndexes();
+            if ( pk.size() == 1 ) {
+                pk_field = fields.field(pk[0]).name();
+            }
+            else {
+                // find an uid name
+                pk_field = "uid";
+                {
+                    bool uid_exists;
+                    do {
+                        uid_exists = false;
+                        for ( int i = 0; i < fields.count(); i++ ) {
+                            if ( fields.field(i).name() == pk_field ) {
+                                pk_field += "_";
+                                uid_exists = true;
+                                break;
                             }
-                        } while (uid_exists);
-                    }
-                    // add a column
-                    columns << "t.rowid AS " + pk_field;
+                        }
+                    } while (uid_exists);
                 }
+                // add a column
+                columns << "t.rowid AS " + pk_field;
             }
-
-            // QGIS joins are pseudo left joins
-            QString left_joins;
-            for ( int i = 0; i < tables.size(); i++ ) {
-                left_joins += " LEFT JOIN " + tables[i] + " ON " + wheres[i];
-            }
-
-            params.append( qMakePair( QString("query"), "SELECT " + columns.join(",") + " FROM t" + left_joins ) );
-            params.append( qMakePair( QString("uid"), pk_field ) );
-            params.append( qMakePair( QString("geometry"), QString("geometry") ) );
-            QString source = QUrl::toPercentEncoding(vl->source(), "", VLAYER_CHAR_ESCAPING);
-            params.append( qMakePair( QString("layer"), QString("t") ) );
-            params.append( qMakePair( QString("source"), source ) );
-            params.append( qMakePair( QString("provider"), vl->providerType() ) );
         }
-        else {
-            QString source = QUrl::toPercentEncoding(vl->source(), "", VLAYER_CHAR_ESCAPING);
-            params.append( qMakePair( QString("layer"), vl->name() ) );
-            params.append( qMakePair( QString("source"), source ) );
-            params.append( qMakePair( QString("provider"), vl->providerType() ) );
+
+        // QGIS joins are pseudo left joins
+        QString left_joins;
+        for ( int i = 0; i < tables.size(); i++ ) {
+            left_joins += " LEFT JOIN " + tables[i] + " ON " + wheres[i];
         }
+
+        params.append( qMakePair( QString("query"), "SELECT " + columns.join(",") + " FROM t" + left_joins ) );
+        params.append( qMakePair( QString("uid"), pk_field ) );
+        params.append( qMakePair( QString("geometry"), QString("geometry") ) );
+        QString source = QUrl::toPercentEncoding(vl->source(), "", VLAYER_CHAR_ESCAPING);
+        params.append( qMakePair( QString("layer"), QString("t") ) );
+        params.append( qMakePair( QString("source"), source ) );
+        params.append( qMakePair( QString("provider"), vl->providerType() ) );
     }
+
+    // second pass on layers without joins
+    foreach( const QgsVectorLayer* vl, layers ) {
+        if ( layersInJoins.contains( vl ) ) {
+            // skip if it has already been added
+            continue;
+        }
+        QString source = QUrl::toPercentEncoding(vl->source(), "", VLAYER_CHAR_ESCAPING);
+        params.append( qMakePair( QString("layer"), vl->name() ) );
+        params.append( qMakePair( QString("source"), source ) );
+        params.append( qMakePair( QString("provider"), vl->providerType() ) );
+    }
+
     return params;
 }
 
