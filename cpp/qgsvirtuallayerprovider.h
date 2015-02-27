@@ -17,8 +17,11 @@ email                : hugo dot mercier at oslandia dot com
 #ifndef QGSVIRTUAL_LAYER_PROVIDER_H
 #define QGSVIRTUAL_LAYER_PROVIDER_H
 
-#include <qgsvectordataprovider.h>
 #include <QTemporaryFile>
+
+#include <qgsvectordataprovider.h>
+
+#include "qgsvirtuallayerdefinition.h"
 
 #include "spatialite/qgsspatialiteprovider.h"
 #include "spatialite/qgsspatialiteconnection.h"
@@ -202,11 +205,6 @@ class QgsVirtualLayerProvider: public QgsVectorDataProvider
 
     bool mValid;
 
-    // final query
-    QString mQuery;
-    // column name used for unique id
-    QString mUid;
-
     // the underlying spatialite provider
     QScopedPointer<QgsSpatiaLiteProvider> mSpatialite;
 
@@ -218,16 +216,18 @@ class QgsVirtualLayerProvider: public QgsVectorDataProvider
     struct GeometryField
     {
         QString name;
-        long wkbType;
-        long srid;
+        int wkbType;
     };
-    typedef QVector<GeometryField> GeometryFields;
-    GeometryFields mGeometryFields;
-
+    typedef QList<GeometryField> GeometryFields;
     void getSqliteFields( sqlite3* db, const QString& table, QgsFields& fields, GeometryFields& gFields );
 
     // nonce used for temporary file
     static int mNonce;
+
+    QgsVirtualLayerDefinition mDefinition;
+
+    void resetSqlite();
+    void readSqlite();
 
 private slots:
     void onLayerDeleted();

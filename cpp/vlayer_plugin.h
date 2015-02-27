@@ -19,7 +19,7 @@ public:
     typedef QList<QPair<QString, QString> > ParameterPairs;
 public slots:
     void onCreate();
-    void onConvert();
+    void onAdd();
 private slots:
     void addVectorLayer( const QString& source, const QString& name, const QString& provider );
     void onContextMenu( const QPoint& );
@@ -37,7 +37,7 @@ private:
 
     QgisInterface* iface_;
     QAction* createAction_;
-    QAction* convertAction_;
+    QAction* addAction_;
     QAction* origFilterAction_;
     QAction* origLayerMenuAction_;
 

@@ -1,5 +1,6 @@
 <RCC>
     <qresource prefix="/vlayer/" >
-        <file alias="vlayer.svg">vlayer.svg</file>
+        <file alias="vlayer_new.svg">vlayer_new.svg</file>
+        <file alias="vlayer_add.svg">vlayer_add.svg</file>
     </qresource>
 </RCC>

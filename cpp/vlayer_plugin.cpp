@@ -50,14 +50,16 @@ VLayerPlugin::VLayerPlugin( QgisInterface *iface ) :
 
 void VLayerPlugin::initGui()
 {
-    createAction_ = new QAction( QIcon( ":/vlayer/vlayer.svg" ), tr( "New virtual layer" ), this );
-    //    convertAction_ = new QAction( QIcon( ":/vlayer/vlayer.svg" ), tr( "Convert to virtual layer" ), this );
+    createAction_ = new QAction( QIcon( ":/vlayer/vlayer_new.svg" ), tr( "New virtual layer" ), this );
+    addAction_ = new QAction( QIcon( ":/vlayer/vlayer_add.svg" ), tr( "Add virtual layer" ), this );
 
     iface_->newLayerMenu()->addAction( createAction_ );
-    //    iface_->layerToolBar()->addAction( convertAction_ );
+    iface_->addLayerMenu()->addAction( addAction_ );
+
+    iface_->layerToolBar()->addAction( createAction_ );
+    iface_->layerToolBar()->addAction( addAction_ );
 
     connect( createAction_, SIGNAL( triggered() ), this, SLOT( onCreate() ) );
-    //    connect( convertAction_, SIGNAL( triggered() ), this, SLOT( onConvert() ) );
 
     // override context menu
     iface_->layerTreeView()->setContextMenuPolicy( Qt::CustomContextMenu );
@@ -104,6 +106,9 @@ void VLayerPlugin::onContextMenu( const QPoint& pos )
             menu->insertAction( action, myAction );
             // make the old one invisible (do not remove it, we still need it)
             origFilterAction_->setVisible(false);
+
+            // add the "create virtual layer" action
+            menu->insertAction( action, createAction_ );
             break;
         }
     }
@@ -350,10 +355,6 @@ void VLayerPlugin::duplicateLayerToVirtual( QgsVectorLayer* vl )
     }
     QgsVectorLayer* nl = static_cast<QgsVectorLayer*>(QgsMapLayerRegistry::instance()->addMapLayer(new_vl.take()));
     iface_->layerTreeView()->setCurrentLayer( nl );
-}
-
-void VLayerPlugin::onConvert()
-{
 }
 
 void VLayerPlugin::addVectorLayer( const QString& source, const QString& name, const QString& provider )
