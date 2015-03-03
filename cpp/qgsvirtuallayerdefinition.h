@@ -91,4 +91,6 @@ private:
 
 int geometry_type_to_wkb_type( const QString& wkb_str );
 
+QgsVirtualLayerDefinition virtualLayerDefinitionFromSqlite( const QString& path );
+
 #endif

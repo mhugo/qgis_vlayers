@@ -18,9 +18,13 @@ email                : hugo dot mercier at oslandia dot com
 
 #include "qgsvirtuallayersourceselect.h"
 #include "qgsembeddedlayerselectdialog.h"
+#include "qgsvirtuallayerdefinition.h"
 
 #include <QUrl>
 #include <QMainWindow>
+#include <QSettings>
+#include <QFileInfo>
+#include <QFileDialog>
 
 #include <qgsmaplayerregistry.h>
 #include <qgsvectorlayer.h>
@@ -34,6 +38,7 @@ QgsVirtualLayerSourceSelect::QgsVirtualLayerSourceSelect( QWidget* parent, Qt::W
     QObject::connect( mRemoveSourceBtn, SIGNAL(clicked()), this, SLOT(onRemoveSource()) );
     QObject::connect( mAddFieldBtn, SIGNAL(clicked()), this, SLOT(onAddField()) );
     QObject::connect( mRemoveFieldBtn, SIGNAL(clicked()), this, SLOT(onRemoveField()) );
+    QObject::connect( mBrowseBtn, SIGNAL(clicked()), this, SLOT(onBrowse()) );
 }
 
 QgsVirtualLayerSourceSelect::~QgsVirtualLayerSourceSelect()
@@ -71,6 +76,11 @@ void QgsVirtualLayerSourceSelect::setUid( const QString& uid )
 void QgsVirtualLayerSourceSelect::setGeometryColumn( const QString& geom )
 {
     mGeometryField->setText( geom );
+}
+
+void QgsVirtualLayerSourceSelect::setFilename( const QString& filename )
+{
+    mFilename->setText( filename );
 }
 
 void QgsVirtualLayerSourceSelect::onAddSource()
@@ -118,6 +128,23 @@ void QgsVirtualLayerSourceSelect::onRemoveField()
     mFields->removeRow(n);
 }
 
+void QgsVirtualLayerSourceSelect::onBrowse()
+{
+    QSettings settings;
+    QString lastUsedDir = settings.value( "/UI/lastVirtualLayerDir", "." ).toString();
+    QString filename = QFileDialog::getSaveFileName( 0, tr( "Open a virtual layer" ),
+                                                     lastUsedDir,
+                                                     tr( "Virtual layer" ) + " (*.qgl *.sqlite)" );
+    if ( filename.isEmpty() ) {
+        return;
+    }
+
+    QFileInfo info( filename );
+    settings.setValue( "/UI/lastVirtualLayerDir", info.path() );
+
+    mFilename->setText( filename );
+}
+
 void QgsVirtualLayerSourceSelect::on_buttonBox_accepted()
 {
     QString layer_name = "virtual_layer";
@@ -155,12 +182,10 @@ void QgsVirtualLayerSourceSelect::on_buttonBox_accepted()
     else if ( ! mGeometryField->text().isEmpty() ) {
         url.addQueryItem( "geometry", mGeometryField->text() );
     }
+    if ( ! mFilename->text().isEmpty() ) {
+        url.setPath( mFilename->text() );
+    }
     emit addVectorLayer( url.toString(), layer_name, "virtual" );
-}
-
-QGISEXTERN QgsVirtualLayerSourceSelect *selectWidget( QWidget *parent, Qt::WindowFlags fl )
-{
-    return new QgsVirtualLayerSourceSelect( parent, fl );
 }
 
 QGISEXTERN QgsVirtualLayerSourceSelect *createWidget( QWidget *parent, Qt::WindowFlags fl, const QList<QPair<QString, QString> >& parameters )
@@ -168,7 +193,25 @@ QGISEXTERN QgsVirtualLayerSourceSelect *createWidget( QWidget *parent, Qt::Windo
     QgsVirtualLayerSourceSelect *w = new QgsVirtualLayerSourceSelect( parent, fl );
     QString name, source;
     for ( auto& p : parameters ) {
-        if (p.first == "layer") {
+        if ((p.first == "fromUrl") || (p.first == "fromFile")) {
+            QgsVirtualLayerDefinition def;
+            if (p.first == "fromUrl") {
+                QUrl url( QUrl::fromEncoded( p.second.toLocal8Bit() ) );
+                def.fromUrl( url );
+            }
+            else {
+                def = virtualLayerDefinitionFromSqlite( p.second );
+            }
+            w->setQuery( def.query() );
+            w->setUid( def.uid() );
+            w->setGeometryColumn( def.geometryField() );
+            for ( auto& l : def.sourceLayers() ) {
+                w->addSource( l.name(), l.source(), l.provider() );
+            }
+            w->setFilename( def.uri() );
+            break;
+        }
+        else if (p.first == "layer") {
             name = p.second;
         }
         else if (p.first == "source") {
@@ -185,6 +228,9 @@ QGISEXTERN QgsVirtualLayerSourceSelect *createWidget( QWidget *parent, Qt::Windo
         }
         else if (p.first == "geometry") {
             w->setGeometryColumn( p.second );
+        }
+        else if (p.first == "file") {
+            w->setFilename( p.second );
         }
     }
     return w;

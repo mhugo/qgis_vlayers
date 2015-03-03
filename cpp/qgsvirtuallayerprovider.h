@@ -26,6 +26,8 @@ email                : hugo dot mercier at oslandia dot com
 #include "spatialite/qgsspatialiteprovider.h"
 #include "spatialite/qgsspatialiteconnection.h"
 
+#include "common.h"
+
 class QgsVirtualLayerProvider: public QgsVectorDataProvider
 {
   Q_OBJECT public:
@@ -177,14 +179,7 @@ class QgsVirtualLayerProvider: public QgsVectorDataProvider
     // file on disk
     QString mPath;
 
-    // custom deleter for QgsSqliteHandle
-    struct SqliteHandleDeleter
-    {
-        static void inline cleanup(sqlite3* handle) {
-            sqlite3_close(handle);
-        }
-    };
-    QScopedPointer<sqlite3, SqliteHandleDeleter> mSqlite;
+    QgsScopedSqlite mSqlite;
 
     // underlying vector layers
     struct SourceLayer
@@ -227,7 +222,6 @@ class QgsVirtualLayerProvider: public QgsVectorDataProvider
     QgsVirtualLayerDefinition mDefinition;
 
     void resetSqlite();
-    void readSqlite();
 
 private slots:
     void onLayerDeleted();

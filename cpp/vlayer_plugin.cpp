@@ -13,6 +13,8 @@
 #include <QUrl>
 #include <QCoreApplication>
 #include <QMessageBox>
+#include <QSettings>
+#include <QFileDialog>
 
 #include <qgsmaplayer.h>
 #include <qgsvectorlayer.h>
@@ -51,10 +53,15 @@ VLayerPlugin::VLayerPlugin( QgisInterface *iface ) :
 void VLayerPlugin::initGui()
 {
     createAction_ = new QAction( QIcon( ":/vlayer/vlayer_new.svg" ), tr( "New virtual layer" ), this );
-    addAction_ = new QAction( QIcon( ":/vlayer/vlayer_add.svg" ), tr( "Add virtual layer" ), this );
+    addAction_ = new QAction( QIcon( ":/vlayer/vlayer_add.svg" ), tr( "Add a virtual layer" ), this );
+    connect( addAction_, SIGNAL(triggered()), this, SLOT(onAddLayer()) );
+
+    settingsAction_ = new QAction(tr( "Virtual layer settings" ), this);
+    connect( settingsAction_, SIGNAL(triggered()), this, SLOT(onLayerSettings()) );
 
     iface_->newLayerMenu()->addAction( createAction_ );
     iface_->addLayerMenu()->addAction( addAction_ );
+    iface_->layerMenu()->addAction( settingsAction_ );
 
     iface_->layerToolBar()->addAction( createAction_ );
     iface_->layerToolBar()->addAction( addAction_ );
@@ -109,6 +116,13 @@ void VLayerPlugin::onContextMenu( const QPoint& pos )
 
             // add the "create virtual layer" action
             menu->insertAction( action, createAction_ );
+
+            // add the "virtual layer settings" action
+            if ( iface_->activeLayer() &&
+                 iface_->activeLayer()->type() == QgsMapLayer::VectorLayer &&
+                 static_cast<QgsVectorLayer*>(iface_->activeLayer())->providerType() == "virtual" ) {
+                menu->insertAction( action, settingsAction_ );
+            }
             break;
         }
     }
@@ -178,9 +192,30 @@ void VLayerPlugin::onCreate()
     creationDialog( params );
 }
 
+void VLayerPlugin::onLayerSettings()
+{
+    ParameterPairs params;
+    if ( iface_->activeLayer() &&
+         iface_->activeLayer()->type() == QgsMapLayer::VectorLayer &&
+         static_cast<QgsVectorLayer*>(iface_->activeLayer())->providerType() == "virtual" ) {
+        QString source = iface_->activeLayer()->source();
+        QUrl url( QUrl::fromEncoded( source.toLocal8Bit() ) );
+        if (url.path().isEmpty()) {
+            // temporary layer
+            params.append( qMakePair(QString("fromUrl"), source) );
+            creationDialog( params, /*replaceMode*/ true );
+        }
+        else {
+            // layer on disk
+            params.append( qMakePair(QString("fromFile"), url.path()) );
+            creationDialog( params, /*replaceMode*/ true );
+        }
+    }
+}
+
 typedef QDialog * creationFunction_t( QWidget * parent, Qt::WindowFlags fl, const VLayerPlugin::ParameterPairs& );
 
-void VLayerPlugin::creationDialog( const ParameterPairs& params )
+void VLayerPlugin::creationDialog( const ParameterPairs& params, bool replaceMode )
 {
     creationFunction_t* fun = (creationFunction_t*)(QgsProviderRegistry::instance()->function( "virtual", "createWidget" ));
     QScopedPointer<QDialog> ss( fun( iface_->mainWindow(), QgisGui::ModalDialogFlags, params ) );
@@ -188,9 +223,28 @@ void VLayerPlugin::creationDialog( const ParameterPairs& params )
         return;
     }
 
+    mReplaceMode = replaceMode;
     connect( ss.data(), SIGNAL( addVectorLayer( QString const &, QString const &, QString const & ) ),
-             this, SLOT( addVectorLayer( QString const &, QString const &, QString const & ) ) );
+                 this, SLOT( addVectorLayer( QString const &, QString const &, QString const & ) ) );
     ss->exec();
+}
+
+void VLayerPlugin::onAddLayer()
+{
+    QSettings settings;
+    QString lastUsedDir = settings.value( "/UI/lastVirtualLayerDir", "." ).toString();
+    QString filename = QFileDialog::getOpenFileName( 0, tr( "Open a virtual layer" ),
+                                                     lastUsedDir,
+                                                     tr( "Virtual layer" ) + " (*.qgl *.sqlite)" );
+    if ( filename.isEmpty() ) {
+        return;
+    }
+    QFileInfo info( filename );
+    settings.setValue( "/UI/lastVirtualLayerDir", info.path() );
+
+    // add the new layer
+    QScopedPointer<QgsVectorLayer> l( new QgsVectorLayer( filename, info.baseName(), "virtual" ) );
+    QgsMapLayerRegistry::instance()->addMapLayer( l.take() );
 }
 
 void copy_layer_symbology( const QgsVectorLayer* source, QgsVectorLayer* dest )
@@ -361,7 +415,30 @@ void VLayerPlugin::addVectorLayer( const QString& source, const QString& name, c
 {
     QgsVectorLayer* l = new QgsVectorLayer( source, name, provider, false );
     if ( l && l->isValid() ) {
-        QgsMapLayerRegistry::instance()->addMapLayer( l );
+        if (!mReplaceMode) {
+            QgsMapLayerRegistry::instance()->addMapLayer( l );
+        }
+        else {
+            QgsMapLayerRegistry::instance()->addMapLayer( l, /*addToLegend*/ false, /*takeOwnership*/ false );
+            // replace the current layer
+            QgsVectorLayer* current = static_cast<QgsVectorLayer*>(iface_->activeLayer());
+            // copy symbology
+            copy_layer_symbology( current, l );
+            // look for the current layer
+            QgsLayerTreeLayer* in_tree = QgsProject::instance()->layerTreeRoot()->findLayer( current->id() );
+            int idx = 0;
+            for ( auto& vl : in_tree->parent()->children() ) {
+                if ( vl->nodeType() == QgsLayerTreeNode::NodeLayer && static_cast<QgsLayerTreeLayer*>(vl)->layer() == current ) {
+                    break;
+                }
+                idx++;
+            }
+            // insert the new layer
+            QgsLayerTreeGroup* parent = static_cast<QgsLayerTreeGroup*>(in_tree->parent()) ? static_cast<QgsLayerTreeGroup*>(in_tree->parent()) : QgsProject::instance()->layerTreeRoot();
+            parent->insertLayer( idx, l );
+            // remove the current layer
+            parent->removeLayer( current );
+        }
     }
     else {
         QString msg = tr( "The layer %1 is not a valid layer and can not be added to the map" ).arg( source );

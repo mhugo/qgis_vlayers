@@ -235,7 +235,7 @@ struct VTable
 
     VTable( sqlite3* db, const QString& provider, const QString& source, const QString& name ) : sql(db), pk_column_(-1), zErrMsg(0), name_(name)
     {
-        //std::cout << "source=" << source.toLocal8Bit().constData() << " name=" << name.toLocal8Bit().constData() << " provider=" << provider.toLocal8Bit().constData() << std::endl;
+        std::cout << "source=" << source.toLocal8Bit().constData() << " name=" << name.toLocal8Bit().constData() << " provider=" << provider.toLocal8Bit().constData() << std::endl;
         provider_ = static_cast<QgsVectorDataProvider*>(QgsProviderRegistry::instance()->provider( provider, source ));
         if ( provider_ == 0 || !provider_->isValid() ) {
             throw std::runtime_error( "Invalid provider" );
@@ -500,8 +500,10 @@ int vtable_create_connect( sqlite3* sql, void* aux, int argc, const char* const*
                 return r;
             }
             sqlite3_bind_text( table_creation_stmt, 1, argv[2], strlen(argv[2]), SQLITE_TRANSIENT );
-            sqlite3_bind_text( table_creation_stmt, 2, argv[4], strlen(argv[4]), SQLITE_TRANSIENT );
-            sqlite3_bind_text( table_creation_stmt, 3, argv[3], strlen(argv[3]), SQLITE_TRANSIENT );
+            QByteArray sba( source.toLocal8Bit() );
+            QByteArray pba( provider.toLocal8Bit() );
+            sqlite3_bind_text( table_creation_stmt, 2, sba.constData(), sba.size(), SQLITE_TRANSIENT );
+            sqlite3_bind_text( table_creation_stmt, 3, pba.constData(), pba.size(), SQLITE_TRANSIENT );
         }
     }
 

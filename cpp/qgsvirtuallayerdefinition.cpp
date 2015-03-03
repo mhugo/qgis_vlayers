@@ -4,6 +4,7 @@
 #include <iostream>
 
 #include "qgsvirtuallayerdefinition.h"
+#include "common.h"
 
 int geometry_type_to_wkb_type( const QString& wkb_str )
 {
@@ -125,4 +126,75 @@ void QgsVirtualLayerDefinition::fromUrl( const QUrl& url )
             mQuery = QUrl::fromPercentEncoding(value.toLocal8Bit());
         }
     }
+}
+
+QgsVirtualLayerDefinition virtualLayerDefinitionFromSqlite( const QString& path )
+{
+    QgsVirtualLayerDefinition def;
+    QgsScopedSqlite sqlite = Sqlite::open( path );
+
+    def.setURI( path );
+
+    QgsFields forcedFields;
+    {
+        SqliteQuery q( sqlite.get(), "SELECT name FROM sqlite_master WHERE name='_meta' OR name='_tables' OR name='_columns'" );
+        int cnt = 0;
+        while ( q.step() == SQLITE_ROW ) {
+            cnt++;
+        }
+        if ( cnt != 3 ) {
+            throw std::runtime_error( "No metadata tables !" );
+        }
+    }
+    // look for the correct version
+    {
+        SqliteQuery q( sqlite.get(), "SELECT version FROM _meta" );
+        int version = 0;
+        if (q.step() == SQLITE_ROW) {
+            version = sqlite3_column_int( q.stmt(), 0 );
+        }
+        if (version != VIRTUAL_LAYER_VERSION) {
+            throw std::runtime_error( "Bad virtual layer version !" );
+        }
+    }
+    // look for a query, if any
+    {
+        SqliteQuery q( sqlite.get(), "SELECT id, name, source, provider FROM _tables" );
+        while ( q.step() == SQLITE_ROW ) {
+            int id = sqlite3_column_int( q.stmt(), 0 );
+            if ( id == 0 ) { // query
+                def.setQuery( (const char*)sqlite3_column_text( q.stmt(), 2 ) );
+                // name stores the UID field, if any
+                def.setUid( (const char*)sqlite3_column_text( q.stmt(), 1 ) );
+            }
+            else {
+                def.addSource( (const char*)sqlite3_column_text( q.stmt(), 1 ),
+                                       (const char*)sqlite3_column_text( q.stmt(), 2 ),
+                                       (const char*)sqlite3_column_text( q.stmt(), 3 ) );
+            }
+        }
+    }
+    // look for field overloaded types and geometry
+    {
+        SqliteQuery q( sqlite.get(), "SELECT name, type FROM _columns WHERE table_id=0" );
+        while ( q.step() == SQLITE_ROW ) {
+            QString colname( (const char*)sqlite3_column_text( q.stmt(), 0 ) );
+            QString coltype( (const char*)sqlite3_column_text( q.stmt(), 1 ) );
+            if ( coltype.contains(':') ) {
+                // geometry field
+                if ( coltype.left(2) == "no" ) {
+                    def.setGeometryField( "*no*" );
+                }
+                else {
+                    def.setGeometryField( colname );
+                }
+            }
+            else {
+                QVariant::Type t = QVariant::nameToType( coltype.toLocal8Bit().constData() );
+                forcedFields.append( QgsField( colname, t, coltype ) );
+            }
+        }
+    }
+    def.setOverridenFields( forcedFields );
+    return def;
 }

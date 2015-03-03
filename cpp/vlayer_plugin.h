@@ -26,6 +26,8 @@ private slots:
     void onLayerFilter();
     void onLayerFilterFromMenu();
     void onLayerFilterFromContextMenu();
+    void onLayerSettings();
+    void onAddLayer();
 private:
     // return the virtual layer parameters for a set of vector layers
     ParameterPairs createVirtualLayer( const QList<QgsVectorLayer*>& layers );
@@ -33,13 +35,16 @@ private:
     // create a virtual layer out of the passed layer insert it in the legend
     void duplicateLayerToVirtual( QgsVectorLayer* vl );
 
-    void creationDialog( const ParameterPairs&  );
+    void creationDialog( const ParameterPairs&, bool replaceMode = false );
 
     QgisInterface* iface_;
     QAction* createAction_;
     QAction* addAction_;
     QAction* origFilterAction_;
     QAction* origLayerMenuAction_;
+    QAction* settingsAction_;
 
     QgsLayerTreeViewMenuProvider* origMenuProvider_;
+
+    bool mReplaceMode;
 };

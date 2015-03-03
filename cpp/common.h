@@ -5,7 +5,35 @@ extern "C" {
 #include <sqlite3.h>
 }
 
+#include <memory>
+
 #define VIRTUAL_LAYER_VERSION 1
+
+// custom deleter for QgsSqliteHandle
+struct SqliteHandleDeleter
+{
+    void operator()(sqlite3* handle) {
+        sqlite3_close(handle);
+    }
+};
+
+typedef std::unique_ptr<sqlite3, SqliteHandleDeleter> QgsScopedSqlite;
+
+struct Sqlite
+{
+    static QgsScopedSqlite open( const QString& path )
+    {
+        QgsScopedSqlite sqlite;
+        int r;
+        sqlite3* db;
+        r = sqlite3_open( path.toLocal8Bit().constData(), &db );
+        if (r) {
+            throw std::runtime_error( sqlite3_errmsg(db) );
+        }
+        sqlite.reset(db);
+        return sqlite;
+    };
+};
 
 struct SqliteQuery
 {

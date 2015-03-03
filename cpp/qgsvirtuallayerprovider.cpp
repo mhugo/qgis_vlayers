@@ -112,16 +112,16 @@ QgsVirtualLayerProvider::QgsVirtualLayerProvider( QString const &uri )
         return;
     }
 
-    QString path = mDefinition.uri();
-    bool openIt = mDefinition.sourceLayers().empty() && !path.isEmpty() && mDefinition.query().isEmpty();
+    mPath = mDefinition.uri();
+    bool openIt = mDefinition.sourceLayers().empty() && !mPath.isEmpty() && mDefinition.query().isEmpty();
     // use a temporary file if needed
-    if ( path.isEmpty() ) {
+    if ( mPath.isEmpty() ) {
         mTempFile.reset( new QTemporaryFile() );
         mTempFile->open();
         // The spatialite QGIS provider has a strange behaviour when the same filename is used, even after closing and re-opening (bug #12266)
         // handles are not freed. It results in tables that are not found, because it is still pointing on an old version of the file (in memory ?)
         // We then add something changing to the filename to make sure it is unique
-        path = mTempFile->fileName() + QString("%1").arg(mNonce++);
+        mPath = mTempFile->fileName() + QString("%1").arg(mNonce++);
         mTempFile->close();
     }
 
@@ -129,7 +129,7 @@ QgsVirtualLayerProvider::QgsVirtualLayerProvider( QString const &uri )
 
     sqlite3* db;
     // open and create if it does not exist
-    int r = sqlite3_open( path.toUtf8().constData(), &db );
+    int r = sqlite3_open( mPath.toUtf8().constData(), &db );
     if ( r ) {
         mValid = false;
         PROVIDER_ERROR( QString( sqlite3_errmsg(db) ) );
@@ -142,7 +142,7 @@ QgsVirtualLayerProvider::QgsVirtualLayerProvider( QString const &uri )
 
     if ( openIt ) {
         // fill mDefinition with information from the sqlite file
-        readSqlite();
+        mDefinition = virtualLayerDefinitionFromSqlite( mPath );
         // check geometry field
         {
             SqliteQuery q( db, "SELECT * FROM virts_geometry_columns" );
@@ -188,13 +188,13 @@ QgsVirtualLayerProvider::QgsVirtualLayerProvider( QString const &uri )
                 QString vname = mLayers.at(i).name;
                 if ( vlayer ) {
                     QString createStr = QString("DROP TABLE IF EXISTS %1; CREATE VIRTUAL TABLE %1 USING QgsVLayer(%2);").arg(vname).arg(vlayer->id());
-                    SqliteQuery::exec( mSqlite.data(), createStr );
+                    SqliteQuery::exec( mSqlite.get(), createStr );
                 }
                 else {
                     QString provider = mLayers.at(i).provider;
                     QString source = mLayers.at(i).source;
                     QString createStr = QString( "DROP TABLE IF EXISTS %1; CREATE VIRTUAL TABLE %1 USING QgsVLayer(%2,'%3')").arg(vname).arg(provider).arg(source);
-                    SqliteQuery::exec( mSqlite.data(), createStr );
+                    SqliteQuery::exec( mSqlite.get(), createStr );
                 }
 
                 // check geometry field
@@ -211,11 +211,11 @@ QgsVirtualLayerProvider::QgsVirtualLayerProvider( QString const &uri )
                 // create a temporary view, in order to call table_info on it
                 QString viewStr = "CREATE TEMPORARY VIEW vview AS " + mDefinition.query();
 
-                SqliteQuery::exec( mSqlite.data(), viewStr );
+                SqliteQuery::exec( mSqlite.get(), viewStr );
 
                 // look for column names and types
                 GeometryFields gFields;
-                getSqliteFields( mSqlite.data(), "vview", mFields, gFields );
+                getSqliteFields( mSqlite.get(), "vview", mFields, gFields );
 
                 // process geometry field
                 if ( !geometryField.name.isEmpty() ) {
@@ -252,23 +252,23 @@ QgsVirtualLayerProvider::QgsVirtualLayerProvider( QString const &uri )
                 }
 
                 if ( !noGeometry ) {
-                    SqliteQuery::exec( mSqlite.data(), QString("INSERT OR REPLACE INTO _columns (table_id, name, type) VALUES (0, '%1', '::')" ).arg(geometryField.name) );
+                    SqliteQuery::exec( mSqlite.get(), QString("INSERT OR REPLACE INTO _columns (table_id, name, type) VALUES (0, '%1', '::')" ).arg(geometryField.name) );
                 }
                 else {
-                    SqliteQuery::exec( mSqlite.data(), "INSERT OR REPLACE INTO _columns (table_id, name, type) VALUES (0, 'geometry', 'no::')" );
+                    SqliteQuery::exec( mSqlite.get(), "INSERT OR REPLACE INTO _columns (table_id, name, type) VALUES (0, 'geometry', 'no::')" );
                 }
 
-                SqliteQuery q(mSqlite.data(), "INSERT OR REPLACE INTO _tables (id, name, source) VALUES (0, ?, ?)");
+                SqliteQuery q(mSqlite.get(), "INSERT OR REPLACE INTO _tables (id, name, source) VALUES (0, ?, ?)");
                 q.bind(mDefinition.uid()).bind(mDefinition.query());
                 q.step();
             }
             else {
                 // no query => implies we must only have one virtual table
                 if (has_geometry && !noGeometry) {
-                    SqliteQuery::exec( mSqlite.data(), "INSERT OR REPLACE INTO _columns (table_id, name, type) VALUES (0, 'geometry', '::')" );
+                    SqliteQuery::exec( mSqlite.get(), "INSERT OR REPLACE INTO _columns (table_id, name, type) VALUES (0, 'geometry', '::')" );
                 }
                 else {
-                    SqliteQuery::exec( mSqlite.data(), "INSERT OR REPLACE INTO _columns (table_id, name, type) VALUES (0, 'geometry', 'no::')" );
+                    SqliteQuery::exec( mSqlite.get(), "INSERT OR REPLACE INTO _columns (table_id, name, type) VALUES (0, 'geometry', 'no::')" );
                 }
             }
         }
@@ -291,7 +291,7 @@ QgsVirtualLayerProvider::QgsVirtualLayerProvider( QString const &uri )
         tableName = "(" + mDefinition.query() + ")";
     }
     QgsDataSourceURI source;
-    source.setDatabase( path );
+    source.setDatabase( mPath );
     source.setDataSource( "", tableName, geometryField.name, "", mDefinition.uid() );
     std::cout << "Spatialite uri: " << source.uri().toUtf8().constData() << std::endl;
     mSpatialite.reset( new QgsSpatiaLiteProvider( source.uri() ) );
@@ -322,6 +322,10 @@ QgsVirtualLayerProvider::QgsVirtualLayerProvider( QString const &uri )
 
 QgsVirtualLayerProvider::~QgsVirtualLayerProvider()
 {
+    if ( mTempFile ) {
+        // if we have been using a temporary file, delete it (the one with the nonce)
+        QFile::remove( mPath );
+    }
 }
 
 void QgsVirtualLayerProvider::resetSqlite()
@@ -331,11 +335,11 @@ void QgsVirtualLayerProvider::resetSqlite()
 
     bool has_mtables = false;
     {
-        SqliteQuery q( mSqlite.data(), "SELECT name FROM sqlite_master WHERE name='_tables'" );
+        SqliteQuery q( mSqlite.get(), "SELECT name FROM sqlite_master WHERE name='_tables'" );
         has_mtables = q.step() == SQLITE_ROW;
     }
     if ( has_mtables ) {
-        SqliteQuery q( mSqlite.data(), "SELECT name FROM _tables WHERE id>0" );
+        SqliteQuery q( mSqlite.get(), "SELECT name FROM _tables WHERE id>0" );
         while ( q.step() == SQLITE_ROW ) {
             sql += "DROP TABLE " + QString((const char*)sqlite3_column_text( q.stmt(), 0 )) + ";";
         }
@@ -345,78 +349,13 @@ void QgsVirtualLayerProvider::resetSqlite()
     }
     bool has_spatialrefsys = false;
     {
-        SqliteQuery q( mSqlite.data(), "SELECT name FROM sqlite_master WHERE name='spatial_ref_sys'" );
+        SqliteQuery q( mSqlite.get(), "SELECT name FROM sqlite_master WHERE name='spatial_ref_sys'" );
         has_spatialrefsys = q.step() == SQLITE_ROW;
     }
     if (!has_spatialrefsys) {
         sql += "SELECT InitSpatialMetadata(1);";
     }
-    SqliteQuery::exec( mSqlite.data(), sql );
-}
-
-void QgsVirtualLayerProvider::readSqlite()
-{
-    QgsFields forcedFields;
-    {
-        SqliteQuery q( mSqlite.data(), "SELECT name FROM sqlite_master WHERE name='_meta' OR name='_tables' OR name='_columns'" );
-        int cnt = 0;
-        while ( q.step() == SQLITE_ROW ) {
-            cnt++;
-        }
-        if ( cnt != 3 ) {
-            throw std::runtime_error( "No metadata tables !" );
-        }
-    }
-    // look for the correct version
-    {
-        SqliteQuery q( mSqlite.data(), "SELECT version FROM _meta" );
-        int version = 0;
-        if (q.step() == SQLITE_ROW) {
-            version = sqlite3_column_int( q.stmt(), 0 );
-        }
-        if (version != VIRTUAL_LAYER_VERSION) {
-            throw std::runtime_error( "Bad virtual layer version !" );
-        }
-    }
-    // look for a query, if any
-    {
-        SqliteQuery q( mSqlite.data(), "SELECT id, name, source, provider FROM _tables" );
-        while ( q.step() == SQLITE_ROW ) {
-            int id = sqlite3_column_int( q.stmt(), 0 );
-            if ( id == 0 ) { // query
-                mDefinition.setQuery( (const char*)sqlite3_column_text( q.stmt(), 2 ) );
-                // name stores the UID field, if any
-                mDefinition.setUid( (const char*)sqlite3_column_text( q.stmt(), 1 ) );
-            }
-            else {
-                mDefinition.addSource( (const char*)sqlite3_column_text( q.stmt(), 1 ),
-                                       (const char*)sqlite3_column_text( q.stmt(), 2 ),
-                                       (const char*)sqlite3_column_text( q.stmt(), 3 ) );
-            }
-        }
-    }
-    // look for field overloaded types and geometry
-    {
-        SqliteQuery q( mSqlite.data(), "SELECT name, type FROM _columns WHERE table_id=0" );
-        while ( q.step() == SQLITE_ROW ) {
-            QString colname( (const char*)sqlite3_column_text( q.stmt(), 0 ) );
-            QString coltype( (const char*)sqlite3_column_text( q.stmt(), 1 ) );
-            if ( coltype.contains(':') ) {
-                // geometry field
-                if ( coltype.left(2) == "no" ) {
-                    mDefinition.setGeometryField( "*no*" );
-                }
-                else {
-                    mDefinition.setGeometryField( colname );
-                }
-            }
-            else {
-                QVariant::Type t = QVariant::nameToType( coltype.toLocal8Bit().constData() );
-                forcedFields.append( QgsField( colname, t, coltype ) );
-            }
-        }
-    }
-    mDefinition.setOverridenFields( forcedFields );
+    SqliteQuery::exec( mSqlite.get(), sql );
 }
 
 void QgsVirtualLayerProvider::onLayerDeleted()
@@ -427,7 +366,7 @@ void QgsVirtualLayerProvider::onLayerDeleted()
         if (layer.layer && layer.layer->id() == vl->id() ) {
             // must drop the corresponding virtual table
             std::cout << "layer removed, drop virtual table " << layer.name.toUtf8().constData() << std::endl;
-            SqliteQuery::exec( mSqlite.data(), QString("DROP TABLE %1").arg(layer.name) );
+            SqliteQuery::exec( mSqlite.get(), QString("DROP TABLE %1").arg(layer.name) );
         }
     }    
 }

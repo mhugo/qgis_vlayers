@@ -40,6 +40,7 @@ public:
     void setQuery( const QString& q );
     void setUid( const QString& uid );
     void setGeometryColumn( const QString& uid );
+    void setFilename( const QString& );
 
 private slots:
     void on_buttonBox_accepted();
@@ -48,6 +49,7 @@ private slots:
     void onRemoveSource();
     void onAddField();
     void onRemoveField();
+    void onBrowse();
 
   signals:
     void addVectorLayer( QString, QString, QString );
