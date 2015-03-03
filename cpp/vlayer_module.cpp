@@ -150,6 +150,17 @@ void qgsgeometry_to_spatialite_blob( const QgsGeometry& geom, int32_t srid, unsi
 
     // copy wkb
     memcpy( p, geom.asWkb() + 1, wkb_size - 1 );
+    uint32_t type = *(uint32_t*)p;
+    uint32_t type2 = type & 0x3FFFFFFF;
+    if ( type & 0x80000000 ) {
+        // Z flag
+        type2 += 1000;
+    }
+    else if ( type & 0x40000000 ) {
+        // M flag
+        type2 += 2000;
+    }
+    memcpy( p, &type2, 4 );
     p += wkb_size - 1;
     // end marker
     *p = 0xFE;
@@ -339,7 +350,7 @@ struct VTableCursor
     void next()
     {
         if ( !eof_ ) {
-            std::cout << "nextFeature" << std::endl;
+            //            std::cout << "nextFeature" << std::endl;
             eof_ = !iterator_.nextFeature( current_feature_ );
         }
         if ( !eof_ ) {
