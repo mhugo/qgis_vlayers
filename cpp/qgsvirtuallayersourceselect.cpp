@@ -75,7 +75,13 @@ void QgsVirtualLayerSourceSelect::setUid( const QString& uid )
 
 void QgsVirtualLayerSourceSelect::setGeometryColumn( const QString& geom )
 {
-    mGeometryField->setText( geom );
+    if ( geom == "*no*" ) {
+        mHasGeometry->setChecked( Qt::Unchecked );
+    }
+    else {
+        mHasGeometry->setChecked( Qt::Checked );
+        mGeometryField->setText( geom );
+    }
 }
 
 void QgsVirtualLayerSourceSelect::setFilename( const QString& filename )

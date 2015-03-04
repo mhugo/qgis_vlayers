@@ -264,6 +264,7 @@ void copy_layer_symbology( const QgsVectorLayer* source, QgsVectorLayer* dest )
 
 VLayerPlugin::ParameterPairs VLayerPlugin::createVirtualLayer( const QList<QgsVectorLayer*>& layers )
 {
+    bool has_geometry = false;
     ParameterPairs params;
 
     QList<const QgsVectorLayer*> layersInJoins;
@@ -276,6 +277,10 @@ VLayerPlugin::ParameterPairs VLayerPlugin::createVirtualLayer( const QList<QgsVe
         }
         // else mark it has joined
         layersInJoins.append( vl );
+
+        if (vl->hasGeometryType()) {
+            has_geometry = true;
+        }
 
         QStringList columns, tables, wheres;
         columns << "t.*";
@@ -358,7 +363,6 @@ VLayerPlugin::ParameterPairs VLayerPlugin::createVirtualLayer( const QList<QgsVe
 
         params.append( qMakePair( QString("query"), "SELECT " + columns.join(",") + " FROM t" + left_joins ) );
         params.append( qMakePair( QString("uid"), pk_field ) );
-        params.append( qMakePair( QString("geometry"), QString("geometry") ) );
         QString source = QUrl::toPercentEncoding(vl->source(), "", VLAYER_CHAR_ESCAPING);
         params.append( qMakePair( QString("layer"), QString("t") ) );
         params.append( qMakePair( QString("source"), source ) );
@@ -371,10 +375,16 @@ VLayerPlugin::ParameterPairs VLayerPlugin::createVirtualLayer( const QList<QgsVe
             // skip if it has already been added
             continue;
         }
+        if (vl->hasGeometryType()) {
+            has_geometry = true;
+        }
         QString source = QUrl::toPercentEncoding(vl->source(), "", VLAYER_CHAR_ESCAPING);
         params.append( qMakePair( QString("layer"), vl->name() ) );
         params.append( qMakePair( QString("source"), source ) );
         params.append( qMakePair( QString("provider"), vl->providerType() ) );
+    }
+    if ( !has_geometry ) {
+        params.append( qMakePair( QString("geometry"), QString("*no*") ) );
     }
 
     return params;
