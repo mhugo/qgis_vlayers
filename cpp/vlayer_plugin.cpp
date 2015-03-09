@@ -397,8 +397,20 @@ void VLayerPlugin::duplicateLayerToVirtual( QgsVectorLayer* vl )
     layers << vl;
     ParameterPairs params( createVirtualLayer( layers ) );
     QUrl url;
+    QString lname, lsource;
     for ( auto& p : params ) {
-        url.addQueryItem( p.first, p.second );
+        if ( p.first == "layer" ) {
+            lname = p.second;
+        }
+        else if ( p.first == "source" ) {
+            lsource = p.second;
+        }
+        else if ( p.first == "provider" ) {
+            url.addQueryItem( "layer", p.second + ":" + lsource + ":" + lname );
+        }
+        else {
+            url.addQueryItem( p.first, p.second );
+        }
     }
 
     QScopedPointer<QgsVectorLayer> new_vl( new QgsVectorLayer( url.toString(), vl->name() + tr( " (virtual)" ), "virtual" ) );
