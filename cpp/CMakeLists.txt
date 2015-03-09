@@ -61,9 +61,9 @@ SET(QGIS_VLAYER_PROVIDER_SRCS
   qgsvirtuallayerdefinition.cpp
 )
 
-#ADD_FLEX_FILES(QGIS_VLAYER_PROVIDER_SRCS qgssqllexer.ll)
+ADD_FLEX_FILES(QGIS_VLAYER_PROVIDER_SRCS qgssqllexer.ll)
 
-#ADD_BISON_FILES(QGIS_VLAYER_PROVIDER_SRCS qgssqlparser.yy)
+ADD_BISON_FILES(QGIS_VLAYER_PROVIDER_SRCS qgssqlparser.yy)
 
 ADD_LIBRARY(virtuallayerprovider MODULE
   ${QGIS_VLAYER_PROVIDER_SRCS}
@@ -87,3 +87,27 @@ TARGET_LINK_LIBRARIES( vlayer_plugin
   qgis_core
   qgis_gui
 )
+
+
+############################################################
+# Test
+############################################################
+
+SET(TEST_PARSER_SRCS
+  test_parser.cpp
+)
+ADD_FLEX_FILES(TEST_PARSER_SRCS qgssqllexer.ll)
+ADD_BISON_FILES(TEST_PARSER_SRCS qgssqlparser.yy)
+
+ADD_EXECUTABLE( test_parser ${TEST_PARSER_SRCS} )
+SET_TARGET_PROPERTIES( test_parser PROPERTIES AUTOMOC TRUE)
+
+TARGET_LINK_LIBRARIES( test_parser
+  ${QT_QTCORE_LIBRARY}
+  ${QT_QTTEST_LIBRARY}
+  qgis_core
+  qgis_gui
+)
+
+
+
