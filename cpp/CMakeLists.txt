@@ -94,6 +94,7 @@ TARGET_LINK_LIBRARIES( vlayer_plugin
 ############################################################
 
 SET(TEST_PARSER_SRCS
+  qgssql.cpp
   test_parser.cpp
 )
 ADD_FLEX_FILES(TEST_PARSER_SRCS qgssqllexer.ll)

@@ -1,5 +1,7 @@
 #include <memory>
 
+#include <QStack>
+
 #include <qgsexpression.h>
 
 class QgsSql
@@ -537,158 +539,40 @@ class QgsSql
     public:
         DFSVisitor() : NodeVisitor() {}
 
-        virtual void visit( const Select& s ) override
-        {
-            if ( s.column_list() ) {
-                s.column_list()->accept( *this );
-            }
-            if ( s.from() ) {
-                s.from()->accept( *this );
-            }
-            if ( s.where() ) {
-                s.where()->accept(*this);
-            }
-        }
-        virtual void visit( const SelectStmt& s ) override
-        {
-            if ( s.selects() ) { s.selects()->accept(*this); }
-            if ( s.order_by() ) { s.order_by()->accept(*this); }
-            if ( s.limit_offset() ) { s.limit_offset()->accept(*this); }
-        }
-        virtual void visit( const OrderBy& s ) override
-        {
-            if ( s.terms() ) { s.terms()->accept(*this); }
-        }
-        virtual void visit( const LimitOffset& s ) override
-        {
-            if ( s.limit() ) { s.limit()->accept(*this); }
-            if ( s.offset() ) { s.offset()->accept(*this); }
-        }
-        virtual void visit( const CompoundSelect& s ) override
-        {
-            if ( s.select() ) { s.select()->accept(*this); }
-        }
-        virtual void visit( const List& l ) override
-        {
-            for ( auto& n: l ) {
-                n->accept(*this);
-            }
-        }
-        virtual void visit( const TableSelect& s ) override
-        {
-            if ( s.select() ) {
-                s.select()->accept(*this);
-            }
-        }
-        virtual void visit( const JoinedTable& jt ) override
-        {
-            if ( jt.right_table() ) {
-                jt.right_table()->accept(*this);
-            }
-        }
+        virtual void visit( const Select& s ) override;
+        virtual void visit( const SelectStmt& s ) override;
+        virtual void visit( const OrderBy& s ) override;
+        virtual void visit( const LimitOffset& s ) override;
+        virtual void visit( const CompoundSelect& s ) override;
+        virtual void visit( const List& l ) override;
+        virtual void visit( const TableSelect& s ) override;
+        virtual void visit( const JoinedTable& jt ) override;
+        virtual void visit(const ExpressionUnaryOperator& op ) override;
+        virtual void visit(const ExpressionBinaryOperator& op ) override;
+        virtual void visit(const ExpressionFunction& f ) override;
+        virtual void visit(const ExpressionCondition& c ) override;
+        virtual void visit(const ExpressionWhenThen& wt ) override;
+        virtual void visit(const ExpressionIn& t ) override;
 
-        virtual void visit(const ExpressionUnaryOperator& op ) override
+    protected:
+        struct Scope
         {
-            if ( op.expression() ) {
-                op.expression()->accept(*this);
-            }
-        }
-        virtual void visit(const ExpressionBinaryOperator& op ) override
-        {
-            if ( op.left() ) {
-                op.left()->accept(*this);
-            }
-            if ( op.right() ) {
-                op.right()->accept(*this);
-            }
-        }
-        virtual void visit(const ExpressionFunction& f ) override
-        {
-            if (f.args()) {
-                f.args()->accept(*this);
-            }
-        }
-        virtual void visit(const ExpressionCondition& c ) override
-        {
-            if (c.conditions()) {
-                c.conditions()->accept(*this);
-            }
-            if (c.else_node()) {
-                c.else_node()->accept(*this);
-            }
-        }
-        virtual void visit(const ExpressionWhenThen& wt ) override
-        {
-            if (wt.when()) {
-                wt.when()->accept(*this);
-            }
-            if (wt.then_node()) {
-                wt.then_node()->accept(*this);
-            }
-        }
-        virtual void visit(const ExpressionIn& t ) override
-        {
-            if (t.expression()) { t.expression()->accept(*this); }
-            if (t.in_what()) { t.in_what()->accept(*this); }
-        }
-    };
-
-    class PrintVisitor : public DFSVisitor
-    {
-    public:
-        PrintVisitor( std::ostream& ostr ) : ostr_(ostr) {}
-        virtual void visit( const Select& s ) override
-        {
-            ostr_ << "SELECT ";
-            s.column_list()->accept( *this );
-            if ( s.from() ) {
-                ostr_ << " FROM ";
-                s.from()->accept( *this );
-            }
-            if ( s.where() ) {
-                ostr_ << " WHERE ";
-                s.where()->accept( *this );
-            }
-        }
-        virtual void visit( const List& l ) override
-        {
-            ostr_ << "[";
-            bool first = true;
-            for ( auto& n: l ) {
-                if ( first ) {
-                    first = false;
-                }
-                else {
-                    ostr_ << ", ";
-                }
-                n->accept(*this);
-            }
-            ostr_ << "]";
-        }
-        virtual void visit( const TableColumn& t ) override
-        {
-            ostr_ << t.table().toLocal8Bit().constData() << "." << t.column().toLocal8Bit().constData();
-        }
-        virtual void visit( const TableName& t ) override
-        {
-            ostr_ << t.name().toLocal8Bit().constData() << " AS " << t.alias().toLocal8Bit().constData();
-        }
-        virtual void visit( const ExpressionLiteral& t ) override
-        {
-            ostr_ << t.value().toString().toLocal8Bit().constData();
-        }
-        virtual void visit( const ExpressionIn& t ) override
-        {
-            t.expression()->accept(*this);
-            if (t.not_in()) {
-                ostr_ << " NOT ";
-            }
-            ostr_ << " IN ";
-            t.in_what()->accept(*this);
-        }
-    private:
-        std::ostream& ostr_;
+            static QStack<const Node*> stack;
+            Scope( const Node& n ) { stack.push(&n); }
+            ~Scope() { stack.pop(); }
+        };
     };
 };
 
 QgsSql::Node* parseSql( const QString& sql, QString& parseError );
+
+/**
+ * Format a parsed SQL tree
+ */
+QString asString( const QgsSql::Node& );
+
+/**
+ * Get a list of referenced tables in the query
+ */
+
+QList<QString> referencedTables( const QgsSql::Node& );

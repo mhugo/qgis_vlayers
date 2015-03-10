@@ -172,7 +172,8 @@ ordering_terms:
         ;
 
 optional_limit: 
-                LIMIT expression optional_offset
+                /*empty*/ { $$ = 0; }
+        |       LIMIT expression optional_offset
                 {
                     if ($3) {
                         $$ = $3;
@@ -347,8 +348,8 @@ expression:
     | expression NOT IN '(' exp_list ')' { $$ = new QgsSql::ExpressionIn($1, $5, true); }
         |       expression IN '(' select_stmt ')' { $$ = new QgsSql::ExpressionIn( $1, $4, false ); }
         |       expression NOT IN '(' select_stmt ')' { $$ = new QgsSql::ExpressionIn( $1, $5, true ); }
-        |       expression IN COLUMN_REF { $$ = new QgsSql::ExpressionIn( $1, new QgsSql::TableColumn("", *$3), false ); delete $3; }
-        |       expression NOT IN COLUMN_REF { $$ = new QgsSql::ExpressionIn( $1, new QgsSql::TableColumn("", *$4), true ); delete $4;}
+        |       expression IN COLUMN_REF { $$ = new QgsSql::ExpressionIn( $1, new QgsSql::TableName(*$3), false ); delete $3; }
+        |       expression NOT IN COLUMN_REF { $$ = new QgsSql::ExpressionIn( $1, new QgsSql::TableName(*$4), true ); delete $4;}
 
     | PLUS expression %prec UMINUS { $$ = $2; }
     | MINUS expression %prec UMINUS { $$ = new QgsSql::ExpressionUnaryOperator( QgsExpression::uoMinus, $2); }
