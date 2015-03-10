@@ -40,11 +40,6 @@ extern int exp_lex_destroy(yyscan_t scanner);
  extern int exp_lex(YYSTYPE* yylval_param, yyscan_t yyscanner);
 extern YY_BUFFER_STATE exp__scan_string(const char* buffer, yyscan_t scanner);
 
-/** returns parsed tree, otherwise returns NULL and sets parserErrorMsg
-    (interface function to be called from QgsExpression)
-  */
-QgsExpression::Node* parseExpression(const QString& str, QString& parserErrorMsg);
-
 /** error handler for bison */
  void exp_error(expression_parser_context* parser_ctx, const char* msg);
 
@@ -56,9 +51,7 @@ struct expression_parser_context
   // varible where the parser error will be stored
   QString errorMsg;
   // root node of the expression
-  QgsExpression::Node* rootNode;
   QgsSql::Node* sqlNode;
-  bool isSql;
 };
 
 #define scanner parser_ctx->flex_scanner
@@ -66,7 +59,7 @@ struct expression_parser_context
 // we want verbose error messages
 #define YYERROR_VERBOSE 1
 
-#define BINOP(x, y, z)  new QgsExpression::NodeBinaryOperator(x, y, z)
+#define BINOP(x, y, z)  new QgsSql::ExpressionBinaryOperator(x, y, z)
 
 %}
 
@@ -79,18 +72,15 @@ struct expression_parser_context
 
 %union
 {
-  QgsExpression::Node* node;
-  QgsExpression::NodeList* nodelist;
   double numberFloat;
   int    numberInt;
   QString* text;
+  QgsSql::Node* sqlnode;
+  QgsSql::List* sqlnodelist;
+  QgsSql::Expression* expression;
+  bool boolean;
   QgsExpression::BinaryOperator b_op;
   QgsExpression::UnaryOperator u_op;
-  QgsExpression::WhenThen* whenthen;
-  QgsExpression::WhenThenList* whenthenlist;
-    QgsSql::Node* sqlnode;
-    QgsSql::List* sqlnodelist;
-    bool boolean;
 }
 
 %start root
@@ -114,7 +104,7 @@ struct expression_parser_context
 %token CASE WHEN THEN ELSE END
 
 // keyword tokens
-%token SELECT AS FROM WHERE ALL DISTINCT INNER OUTER CROSS JOIN NATURAL LEFT USING ON
+%token SELECT AS FROM WHERE ALL DISTINCT INNER OUTER CROSS JOIN NATURAL LEFT USING ON UNION EXCEPT INTERSECT GROUP BY HAVING ASC DESC LIMIT OFFSET ORDER
 
 %token <text> STRING COLUMN_REF FUNCTION SPECIAL_COL
 
@@ -122,21 +112,15 @@ struct expression_parser_context
 
 %token Unknown_CHARACTER
 
-// pseudo tokens
-%token START_EXPR START_SQL
-
 //
 // definition of non-terminal types
 //
 
-%type <node> expression
-%type <nodelist> exp_list
-%type <whenthen> when_then_clause
-%type <whenthenlist> when_then_clauses
-
-%type <sqlnode> select_stmt result_column optional_from table_or_subquery join_operator non_natural_join_operator join_constraint augmented_expression optional_where
-%type <sqlnodelist> result_column_list table_or_subquery_list
-%type <boolean> is_distinct is_natural
+%type   <expression>    expression
+%type   <sqlnode>       when_then_clause select_stmt result_column optional_from table_or_subquery join_operator non_natural_join_operator join_constraint optional_where optional_group_by optional_having
+%type   <sqlnode>       optional_order_by optional_limit ordering_term optional_offset select_core
+%type   <sqlnodelist>   exp_list result_column_list table_or_subquery_list when_then_clauses compound_select ordering_terms
+%type   <boolean>       is_distinct is_natural
 
 // debugging
 %error-verbose
@@ -161,21 +145,66 @@ struct expression_parser_context
 
 %left COMMA
 
-%destructor { delete $$; } <node>
-%destructor { delete $$; } <nodelist>
 %destructor { delete $$; } <text>
 
 %%
 
-root : expr_root | sql_root;
-
-expr_root: START_EXPR expression { parser_ctx->rootNode = $2; parser_ctx->isSql = false; }
+root: select_stmt { parser_ctx->sqlNode = $1; }
                 ;
 
-sql_root: START_SQL select_stmt { parser_ctx->sqlNode = $2; parser_ctx->isSql = true; }
-                ;
+select_stmt:    
+                compound_select optional_order_by optional_limit { $$ = new QgsSql::SelectStmt( $1, static_cast<QgsSql::OrderBy*>($2), static_cast<QgsSql::LimitOffset*>($3) ); }
+        ;
 
-select_stmt:    SELECT is_distinct result_column_list optional_from optional_where { $$ = new QgsSql::Select( $3, $4, static_cast<QgsSql::Expression*>($5), $2 ); }
+optional_order_by:
+                /*empty*/ { $$ = 0; }
+        |       ORDER BY ordering_terms { $$ = new QgsSql::OrderBy( $3 ); }
+        ;
+
+ordering_term:  
+                expression ASC { $$ = new QgsSql::OrderingTerm( $1, true ); }
+        |       expression DESC { $$ = new QgsSql::OrderingTerm( $1, false ); }
+        ;
+
+ordering_terms: 
+                ordering_term { $$ = new QgsSql::List(); $$->append($1); }
+        |       ordering_terms COMMA ordering_term { $$ = $1; $$->append($3); }
+        ;
+
+optional_limit: 
+                LIMIT expression optional_offset
+                {
+                    if ($3) {
+                        $$ = $3;
+                        static_cast<QgsSql::LimitOffset*>($$)->set_limit( $2 );
+                    }
+                    else {
+                        $$ = new QgsSql::LimitOffset( $2 );
+                    }
+                }
+        ;
+
+optional_offset:
+                /*empty*/ { $$ = 0; }
+        |       OFFSET expression { $$ = new QgsSql::LimitOffset( 0, $2 ); }
+        |       COMMA expression { $$ = new QgsSql::LimitOffset( 0, $2 ); }
+        ;
+
+compound_select:
+                select_core { $$ = new QgsSql::List(); $$->append($1); }
+        |       compound_select UNION select_core { $$ = $1; $$->append( new QgsSql::CompoundSelect( static_cast<QgsSql::Select*>($3), QgsSql::CompoundSelect::UNION) ); }
+        |       compound_select UNION ALL select_core { $$ = $1; $$->append( new QgsSql::CompoundSelect( static_cast<QgsSql::Select*>($4), QgsSql::CompoundSelect::UNION_ALL) ); }
+        |       compound_select INTERSECT select_core { $$ = $1; $$->append( new QgsSql::CompoundSelect( static_cast<QgsSql::Select*>($3), QgsSql::CompoundSelect::INTERSECT) ); }
+        |       compound_select EXCEPT select_core { $$ = $1; $$->append( new QgsSql::CompoundSelect( static_cast<QgsSql::Select*>($3), QgsSql::CompoundSelect::EXCEPT) ); }
+        ;
+
+select_core:    SELECT
+                is_distinct
+                result_column_list
+                optional_from
+                optional_where
+                optional_group_by
+                { $$ = new QgsSql::Select( $3, $4, static_cast<QgsSql::Expression*>($5), $2 ); }
         ;
 
 is_distinct:
@@ -184,12 +213,22 @@ is_distinct:
         |       ALL { $$ = false; }
         ;
 
+optional_group_by:
+                /*empty*/ { $$ = 0; }
+        |       GROUP BY exp_list optional_having { $$ = new QgsSql::GroupBy( $3, static_cast<QgsSql::Having*>($4) ); }
+        ;
+
+optional_having:
+                /*empty*/ { $$ = 0; }
+        |       HAVING expression { $$ = new QgsSql::Having( $2 ); }
+        ;
+
 optional_from:  /*empty*/ { $$ = 0; }
         |       FROM table_or_subquery_list { $$ = $2; }
         ;
 
 optional_where:  /*empty*/ { $$ = 0; }
-        |       WHERE augmented_expression { $$ = $2; }
+        |       WHERE expression { $$ = $2; }
         ;
 
 is_natural:
@@ -210,7 +249,7 @@ non_natural_join_operator:
 
 join_constraint:
                 /*empty*/ { $$ = 0; }
-        |       ON augmented_expression { $$ = $2; }
+        |       ON expression { $$ = $2; }
         |       USING '(' result_column_list ')' { $$ = $3; }
         ;
 
@@ -222,8 +261,8 @@ result_column_list:
 result_column:
                 MUL { $$ = new QgsSql::TableColumn( "*" ); }
         |       COLUMN_REF '.' MUL { $$ = new QgsSql::TableColumn( "*", *$1 ); delete $1; }
-        |       augmented_expression { $$ = new QgsSql::ExpressionColumn( static_cast<QgsSql::Expression*>($1) ); }
-        |       augmented_expression AS COLUMN_REF { $$ = new QgsSql::ExpressionColumn( static_cast<QgsSql::Expression*>($1), *$3 ); delete $3; }
+        |       expression { $$ = new QgsSql::ExpressionColumn( static_cast<QgsSql::Expression*>($1) ); }
+        |       expression AS COLUMN_REF { $$ = new QgsSql::ExpressionColumn( static_cast<QgsSql::Expression*>($1), *$3 ); delete $3; }
         ;
 
 table_or_subquery_list:
@@ -281,7 +320,7 @@ expression:
     | expression MOD expression       { $$ = BINOP($2, $1, $3); }
     | expression POW expression       { $$ = BINOP($2, $1, $3); }
     | expression CONCAT expression    { $$ = BINOP($2, $1, $3); }
-    | NOT expression                  { $$ = new QgsExpression::NodeUnaryOperator($1, $2); }
+    | NOT expression                  { $$ = new QgsSql::ExpressionUnaryOperator($1, $2); }
     | '(' expression ')'              { $$ = $2; }
 
     | FUNCTION '(' exp_list ')'
@@ -300,23 +339,27 @@ expression:
               exp_error(parser_ctx, "Function is called with wrong number of arguments");
             YYERROR;
           }
-          $$ = new QgsExpression::NodeFunction(fnIndex, $3);
+          $$ = new QgsSql::ExpressionFunction(fnIndex, $3);
           delete $1;
         }
 
-    | expression IN '(' exp_list ')'     { $$ = new QgsExpression::NodeInOperator($1, $4, false);  }
-    | expression NOT IN '(' exp_list ')' { $$ = new QgsExpression::NodeInOperator($1, $5, true); }
+    | expression IN '(' exp_list ')'     { $$ = new QgsSql::ExpressionIn($1, $4, false);  }
+    | expression NOT IN '(' exp_list ')' { $$ = new QgsSql::ExpressionIn($1, $5, true); }
+        |       expression IN '(' select_stmt ')' { $$ = new QgsSql::ExpressionIn( $1, $4, false ); }
+        |       expression NOT IN '(' select_stmt ')' { $$ = new QgsSql::ExpressionIn( $1, $5, true ); }
+        |       expression IN COLUMN_REF { $$ = new QgsSql::ExpressionIn( $1, new QgsSql::TableColumn("", *$3), false ); delete $3; }
+        |       expression NOT IN COLUMN_REF { $$ = new QgsSql::ExpressionIn( $1, new QgsSql::TableColumn("", *$4), true ); delete $4;}
 
     | PLUS expression %prec UMINUS { $$ = $2; }
-    | MINUS expression %prec UMINUS { $$ = new QgsExpression::NodeUnaryOperator( QgsExpression::uoMinus, $2); }
+    | MINUS expression %prec UMINUS { $$ = new QgsSql::ExpressionUnaryOperator( QgsExpression::uoMinus, $2); }
 
-    | CASE when_then_clauses END      { $$ = new QgsExpression::NodeCondition($2); }
-    | CASE when_then_clauses ELSE expression END  { $$ = new QgsExpression::NodeCondition($2,$4); }
+    | CASE when_then_clauses END      { $$ = new QgsSql::ExpressionCondition($2); }
+    | CASE when_then_clauses ELSE expression END  { $$ = new QgsSql::ExpressionCondition($2,$4); }
 
     // columns
-    | COLUMN_REF                  { $$ = new QgsExpression::NodeColumnRef( *$1 ); delete $1; }
+    | COLUMN_REF                  { $$ = new QgsSql::TableColumn( *$1 ); delete $1; }
 // column name with a table name
-        |  COLUMN_REF '.' COLUMN_REF { $$ = new QgsExpression::NodeColumnRef( *$3 ); delete $1; delete $3; }
+        |       COLUMN_REF '.' COLUMN_REF { $$ = new QgsSql::TableColumn( *$3, *$1 ); delete $1; delete $3; }
 
     // special columns (actually functions with no arguments)
     | SPECIAL_COL
@@ -330,79 +373,47 @@ expression:
 	      YYERROR;
 	    }
 	    // $var is equivalent to _specialcol_( "$var" )
-	    QgsExpression::NodeList* args = new QgsExpression::NodeList();
-	    QgsExpression::NodeLiteral* literal = new QgsExpression::NodeLiteral( *$1 );
+	    QgsSql::List* args = new QgsSql::List();
+	    QgsSql::ExpressionLiteral* literal = new QgsSql::ExpressionLiteral( *$1 );
+            delete $1;
 	    args->append( literal );
-	    $$ = new QgsExpression::NodeFunction( QgsExpression::functionIndex( "_specialcol_" ), args );
+	    $$ = new QgsSql::ExpressionFunction( QgsExpression::functionIndex( "_specialcol_" ), args );
           }
 	  else
 	  {
-	    $$ = new QgsExpression::NodeFunction( fnIndex, NULL );
+	    $$ = new QgsSql::ExpressionFunction( fnIndex, NULL );
 	    delete $1;
 	  }
         }
 
     //  literals
-    | NUMBER_FLOAT                { $$ = new QgsExpression::NodeLiteral( QVariant($1) ); }
-    | NUMBER_INT                  { $$ = new QgsExpression::NodeLiteral( QVariant($1) ); }
-    | STRING                      { $$ = new QgsExpression::NodeLiteral( QVariant(*$1) ); delete $1; }
-    | NULLVALUE                   { $$ = new QgsExpression::NodeLiteral( QVariant() ); }
+    | NUMBER_FLOAT                { $$ = new QgsSql::ExpressionLiteral( QVariant($1) ); }
+    | NUMBER_INT                  { $$ = new QgsSql::ExpressionLiteral( QVariant($1) ); }
+    | STRING                      { $$ = new QgsSql::ExpressionLiteral( QVariant(*$1) ); delete $1; }
+    | NULLVALUE                   { $$ = new QgsSql::ExpressionLiteral( QVariant() ); }
 ;
 
 exp_list:
       exp_list COMMA expression { $$ = $1; $1->append($3); }
-    | expression              { $$ = new QgsExpression::NodeList(); $$->append($1); }
+    | expression              { $$ = new QgsSql::List(); $$->append($1); }
     ;
 
 when_then_clauses:
       when_then_clauses when_then_clause  { $$ = $1; $1->append($2); }
-    | when_then_clause                    { $$ = new QgsExpression::WhenThenList(); $$->append($1); }
+    | when_then_clause                    { $$ = new QgsSql::List(); $$->append($1); }
     ;
 
 when_then_clause:
-      WHEN expression THEN expression     { $$ = new QgsExpression::WhenThen($2,$4); }
+      WHEN expression THEN expression     { $$ = new QgsSql::ExpressionWhenThen($2,$4); }
     ;
 
-augmented_expression:
-                expression { $$ = new QgsSql::Expression( $1 ); }
-        |       augmented_expression IN '(' select_stmt ')' { $$ = new QgsSql::ExpressionIn( static_cast<QgsSql::Expression*>($1), true, $4 ); }
-        |       augmented_expression NOT IN '(' select_stmt ')' { $$ = new QgsSql::ExpressionIn( static_cast<QgsSql::Expression*>($1), false, $5 ); }
-        |       augmented_expression IN COLUMN_REF { $$ = new QgsSql::ExpressionIn( static_cast<QgsSql::Expression*>($1), true, new QgsSql::TableName(*$3) ); delete $3; }
-        |       augmented_expression NOT IN COLUMN_REF { $$ = new QgsSql::ExpressionIn( static_cast<QgsSql::Expression*>($1), false, new QgsSql::TableName(*$4) ); delete $4; }
-        ;
-
 %%
-
-
-// returns parsed tree, otherwise returns NULL and sets parserErrorMsg
-QgsExpression::Node* parseExpression(const QString& str, QString& parserErrorMsg)
-{
-  expression_parser_context ctx;
-  ctx.rootNode = 0;
-
-  int mode = 1; // expression parsing
-  exp_lex_init_extra(&mode, &ctx.flex_scanner);
-  exp__scan_string(str.toUtf8().constData(), ctx.flex_scanner);
-  int res = exp_parse(&ctx);
-  exp_lex_destroy(ctx.flex_scanner);
-
-  // list should be empty when parsing was OK
-  if (res == 0) // success?
-  {
-    return ctx.rootNode;
-  }
-  else // error?
-  {
-    parserErrorMsg = ctx.errorMsg;
-    return NULL;
-  }
-}
 
 
 QgsSql::Node* parseSql(const QString& str, QString& parserErrorMsg)
 {
   expression_parser_context ctx;
-  ctx.rootNode = 0;
+  ctx.sqlNode = 0;
 
   int mode = 2; // SQL parsing
   exp_lex_init_extra(&mode, &ctx.flex_scanner);

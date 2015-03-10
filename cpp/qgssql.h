@@ -12,14 +12,27 @@ class QgsSql
         enum Type
         {
             NODE_EXPRESSION,
+            NODE_EXPRESSION_LITERAL,
+            NODE_EXPRESSION_FUNCTION,
+            NODE_EXPRESSION_IN,
+            NODE_EXPRESSION_BINARY_OP,
+            NODE_EXPRESSION_UNARY_OP,
+            NODE_EXPRESSION_CONDITION,
+            NODE_EXPRESSION_WHEN_THEN,
             NODE_LIST,
             NODE_SELECT,
+            NODE_SELECT_STMT,
+            NODE_COMPOUND_SELECT,
             NODE_TABLE_COLUMN,
             NODE_EXPRESSION_COLUMN,
             NODE_TABLE_NAME,
             NODE_TABLE_SELECT,
             NODE_JOINED_TABLE,
-            NODE_EXPRESSION_IN
+            NODE_GROUP_BY,
+            NODE_HAVING,
+            NODE_ORDER_BY,
+            NODE_LIMIT_OFFSET,
+            NODE_ORDERING_TERM
         };
         Node(Type type): type_(type) {}
 
@@ -32,28 +45,156 @@ class QgsSql
         Type type_;
     };
 
+    class List : public Node
+    {
+    public:
+        List() : Node(NODE_LIST) {}
+
+        void append( Node* n ) {
+            l_.push_back( std::unique_ptr<Node>(n) );
+        }
+        void append( std::unique_ptr<Node> n ) {
+            l_.push_back( std::move(n) );
+        }
+
+        size_t count() const { return l_.size(); }
+
+        std::list<std::unique_ptr<Node>>::const_iterator begin() const { return l_.begin(); }
+        std::list<std::unique_ptr<Node>>::const_iterator end() const { return l_.end(); }
+
+        virtual void accept( NodeVisitor& v ) const {
+            v.visit( *this );
+        }
+    private:
+        std::list<std::unique_ptr<Node>> l_;
+    };
+
     class Expression : public Node
     {
     public:
-        Expression( QgsExpression::Node* expr ) :
-            Node( NODE_EXPRESSION ),
-            expr_( expr )
+        Expression( Node::Type type ) : Node(type) {}
+        void accept( NodeVisitor& v ) const {
+            v.visit( *this );
+        }
+    };
+
+    class ExpressionLiteral : public Expression
+    {
+    public:
+        ExpressionLiteral( QVariant value ) :
+            Expression( NODE_EXPRESSION_LITERAL ),
+            value_(value)
         {}
 
-        const QgsExpression::Node* expression() const { return expr_.get(); }
+        QVariant value() const { return value_; }
 
         void accept( NodeVisitor& v ) const {
             v.visit( *this );
         }
     private:
-        std::unique_ptr<QgsExpression::Node> expr_;
+        QVariant value_;
     };
 
-    class TableColumn : public Node
+    class ExpressionBinaryOperator : public Expression
+    {
+    public:
+        ExpressionBinaryOperator( QgsExpression::BinaryOperator op, Expression* left, Expression* right ):
+            Expression( NODE_EXPRESSION_BINARY_OP ),
+            left_(left),
+            right_(right)
+        {}
+
+        const Expression* left() const { return left_.get(); }
+        const Expression* right() const { return right_.get(); }
+
+        void accept( NodeVisitor& v ) const {
+            v.visit( *this );
+        }
+    private:
+        std::unique_ptr<Expression> left_;
+        std::unique_ptr<Expression> right_;
+    };
+
+    class ExpressionUnaryOperator : public Expression
+    {
+    public:
+        ExpressionUnaryOperator( QgsExpression::UnaryOperator op, Expression* expr ):
+            Expression( NODE_EXPRESSION_UNARY_OP ),
+            expr_(expr)
+        {}
+
+        const Expression* expression() const { return expr_.get(); }
+
+        void accept( NodeVisitor& v ) const {
+            v.visit( *this );
+        }
+    private:
+        std::unique_ptr<Expression> expr_;
+    };
+
+    class ExpressionFunction : public Expression
+    {
+    public:
+        ExpressionFunction( int fnIndex, List* args ):
+            Expression( NODE_EXPRESSION_FUNCTION ),
+            fn_(fnIndex),
+            args_(args)
+        {}
+
+        const List* args() const { return args_.get(); }
+
+        void accept( NodeVisitor& v ) const {
+            v.visit( *this );
+        }
+    private:
+        int fn_;
+        std::unique_ptr<List> args_;
+    };
+
+    class ExpressionCondition : public Expression
+    {
+    public:
+        ExpressionCondition( List* conditions, Node* else_node = 0 ) :
+            Expression( NODE_EXPRESSION_CONDITION ),
+            conditions_(conditions),
+            else_node_(else_node)
+        {}
+
+        const List* conditions() const { return conditions_.get(); }
+        const Node* else_node() const { return else_node_.get(); }
+
+        void accept( NodeVisitor& v ) const {
+            v.visit( *this );
+        }
+    private:
+        std::unique_ptr<List> conditions_;
+        std::unique_ptr<Node> else_node_;
+    };
+
+    class ExpressionWhenThen : public Expression
+    {
+    public:
+        ExpressionWhenThen( Node* when, Node* then_node ) :
+            Expression( NODE_EXPRESSION_WHEN_THEN ),
+            when_(when),
+            then_(then_node)
+        {}
+
+        const Node* when() const { return when_.get(); }
+        const Node* then_node() const { return then_.get(); }
+
+        void accept( NodeVisitor& v ) const {
+            v.visit( *this );
+        }
+    private:
+        std::unique_ptr<Node> when_, then_;
+    };
+
+    class TableColumn : public Expression
     {
     public:
         TableColumn( const QString& column = "*", const QString& table = "" ) :
-            Node(NODE_TABLE_COLUMN),
+            Expression(NODE_TABLE_COLUMN),
             column_(column),
             table_(table) {}
 
@@ -121,28 +262,28 @@ class QgsSql
         std::unique_ptr<Expression> expr_;
     };
 
-    class List : public Node
+    class ExpressionIn : public Expression
     {
     public:
-        List() : Node(NODE_LIST) {}
+        ExpressionIn( Expression* expr, Node* in_what, bool not_in = false ) :
+            Expression(NODE_EXPRESSION_IN),
+            expr_( expr ),
+            not_in_(not_in),
+            in_what_( in_what )
+        {}
 
-        void append( Node* n ) {
-            l_.push_back( std::unique_ptr<Node>(n) );
-        }
-        void append( std::unique_ptr<Node> n ) {
-            l_.push_back( std::move(n) );
-        }
+        const Expression* expression() const { return expr_.get(); }
+        const Node* in_what() const { return in_what_.get(); }
+        bool not_in() const { return not_in_; }
 
-        std::list<std::unique_ptr<Node>>::const_iterator begin() const { return l_.begin(); }
-        std::list<std::unique_ptr<Node>>::const_iterator end() const { return l_.end(); }
-
-        virtual void accept( NodeVisitor& v ) const {
+        void accept( NodeVisitor& v ) const {
             v.visit( *this );
         }
     private:
-        std::list<std::unique_ptr<Node>> l_;
+        bool not_in_;
+        std::unique_ptr<Expression> expr_;
+        std::unique_ptr<Node> in_what_;
     };
-
     class JoinedTable : public Node
     {
     public:
@@ -208,6 +349,7 @@ class QgsSql
 
         const Node* column_list() const { return column_list_.get(); }
         const Node* from() const { return from_.get(); }
+        const Expression* where() const { return where_.get(); }
 
         bool is_distinct() const { return is_distinct_; }
 
@@ -220,23 +362,150 @@ class QgsSql
         bool is_distinct_;
     };
 
-    class ExpressionIn : public Node
+    class CompoundSelect : public Node
     {
     public:
-        ExpressionIn( Expression* expr, bool positive_predicate, Node* in_what ) :
-            Node(NODE_EXPRESSION_IN),
-            expr_( expr ),
-            positive_(positive_predicate),
-            in_what_( in_what )
+        enum CompoundOperator
+        {
+            UNION,
+            UNION_ALL,
+            INTERSECT,
+            EXCEPT
+        };
+        CompoundSelect( Select* select, CompoundOperator op ) :
+            Node(NODE_COMPOUND_SELECT),
+            select_(select),
+            op_(op)
         {}
 
-        void accept( NodeVisitor& v ) const {
+        const Select* select() const { return select_.get(); }
+        CompoundOperator compound_operator() const { return op_; }
+
+        virtual void accept( NodeVisitor& v ) const {
             v.visit( *this );
         }
     private:
-        bool positive_;
+        std::unique_ptr<Select> select_;
+        CompoundOperator op_;
+    };
+
+
+    class Having : public Node
+    {
+    public:
+        Having( Expression* expr ) :
+            Node(NODE_HAVING),
+            expr_(expr)
+        {}
+
+        const Expression* expression() const { return expr_.get(); }
+
+        virtual void accept( NodeVisitor& v ) const {
+            v.visit( *this );
+        }
+    private:
         std::unique_ptr<Expression> expr_;
-        std::unique_ptr<Node> in_what_;
+    };
+
+    class GroupBy : public Node
+    {
+    public:
+        GroupBy( List* exp, Having* having = 0 ) : 
+            Node(NODE_GROUP_BY),
+            exp_(exp)
+        {}
+
+        const List* expressions() const { return exp_.get(); }
+        const Having* having() const { return having_.get(); }
+
+        virtual void accept( NodeVisitor& v ) const {
+            v.visit( *this );
+        }
+    private:
+        std::unique_ptr<List> exp_;
+        std::unique_ptr<Having> having_;
+    };
+
+    class LimitOffset : public Node
+    {
+    public:
+        LimitOffset( Expression* limit, Expression* offset = 0 ) :
+            Node(NODE_LIMIT_OFFSET),
+            limit_(limit),
+            offset_(offset)
+        {}
+
+        const Expression* limit() const { return limit_.get(); }
+        const Expression* offset() const { return offset_.get(); }
+
+        void set_limit( Expression* limit ) { limit_.reset(limit); }
+        void set_offset( Expression* offset ) { offset_.reset(offset); }
+
+        virtual void accept( NodeVisitor& v ) const {
+            v.visit( *this );
+        }
+    private:
+        std::unique_ptr<Expression> limit_, offset_;
+    };
+
+    class OrderingTerm : public Node
+    {
+    public:
+        OrderingTerm( Expression* expr, bool asc ) :
+            Node(NODE_ORDERING_TERM),
+            asc_(asc),
+            expr_(expr)
+        {}
+
+        const Expression* expression() const { return expr_.get(); }
+        bool asc() const { return asc_; }
+
+        virtual void accept( NodeVisitor& v ) const {
+            v.visit( *this );
+        }
+    private:
+        std::unique_ptr<Expression> expr_;
+        bool asc_;
+    };
+
+    class OrderBy : public Node
+    {
+    public:
+        OrderBy( List* terms ) :
+            Node(NODE_ORDER_BY ),
+            terms_(terms)
+        {}
+
+        const List* terms() const { return terms_.get(); }
+
+        virtual void accept( NodeVisitor& v ) const {
+            v.visit( *this );
+        }
+    private:
+        std::unique_ptr<List> terms_;
+    };
+
+    class SelectStmt : public Node
+    {
+    public:
+        SelectStmt( List* selects, OrderBy* order_by, LimitOffset* limit_offset ):
+            Node(NODE_SELECT_STMT),
+            selects_(selects),
+            order_by_(order_by),
+            limit_offset_(limit_offset)
+        {}
+
+        const List* selects() const { return selects_.get(); }
+        const OrderBy* order_by() const { return order_by_.get(); }
+        const LimitOffset* limit_offset() const { return limit_offset_.get(); }
+
+        virtual void accept( NodeVisitor& v ) const {
+            v.visit( *this );
+        }
+    private:
+        std::unique_ptr<List> selects_;
+        std::unique_ptr<OrderBy> order_by_;
+        std::unique_ptr<LimitOffset> limit_offset_;
     };
 
     class NodeVisitor
@@ -244,11 +513,22 @@ class QgsSql
     public:
         virtual void visit( const Node& ) {}
         virtual void visit( const Select& ) {}
+        virtual void visit( const SelectStmt& ) {}
+        virtual void visit( const CompoundSelect& ) {}
         virtual void visit( const List& ) {}
         virtual void visit( const TableColumn& ) {}
         virtual void visit( const TableName& ) {}
         virtual void visit( const TableSelect& ) {}
         virtual void visit( const JoinedTable& ) {}
+        virtual void visit( const ExpressionIn& ) {}
+        virtual void visit( const ExpressionUnaryOperator& ) {}
+        virtual void visit( const ExpressionBinaryOperator& ) {}
+        virtual void visit( const ExpressionFunction& ) {}
+        virtual void visit( const ExpressionCondition& ) {}
+        virtual void visit( const ExpressionWhenThen& ) {}
+        virtual void visit( const ExpressionLiteral& ) {}
+        virtual void visit( const OrderBy& ) {}
+        virtual void visit( const LimitOffset& ) {}
     };
 
     // Depth-first visitor
@@ -265,6 +545,28 @@ class QgsSql
             if ( s.from() ) {
                 s.from()->accept( *this );
             }
+            if ( s.where() ) {
+                s.where()->accept(*this);
+            }
+        }
+        virtual void visit( const SelectStmt& s ) override
+        {
+            if ( s.selects() ) { s.selects()->accept(*this); }
+            if ( s.order_by() ) { s.order_by()->accept(*this); }
+            if ( s.limit_offset() ) { s.limit_offset()->accept(*this); }
+        }
+        virtual void visit( const OrderBy& s ) override
+        {
+            if ( s.terms() ) { s.terms()->accept(*this); }
+        }
+        virtual void visit( const LimitOffset& s ) override
+        {
+            if ( s.limit() ) { s.limit()->accept(*this); }
+            if ( s.offset() ) { s.offset()->accept(*this); }
+        }
+        virtual void visit( const CompoundSelect& s ) override
+        {
+            if ( s.select() ) { s.select()->accept(*this); }
         }
         virtual void visit( const List& l ) override
         {
@@ -284,6 +586,51 @@ class QgsSql
                 jt.right_table()->accept(*this);
             }
         }
+
+        virtual void visit(const ExpressionUnaryOperator& op ) override
+        {
+            if ( op.expression() ) {
+                op.expression()->accept(*this);
+            }
+        }
+        virtual void visit(const ExpressionBinaryOperator& op ) override
+        {
+            if ( op.left() ) {
+                op.left()->accept(*this);
+            }
+            if ( op.right() ) {
+                op.right()->accept(*this);
+            }
+        }
+        virtual void visit(const ExpressionFunction& f ) override
+        {
+            if (f.args()) {
+                f.args()->accept(*this);
+            }
+        }
+        virtual void visit(const ExpressionCondition& c ) override
+        {
+            if (c.conditions()) {
+                c.conditions()->accept(*this);
+            }
+            if (c.else_node()) {
+                c.else_node()->accept(*this);
+            }
+        }
+        virtual void visit(const ExpressionWhenThen& wt ) override
+        {
+            if (wt.when()) {
+                wt.when()->accept(*this);
+            }
+            if (wt.then_node()) {
+                wt.then_node()->accept(*this);
+            }
+        }
+        virtual void visit(const ExpressionIn& t ) override
+        {
+            if (t.expression()) { t.expression()->accept(*this); }
+            if (t.in_what()) { t.in_what()->accept(*this); }
+        }
     };
 
     class PrintVisitor : public DFSVisitor
@@ -294,8 +641,14 @@ class QgsSql
         {
             ostr_ << "SELECT ";
             s.column_list()->accept( *this );
-            ostr_ << " FROM ";
-            s.from()->accept( *this );
+            if ( s.from() ) {
+                ostr_ << " FROM ";
+                s.from()->accept( *this );
+            }
+            if ( s.where() ) {
+                ostr_ << " WHERE ";
+                s.where()->accept( *this );
+            }
         }
         virtual void visit( const List& l ) override
         {
@@ -319,6 +672,19 @@ class QgsSql
         virtual void visit( const TableName& t ) override
         {
             ostr_ << t.name().toLocal8Bit().constData() << " AS " << t.alias().toLocal8Bit().constData();
+        }
+        virtual void visit( const ExpressionLiteral& t ) override
+        {
+            ostr_ << t.value().toString().toLocal8Bit().constData();
+        }
+        virtual void visit( const ExpressionIn& t ) override
+        {
+            t.expression()->accept(*this);
+            if (t.not_in()) {
+                ostr_ << " NOT ";
+            }
+            ostr_ << " IN ";
+            t.in_what()->accept(*this);
         }
     private:
         std::ostream& ostr_;

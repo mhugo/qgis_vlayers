@@ -121,19 +121,6 @@ str_char    ('')|(\\.)|[^'\\]
 string      "'"{str_char}*"'"
 
 %%
-%{
-int* mode = (int*)yyget_extra(yyscanner);
-if (*mode) {
-   if ( *mode == 1 ) {
-     *mode = 0;
-     return START_EXPR;
-   }
-   else {
-     *mode = 0;
-     return START_SQL;
-   }
-}
-%}
 
 <INITIAL>{
   "/*" BEGIN(BLOCK_COMMENT);
@@ -198,6 +185,12 @@ if (*mode) {
 "WHERE"    { return WHERE; }
 "ALL"      { return ALL; }
 "DISTINCT" { return DISTINCT; }
+"UNION"    { return UNION; }
+"EXCEPT"    { return EXCEPT; }
+"INTERSECT" { return INTERSECT; }
+"GROUP"     { return GROUP; }
+"BY"        { return BY; }
+"HAVING"    { return HAVING; }
 
 [()\.]      { return yytext[0]; }
 
