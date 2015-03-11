@@ -417,7 +417,7 @@ when_then_clause:
 
 %%
 
-QgsSql::Node* parseSql(const QString& str, QString& parserErrorMsg, bool formatError )
+std::unique_ptr<QgsSql::Node> parseSql(const QString& str, QString& parserErrorMsg, bool formatError )
 {
   expression_parser_context ctx;
   ctx.sqlNode = 0;
@@ -433,7 +433,7 @@ QgsSql::Node* parseSql(const QString& str, QString& parserErrorMsg, bool formatE
   // list should be empty when parsing was OK
   if (res == 0) // success?
   {
-    return ctx.sqlNode;
+      return std::unique_ptr<QgsSql::Node>(ctx.sqlNode);
   }
   else // error?
   {
@@ -448,7 +448,7 @@ QgsSql::Node* parseSql(const QString& str, QString& parserErrorMsg, bool formatE
       else {
           parserErrorMsg = QString("%1:%2: %3").arg(ctx.errorLoc->first_line).arg(ctx.errorLoc->first_column).arg(ctx.errorMsg);
       }
-      return NULL;
+      return 0;
   }
 }
 

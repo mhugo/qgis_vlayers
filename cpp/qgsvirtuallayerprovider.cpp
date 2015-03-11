@@ -23,6 +23,7 @@ extern "C" {
 
 #include "qgsvirtuallayerprovider.h"
 #include "qgsvirtuallayerdefinition.h"
+#include "qgssql.h"
 #include <qgsvectorlayer.h>
 #include <qgsmaplayerregistry.h>
 #include <qgsdatasourceuri.h>
@@ -100,16 +101,45 @@ QgsVirtualLayerProvider::QgsVirtualLayerProvider( QString const &uri )
         return;
     }
 
-    if ( !mDefinition.query().isEmpty() && mDefinition.uid().isEmpty() ) {
+    /*    if ( !mDefinition.query().isEmpty() && mDefinition.uid().isEmpty() ) {
         mValid = false;
         PROVIDER_ERROR( QString("Please specify a 'uid' column name") );
         return;
-    }
+        }*/
 
     if ( mDefinition.sourceLayers().empty() && mDefinition.uri().isEmpty() ) {
-        mValid = false;
-        PROVIDER_ERROR( QString("Please specify at least one source layer") );
-        return;
+        if ( !mDefinition.query().isEmpty() ) {
+            // deduce sources from the query
+            QString error;
+            std::unique_ptr<QgsSql::Node> n = parseSql( mDefinition.query(), error );
+            if ( !n ) {
+                mValid = false;
+                PROVIDER_ERROR( "SQL parsing error: " + error );
+                return;
+            }
+            QList<QString> tables = referencedTables( *n );
+            // look for layers
+            for ( auto& tname : tables ) {
+                bool found = false;
+                for ( auto& l : QgsMapLayerRegistry::instance()->mapLayers() ) {
+                    if ((l->name() == tname) || (l->id() == tname)) {
+                        mDefinition.addSource( tname, l->id() );
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) {
+                    mValid = false;
+                    PROVIDER_ERROR( QString( "Referenced table %1 in query not found!" ).arg(tname) );
+                    return;
+                }
+            }
+        }
+        else {
+            mValid = false;
+            PROVIDER_ERROR( QString("Please specify at least one source layer") );
+            return;
+        }
     }
 
     mPath = mDefinition.uri();

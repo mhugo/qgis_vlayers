@@ -556,7 +556,7 @@ class QgsSql
     };
 };
 
-QgsSql::Node* parseSql( const QString& sql, QString& parseError, bool formatError = false );
+std::unique_ptr<QgsSql::Node> parseSql( const QString& sql, QString& parseError, bool formatError = false );
 
 /**
  * Format a parsed SQL tree

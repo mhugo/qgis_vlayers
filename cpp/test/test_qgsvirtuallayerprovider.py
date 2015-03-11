@@ -370,5 +370,14 @@ class TestQgsVirtualLayerProvider(TestCase):
             self.assertEqual(sum([f.id() for f in l2.getFeatures()]), 21)
             QgsMapLayerRegistry.instance().removeMapLayer(l2.id())
 
+    def test_sql(self):
+        l1 = QgsVectorLayer( os.path.join(self.testDataDir_, "delimitedtext/test.csv") + "?type=csv&geomType=none&subsetIndex=no&watchFile=no", "test", "delimitedtext", False)
+        self.assertEqual( l1.isValid(), True )
+        QgsMapLayerRegistry.instance().addMapLayer(l1)
+
+        l2 = QgsVectorLayer( "?query=SELECT * FROM test" )
+        self.assertEqual( l2.isValid(), True )
+
+
 if __name__ == '__main__':
     unittest.main()

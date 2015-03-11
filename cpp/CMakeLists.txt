@@ -59,6 +59,7 @@ SET(QGIS_VLAYER_PROVIDER_SRCS
   qgsembeddedlayerselectdialog.cpp
   vlayer_module.cpp
   qgsvirtuallayerdefinition.cpp
+  qgssql.cpp
 )
 
 ADD_FLEX_FILES(QGIS_VLAYER_PROVIDER_SRCS qgssqllexer.ll)
