@@ -547,24 +547,16 @@ class QgsSql
         virtual void visit( const List& l ) override;
         virtual void visit( const TableSelect& s ) override;
         virtual void visit( const JoinedTable& jt ) override;
-        virtual void visit(const ExpressionUnaryOperator& op ) override;
-        virtual void visit(const ExpressionBinaryOperator& op ) override;
-        virtual void visit(const ExpressionFunction& f ) override;
-        virtual void visit(const ExpressionCondition& c ) override;
-        virtual void visit(const ExpressionWhenThen& wt ) override;
-        virtual void visit(const ExpressionIn& t ) override;
-
-    protected:
-        struct Scope
-        {
-            static QStack<const Node*> stack;
-            Scope( const Node& n ) { stack.push(&n); }
-            ~Scope() { stack.pop(); }
-        };
+        virtual void visit( const ExpressionUnaryOperator& op ) override;
+        virtual void visit( const ExpressionBinaryOperator& op ) override;
+        virtual void visit( const ExpressionFunction& f ) override;
+        virtual void visit( const ExpressionCondition& c ) override;
+        virtual void visit( const ExpressionWhenThen& wt ) override;
+        virtual void visit( const ExpressionIn& t ) override;
     };
 };
 
-QgsSql::Node* parseSql( const QString& sql, QString& parseError );
+QgsSql::Node* parseSql( const QString& sql, QString& parseError, bool formatError = false );
 
 /**
  * Format a parsed SQL tree

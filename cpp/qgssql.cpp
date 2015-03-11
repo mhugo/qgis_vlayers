@@ -2,11 +2,8 @@
 
 #include <QSet>
 
-QStack<const QgsSql::Node*> QgsSql::DFSVisitor::Scope::stack;
-
 void QgsSql::DFSVisitor::visit( const Select& s )
 {
-    Scope scope(s);
     if ( s.column_list() ) {
         s.column_list()->accept( *this );
     }
@@ -20,7 +17,6 @@ void QgsSql::DFSVisitor::visit( const Select& s )
 
 void QgsSql::DFSVisitor::visit( const SelectStmt& s )
 {
-    Scope scope(s);
     if ( s.selects() ) { s.selects()->accept(*this); }
     if ( s.order_by() ) { s.order_by()->accept(*this); }
     if ( s.limit_offset() ) { s.limit_offset()->accept(*this); }
@@ -28,26 +24,22 @@ void QgsSql::DFSVisitor::visit( const SelectStmt& s )
 
 void QgsSql::DFSVisitor::visit( const OrderBy& s )
 {
-    Scope scope(s);
     if ( s.terms() ) { s.terms()->accept(*this); }
 }
 
 void QgsSql::DFSVisitor::visit( const LimitOffset& s )
 {
-    Scope scope(s);
     if ( s.limit() ) { s.limit()->accept(*this); }
     if ( s.offset() ) { s.offset()->accept(*this); }
 }
 
 void QgsSql::DFSVisitor::visit( const CompoundSelect& s )
 {
-    Scope scope(s);
     if ( s.select() ) { s.select()->accept(*this); }
 }
 
 void QgsSql::DFSVisitor::visit( const List& l )
 {
-    Scope scope(l);
     for ( auto& n: l ) {
         n->accept(*this);
     }
@@ -55,7 +47,6 @@ void QgsSql::DFSVisitor::visit( const List& l )
 
 void QgsSql::DFSVisitor::visit( const TableSelect& s )
 {
-    Scope scope(s);
     if ( s.select() ) {
         s.select()->accept(*this);
     }
@@ -63,7 +54,6 @@ void QgsSql::DFSVisitor::visit( const TableSelect& s )
 
 void QgsSql::DFSVisitor::visit( const JoinedTable& jt )
 {
-    Scope scope(jt);
     if ( jt.right_table() ) {
         jt.right_table()->accept(*this);
     }
@@ -71,7 +61,6 @@ void QgsSql::DFSVisitor::visit( const JoinedTable& jt )
 
 void QgsSql::DFSVisitor::visit(const ExpressionUnaryOperator& op )
 {
-    Scope scope(op);
     if ( op.expression() ) {
         op.expression()->accept(*this);
     }
@@ -79,7 +68,6 @@ void QgsSql::DFSVisitor::visit(const ExpressionUnaryOperator& op )
 
 void QgsSql::DFSVisitor::visit(const ExpressionBinaryOperator& op )
 {
-    Scope scope(op);
     if ( op.left() ) {
         op.left()->accept(*this);
     }
@@ -90,7 +78,6 @@ void QgsSql::DFSVisitor::visit(const ExpressionBinaryOperator& op )
 
 void QgsSql::DFSVisitor::visit(const ExpressionFunction& f )
 {
-    Scope scope(f);
     if (f.args()) {
         f.args()->accept(*this);
     }
@@ -98,7 +85,6 @@ void QgsSql::DFSVisitor::visit(const ExpressionFunction& f )
 
 void QgsSql::DFSVisitor::visit(const ExpressionCondition& c )
 {
-    Scope scope(c);
     if (c.conditions()) {
         c.conditions()->accept(*this);
     }
@@ -109,7 +95,6 @@ void QgsSql::DFSVisitor::visit(const ExpressionCondition& c )
 
 void QgsSql::DFSVisitor::visit(const ExpressionWhenThen& wt )
 {
-    Scope scope(wt);
     if (wt.when()) {
         wt.when()->accept(*this);
     }
@@ -120,7 +105,6 @@ void QgsSql::DFSVisitor::visit(const ExpressionWhenThen& wt )
 
 void QgsSql::DFSVisitor::visit(const ExpressionIn& t )
 {
-    Scope scope(t);
     if (t.expression()) { t.expression()->accept(*this); }
     if (t.in_what()) { t.in_what()->accept(*this); }
 }
@@ -207,3 +191,4 @@ QList<QString> referencedTables( const QgsSql::Node& n )
     n.accept(tv);
     return tv.tables.toList();
 }
+

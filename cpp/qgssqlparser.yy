@@ -34,14 +34,17 @@ struct expression_parser_context;
 //! from lexer
 typedef void* yyscan_t;
 typedef struct yy_buffer_state* YY_BUFFER_STATE;
-extern int exp_lex_init(yyscan_t* scanner);
-extern int exp_lex_init_extra (void* user_defined, yyscan_t* scanner);
-extern int exp_lex_destroy(yyscan_t scanner);
- extern int exp_lex(YYSTYPE* yylval_param, yyscan_t yyscanner);
-extern YY_BUFFER_STATE exp__scan_string(const char* buffer, yyscan_t scanner);
+extern int sqlp_lex_init(yyscan_t* scanner);
+extern int sqlp_lex_init_extra (void* user_defined, yyscan_t* scanner);
+extern int sqlp_lex_destroy(yyscan_t scanner);
+extern int sqlp_lex(YYSTYPE* yylval_param, YYLTYPE* yylloc, yyscan_t yyscanner);
+extern YY_BUFFER_STATE sqlp__scan_string(const char* buffer, yyscan_t scanner);
+
+extern void sqlp_set_lineno (int line_number, yyscan_t yyscanner );
+extern void sqlp_set_column (int col_number, yyscan_t yyscanner );
 
 /** error handler for bison */
- void exp_error(expression_parser_context* parser_ctx, const char* msg);
+ void sqlp_error(YYLTYPE* yyloc, expression_parser_context* parser_ctx, const char* msg);
 
 struct expression_parser_context
 {
@@ -50,6 +53,8 @@ struct expression_parser_context
 
   // varible where the parser error will be stored
   QString errorMsg;
+    // location of the error
+  YYLTYPE* errorLoc;
   // root node of the expression
   QgsSql::Node* sqlNode;
 };
@@ -68,7 +73,9 @@ struct expression_parser_context
 %lex-param {void * scanner}
 %parse-param {expression_parser_context* parser_ctx}
 
-%name-prefix "exp_"
+%name-prefix "sqlp_"
+
+%locations
 
 %union
 {
@@ -331,13 +338,13 @@ expression:
           {
             // this should not actually happen because already in lexer we check whether an identifier is a known function
             // (if the name is not known the token is parsed as a column)
-              exp_error(parser_ctx, "Function is not known");
+              sqlp_error(&yylloc, parser_ctx, "Function is not known");
             YYERROR;
           }
           if ( QgsExpression::Functions()[fnIndex]->params() != -1
                && QgsExpression::Functions()[fnIndex]->params() != $3->count() )
           {
-              exp_error(parser_ctx, "Function is called with wrong number of arguments");
+              sqlp_error(&yylloc, parser_ctx, "Function is called with wrong number of arguments");
             YYERROR;
           }
           $$ = new QgsSql::ExpressionFunction(fnIndex, $3);
@@ -370,7 +377,7 @@ expression:
           {
             if ( !QgsExpression::hasSpecialColumn( *$1 ) )
 	    {
-                exp_error(parser_ctx, "Special column is not known");
+                sqlp_error(&yylloc, parser_ctx, "Special column is not known");
 	      YYERROR;
 	    }
 	    // $var is equivalent to _specialcol_( "$var" )
@@ -410,17 +417,18 @@ when_then_clause:
 
 %%
 
-
-QgsSql::Node* parseSql(const QString& str, QString& parserErrorMsg)
+QgsSql::Node* parseSql(const QString& str, QString& parserErrorMsg, bool formatError )
 {
   expression_parser_context ctx;
   ctx.sqlNode = 0;
 
   int mode = 2; // SQL parsing
-  exp_lex_init_extra(&mode, &ctx.flex_scanner);
-  exp__scan_string(str.toUtf8().constData(), ctx.flex_scanner);
-  int res = exp_parse(&ctx);
-  exp_lex_destroy(ctx.flex_scanner);
+  sqlp_lex_init_extra(&mode, &ctx.flex_scanner);
+  sqlp__scan_string(str.toUtf8().constData(), ctx.flex_scanner);
+  sqlp_set_lineno( 1, ctx.flex_scanner );
+  sqlp_set_column( 1, ctx.flex_scanner );
+  int res = sqlp_parse(&ctx);
+  sqlp_lex_destroy(ctx.flex_scanner);
 
   // list should be empty when parsing was OK
   if (res == 0) // success?
@@ -429,13 +437,24 @@ QgsSql::Node* parseSql(const QString& str, QString& parserErrorMsg)
   }
   else // error?
   {
-    parserErrorMsg = ctx.errorMsg;
-    return NULL;
+      if ( formatError ) {
+          parserErrorMsg = "\n" + str + "\n";
+          for ( int i = 0; i < ctx.errorLoc->first_column-1; i++ ) {
+              parserErrorMsg += " ";
+          }
+          parserErrorMsg += "^\n";
+          parserErrorMsg += ctx.errorMsg;
+      }
+      else {
+          parserErrorMsg = QString("%1:%2: %3").arg(ctx.errorLoc->first_line).arg(ctx.errorLoc->first_column).arg(ctx.errorMsg);
+      }
+      return NULL;
   }
 }
 
-void exp_error(expression_parser_context* parser_ctx, const char* msg)
+void sqlp_error(YYLTYPE* yylloc, expression_parser_context* parser_ctx, const char* msg)
 {
   parser_ctx->errorMsg = msg;
+  parser_ctx->errorLoc = yylloc;
 }
 

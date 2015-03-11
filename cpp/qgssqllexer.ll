@@ -17,7 +17,7 @@
 %option case-insensitive
 %option never-interactive
 %option nounput
-%option prefix="exp_"
+%option prefix="sqlp_"
  // this makes flex generate lexer with context + init/destroy functions
 %option reentrant
  // this makes Bison send yylex another argument to use instead of using the global variable yylval
@@ -44,6 +44,12 @@ struct expression_parser_context;
 #ifndef YY_NO_UNPUT
 #define YY_NO_UNPUT	// unused
 #endif
+
+#define YY_DECL int sqlp_lex (YYSTYPE * yylval_param, YYLTYPE* yylloc, yyscan_t yyscanner)
+
+#define YY_USER_ACTION yylloc->first_line = yylloc->last_line = yylineno; \
+    yylloc->first_column = yycolumn; yylloc->last_column = yycolumn+yyleng-1; \
+    yycolumn += yyleng;
 
 #ifdef _MSC_VER
 #define YY_NO_UNISTD_H
