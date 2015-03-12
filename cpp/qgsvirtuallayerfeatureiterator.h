@@ -48,6 +48,8 @@ class QgsVirtualLayerFeatureIterator : public QgsAbstractFeatureIteratorFromSour
     // map query column index to feature attribute index
     // -1 for the geometry column
     QMap<int, int> mColumnMap;
+    // Index of the id column, -1 if none
+    int mUidColumn;
 };
 
 #endif

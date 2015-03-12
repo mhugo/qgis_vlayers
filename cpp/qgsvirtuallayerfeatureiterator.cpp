@@ -9,7 +9,7 @@ QgsVirtualLayerFeatureIterator::QgsVirtualLayerFeatureIterator( QgsVirtualLayerF
     mDefinition = mSource->provider()->mDefinition;
     mFields = mSource->provider()->fields();
 
-    // base query
+    // TODO subset query
     mSqlQuery = mDefinition.query();
 
     if ( !mDefinition.geometryField().isNull() && request.filterType() == QgsFeatureRequest::FilterRect ) {
@@ -22,17 +22,28 @@ QgsVirtualLayerFeatureIterator::QgsVirtualLayerFeatureIterator( QgsVirtualLayerF
             .arg(mDefinition.geometryField())
             .arg(mbr);
     }
+    else if (!mDefinition.uid().isNull() && request.filterType() == QgsFeatureRequest::FilterFid ) {
+        mSqlQuery = QString("SELECT * FROM (%1) WHERE %2=%3")
+            .arg(mSqlQuery)
+            .arg(mDefinition.uid())
+            .arg(request.filterFid());
+    }
 
     mQuery.reset( new Sqlite::Query( mSqlite.get(), mSqlQuery ) );
 
+    mUidColumn = -1;
     int n = mQuery->column_count();
     int j = 0;
     for ( int i = 0; i < n; i++ ) {
-        if ( mQuery->column_name(i) == mDefinition.geometryField() ) {
+        QString colname = mQuery->column_name(i).toLower();
+        if ( colname == mDefinition.geometryField().toLower() ) {
             mColumnMap[i] = -1;
         }
         else {
             mColumnMap[i] = j++;
+            if (colname == mDefinition.uid().toLower()) {
+                mUidColumn = i;
+            }
         }
     }
 
@@ -77,11 +88,16 @@ bool QgsVirtualLayerFeatureIterator::fetchFeature( QgsFeature& feature )
         return false;
     }
 
-    //feature.setFields
     feature.setFields( &mFields, /* init */ true );
-    //feature.setFeatureId
-    feature.setFeatureId( mFid++ );
-    //feature.setAttribute
+
+    if ( mUidColumn == -1 ) {
+        // no id column => autoincrement
+        feature.setFeatureId( mFid++ );
+    }
+    else {
+        feature.setFeatureId( mQuery->column_int64( mUidColumn ) );
+    }
+
     int n = mQuery->column_count();
     for ( int i = 0; i < n; i++ ) {
         int j = mColumnMap[i];

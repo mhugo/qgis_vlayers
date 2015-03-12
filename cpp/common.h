@@ -98,6 +98,11 @@ namespace Sqlite
             return sqlite3_column_int( stmt_, i );
         }
 
+        qint64 column_int64( int i ) const
+        {
+            return sqlite3_column_int64( stmt_, i );
+        }
+
         double column_double( int i ) const
         {
             return sqlite3_column_double( stmt_, i );

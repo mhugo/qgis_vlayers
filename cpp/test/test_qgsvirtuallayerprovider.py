@@ -389,14 +389,29 @@ class TestQgsVirtualLayerProvider(TestCase):
 
         query = QUrl.toPercentEncoding( "SELECT * FROM france_parts")
         l4 = QgsVectorLayer( "?query=%s&geometry=geometry:polygon:4326" % query, "tt", "virtual" )
-        self.assertEqual( l2.isValid(), True )
+        self.assertEqual( l4.isValid(), True )
 
-        print l4.dataProvider().geometryType()
+        self.assertEqual(l4.dataProvider().geometryType(), 3)
 
+        n = 0
         r = QgsFeatureRequest( QgsRectangle(-1.677,49.624, -0.816,49.086) )
         for f in l4.getFeatures(r):
-            print f.id(), f.geometry()
+            self.assertEqual(f.geometry() is not None, True)
+            self.assertEqual(f.attributes()[0], 2661)
+            n += 1
+        self.assertEqual(n, 1)
 
+        query = QUrl.toPercentEncoding( "SELECT * FROM france_parts")
+        l5 = QgsVectorLayer( "?query=%s&geometry=geometry:polygon:4326&uid=ObjectId" % query, "tt", "virtual" )
+        self.assertEqual( l5.isValid(), True )
+
+        for f in l5.getFeatures():
+            print f.id(), f.attributes()
+
+        print "filter"
+        r = QgsFeatureRequest( 2661 )
+        for f in l5.getFeatures(r):
+            print f.id(), f.attributes()
 
 if __name__ == '__main__':
     unittest.main()
