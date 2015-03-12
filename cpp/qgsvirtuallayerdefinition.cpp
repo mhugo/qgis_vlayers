@@ -39,6 +39,8 @@ void QgsVirtualLayerDefinition::fromUrl( const QUrl& url )
 {
     mUri = url.path();
 
+    mGeometrySrid = -1;
+
     int layer_idx = 0;
     QList<QPair<QByteArray, QByteArray> > items = url.encodedQueryItems();
     for ( int i = 0; i < items.size(); i++ ) {
@@ -137,7 +139,7 @@ QgsVirtualLayerDefinition virtualLayerDefinitionFromSqlite( const QString& path 
 
     QgsFields forcedFields;
     {
-        SqliteQuery q( sqlite.get(), "SELECT name FROM sqlite_master WHERE name='_meta' OR name='_tables' OR name='_columns'" );
+        Sqlite::Query q( sqlite.get(), "SELECT name FROM sqlite_master WHERE name='_meta' OR name='_tables' OR name='_columns'" );
         int cnt = 0;
         while ( q.step() == SQLITE_ROW ) {
             cnt++;
@@ -148,7 +150,7 @@ QgsVirtualLayerDefinition virtualLayerDefinitionFromSqlite( const QString& path 
     }
     // look for the correct version
     {
-        SqliteQuery q( sqlite.get(), "SELECT version FROM _meta" );
+        Sqlite::Query q( sqlite.get(), "SELECT version FROM _meta" );
         int version = 0;
         if (q.step() == SQLITE_ROW) {
             version = sqlite3_column_int( q.stmt(), 0 );
@@ -159,7 +161,7 @@ QgsVirtualLayerDefinition virtualLayerDefinitionFromSqlite( const QString& path 
     }
     // look for a query, if any
     {
-        SqliteQuery q( sqlite.get(), "SELECT id, name, source, provider FROM _tables" );
+        Sqlite::Query q( sqlite.get(), "SELECT id, name, source, provider FROM _tables" );
         while ( q.step() == SQLITE_ROW ) {
             int id = sqlite3_column_int( q.stmt(), 0 );
             if ( id == 0 ) { // query
@@ -176,7 +178,7 @@ QgsVirtualLayerDefinition virtualLayerDefinitionFromSqlite( const QString& path 
     }
     // look for field overloaded types and geometry
     {
-        SqliteQuery q( sqlite.get(), "SELECT name, type FROM _columns WHERE table_id=0" );
+        Sqlite::Query q( sqlite.get(), "SELECT name, type FROM _columns WHERE table_id=0" );
         while ( q.step() == SQLITE_ROW ) {
             QString colname( (const char*)sqlite3_column_text( q.stmt(), 0 ) );
             QString coltype( (const char*)sqlite3_column_text( q.stmt(), 1 ) );

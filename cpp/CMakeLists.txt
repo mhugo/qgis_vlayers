@@ -55,6 +55,7 @@ SET(QGIS_VLAYER_PROVIDER_SRCS
   ${vlayer_provider_MOC_SRCS}
   ${vlayer_provider_UI_H}
   qgsvirtuallayerprovider.cpp
+  qgsvirtuallayerfeatureiterator.cpp
   qgsvirtuallayersourceselect.cpp
   qgsembeddedlayerselectdialog.cpp
   vlayer_module.cpp
@@ -71,6 +72,8 @@ ADD_LIBRARY(virtuallayerprovider MODULE
 )
 
 TARGET_LINK_LIBRARIES( virtuallayerprovider
+  qgis_core
+  qgis_gui
   spatialiteprovider
 )
 

@@ -21,9 +21,10 @@ extern "C" {
 
 #include <QUrl>
 
-#include "qgsvirtuallayerprovider.h"
-#include "qgsvirtuallayerdefinition.h"
-#include "qgssql.h"
+#include <qgsvirtuallayerprovider.h>
+#include <qgsvirtuallayerdefinition.h>
+#include <qgsvirtuallayerfeatureiterator.h>
+#include <qgssql.h>
 #include <qgsvectorlayer.h>
 #include <qgsmaplayerregistry.h>
 #include <qgsdatasourceuri.h>
@@ -41,7 +42,7 @@ extern "C" {
 
 void QgsVirtualLayerProvider::getSqliteFields( sqlite3* db, const QString& table, QgsFields& fields, GeometryFields& gFields )
 {
-    SqliteQuery q( db, QString("PRAGMA table_info('%1')").arg(table) );
+    Sqlite::Query q( db, QString("PRAGMA table_info('%1')").arg(table) );
     int n = sqlite3_column_count( q.stmt() );
     while ( sqlite3_step( q.stmt() ) == SQLITE_ROW ) {
         QString field_name((const char*)sqlite3_column_text( q.stmt(), 1 ));
@@ -175,7 +176,7 @@ QgsVirtualLayerProvider::QgsVirtualLayerProvider( QString const &uri )
         mDefinition = virtualLayerDefinitionFromSqlite( mPath );
         // check geometry field
         {
-            SqliteQuery q( db, "SELECT * FROM virts_geometry_columns" );
+            Sqlite::Query q( db, "SELECT * FROM virts_geometry_columns" );
             if ( q.step() == SQLITE_ROW ) {
                 has_geometry = true;
             }
@@ -218,18 +219,18 @@ QgsVirtualLayerProvider::QgsVirtualLayerProvider( QString const &uri )
                 QString vname = mLayers.at(i).name;
                 if ( vlayer ) {
                     QString createStr = QString("DROP TABLE IF EXISTS %1; CREATE VIRTUAL TABLE %1 USING QgsVLayer(%2);").arg(vname).arg(vlayer->id());
-                    SqliteQuery::exec( mSqlite.get(), createStr );
+                    Sqlite::Query::exec( mSqlite.get(), createStr );
                 }
                 else {
                     QString provider = mLayers.at(i).provider;
                     QString source = mLayers.at(i).source;
                     QString createStr = QString( "DROP TABLE IF EXISTS %1; CREATE VIRTUAL TABLE %1 USING QgsVLayer(%2,'%3')").arg(vname).arg(provider).arg(source);
-                    SqliteQuery::exec( mSqlite.get(), createStr );
+                    Sqlite::Query::exec( mSqlite.get(), createStr );
                 }
 
                 // check geometry field
                 {
-                    SqliteQuery q( db, QString("SELECT * FROM virts_geometry_columns WHERE virt_name='%1'").arg(vname) );
+                    Sqlite::Query q( db, QString("SELECT * FROM virts_geometry_columns WHERE virt_name='%1'").arg(vname) );
                     if ( q.step() == SQLITE_ROW ) {
                         has_geometry = true;
                     }
@@ -241,7 +242,7 @@ QgsVirtualLayerProvider::QgsVirtualLayerProvider( QString const &uri )
                 // create a temporary view, in order to call table_info on it
                 QString viewStr = "CREATE TEMPORARY VIEW vview AS " + mDefinition.query();
 
-                SqliteQuery::exec( mSqlite.get(), viewStr );
+                Sqlite::Query::exec( mSqlite.get(), viewStr );
 
                 // look for column names and types
                 GeometryFields gFields;
@@ -282,23 +283,23 @@ QgsVirtualLayerProvider::QgsVirtualLayerProvider( QString const &uri )
                 }
 
                 if ( !noGeometry ) {
-                    SqliteQuery::exec( mSqlite.get(), QString("INSERT OR REPLACE INTO _columns (table_id, name, type) VALUES (0, '%1', '::')" ).arg(geometryField.name) );
+                    Sqlite::Query::exec( mSqlite.get(), QString("INSERT OR REPLACE INTO _columns (table_id, name, type) VALUES (0, '%1', '::')" ).arg(geometryField.name) );
                 }
                 else {
-                    SqliteQuery::exec( mSqlite.get(), "INSERT OR REPLACE INTO _columns (table_id, name, type) VALUES (0, 'geometry', 'no::')" );
+                    Sqlite::Query::exec( mSqlite.get(), "INSERT OR REPLACE INTO _columns (table_id, name, type) VALUES (0, 'geometry', 'no::')" );
                 }
 
-                SqliteQuery q(mSqlite.get(), "INSERT OR REPLACE INTO _tables (id, name, source) VALUES (0, ?, ?)");
+                Sqlite::Query q(mSqlite.get(), "INSERT OR REPLACE INTO _tables (id, name, source) VALUES (0, ?, ?)");
                 q.bind(mDefinition.uid()).bind(mDefinition.query());
                 q.step();
             }
             else {
                 // no query => implies we must only have one virtual table
                 if (has_geometry && !noGeometry) {
-                    SqliteQuery::exec( mSqlite.get(), "INSERT OR REPLACE INTO _columns (table_id, name, type) VALUES (0, 'geometry', '::')" );
+                    Sqlite::Query::exec( mSqlite.get(), "INSERT OR REPLACE INTO _columns (table_id, name, type) VALUES (0, 'geometry', '::')" );
                 }
                 else {
-                    SqliteQuery::exec( mSqlite.get(), "INSERT OR REPLACE INTO _columns (table_id, name, type) VALUES (0, 'geometry', 'no::')" );
+                    Sqlite::Query::exec( mSqlite.get(), "INSERT OR REPLACE INTO _columns (table_id, name, type) VALUES (0, 'geometry', 'no::')" );
                 }
             }
         }
@@ -320,6 +321,7 @@ QgsVirtualLayerProvider::QgsVirtualLayerProvider( QString const &uri )
     else {
         tableName = "(" + mDefinition.query() + ")";
     }
+#if 0
     QgsDataSourceURI source;
     source.setDatabase( mPath );
     source.setDataSource( "", tableName, geometryField.name, "", mDefinition.uid() );
@@ -340,6 +342,9 @@ QgsVirtualLayerProvider::QgsVirtualLayerProvider( QString const &uri )
 
     // write metadata
     mValid = mSpatialite->isValid();
+#else
+    mValid = true;
+#endif
 
     // connect to layer removal signals
     for ( auto& layer : mLayers ) {
@@ -347,11 +352,16 @@ QgsVirtualLayerProvider::QgsVirtualLayerProvider( QString const &uri )
             connect( layer.layer, SIGNAL(layerDeleted()), this, SLOT(onLayerDeleted()) );
         }
     }
+
+    if (mDefinition.geometrySrid() != -1 ) {
+        mCrs = QgsCoordinateReferenceSystem( mDefinition.geometrySrid() );
+    }
 }
 
 
 QgsVirtualLayerProvider::~QgsVirtualLayerProvider()
 {
+    std::cout << "PRovider DTOR" << std::endl;
     if ( mTempFile ) {
         // if we have been using a temporary file, delete it (the one with the nonce)
         QFile::remove( mPath );
@@ -365,11 +375,11 @@ void QgsVirtualLayerProvider::resetSqlite()
 
     bool has_mtables = false;
     {
-        SqliteQuery q( mSqlite.get(), "SELECT name FROM sqlite_master WHERE name='_tables'" );
+        Sqlite::Query q( mSqlite.get(), "SELECT name FROM sqlite_master WHERE name='_tables'" );
         has_mtables = q.step() == SQLITE_ROW;
     }
     if ( has_mtables ) {
-        SqliteQuery q( mSqlite.get(), "SELECT name FROM _tables WHERE id>0" );
+        Sqlite::Query q( mSqlite.get(), "SELECT name FROM _tables WHERE id>0" );
         while ( q.step() == SQLITE_ROW ) {
             sql += "DROP TABLE " + QString((const char*)sqlite3_column_text( q.stmt(), 0 )) + ";";
         }
@@ -379,13 +389,13 @@ void QgsVirtualLayerProvider::resetSqlite()
     }
     bool has_spatialrefsys = false;
     {
-        SqliteQuery q( mSqlite.get(), "SELECT name FROM sqlite_master WHERE name='spatial_ref_sys'" );
+        Sqlite::Query q( mSqlite.get(), "SELECT name FROM sqlite_master WHERE name='spatial_ref_sys'" );
         has_spatialrefsys = q.step() == SQLITE_ROW;
     }
     if (!has_spatialrefsys) {
         sql += "SELECT InitSpatialMetadata(1);";
     }
-    SqliteQuery::exec( mSqlite.get(), sql );
+    Sqlite::Query::exec( mSqlite.get(), sql );
 }
 
 void QgsVirtualLayerProvider::onLayerDeleted()
@@ -396,14 +406,14 @@ void QgsVirtualLayerProvider::onLayerDeleted()
         if (layer.layer && layer.layer->id() == vl->id() ) {
             // must drop the corresponding virtual table
             std::cout << "layer removed, drop virtual table " << layer.name.toUtf8().constData() << std::endl;
-            SqliteQuery::exec( mSqlite.get(), QString("DROP TABLE %1").arg(layer.name) );
+            Sqlite::Query::exec( mSqlite.get(), QString("DROP TABLE %1").arg(layer.name) );
         }
     }    
 }
 
 QgsAbstractFeatureSource* QgsVirtualLayerProvider::featureSource() const
 {
-    return mSpatialite->featureSource();
+    return new QgsVirtualLayerFeatureSource( this );
 }
 
 QString QgsVirtualLayerProvider::storageType() const
@@ -413,28 +423,43 @@ QString QgsVirtualLayerProvider::storageType() const
 
 QgsCoordinateReferenceSystem QgsVirtualLayerProvider::crs()
 {
-    return mSpatialite->crs();
+    return mCrs;
 }
 
 QgsFeatureIterator QgsVirtualLayerProvider::getFeatures( const QgsFeatureRequest& request )
 {
-    return mSpatialite->getFeatures( request );
+    return QgsFeatureIterator( new QgsVirtualLayerFeatureIterator( new QgsVirtualLayerFeatureSource( this ), false, request ) );
 }
 
 QString QgsVirtualLayerProvider::subsetString()
 {
-    return mSpatialite->subsetString();
+    return mSubset;
 }
 
 bool QgsVirtualLayerProvider::setSubsetString( QString theSQL, bool updateFeatureCount )
 {
-    return mSpatialite->setSubsetString( theSQL, updateFeatureCount );
+    mSubset = theSQL;
+    return true;
 }
 
 
 QGis::WkbType QgsVirtualLayerProvider::geometryType() const
 {
-    return mSpatialite->geometryType();
+    switch (mDefinition.geometryWkbType()) {
+    case 1:
+        return QGis::WKBPoint;
+    case 2:
+        return QGis::WKBLineString;
+    case 3:
+        return QGis::WKBPolygon;
+    case 4:
+        return QGis::WKBMultiPoint;
+    case 5:
+        return QGis::WKBMultiLineString;
+    case 6:
+        return QGis::WKBMultiPolygon;
+    }
+    return QGis::WKBNoGeometry;
 }
 
 size_t QgsVirtualLayerProvider::layerCount() const
@@ -444,17 +469,17 @@ size_t QgsVirtualLayerProvider::layerCount() const
 
 long QgsVirtualLayerProvider::featureCount() const
 {
-    return mSpatialite->featureCount();
+    return 0;
 }
 
 QgsRectangle QgsVirtualLayerProvider::extent()
 {
-    return mSpatialite->extent();
+    return QgsRectangle();
 }
 
 void QgsVirtualLayerProvider::updateExtents()
 {
-    mSpatialite->updateExtents();
+    //    mSpatialite->updateExtents();
 }
 
 const QgsFields & QgsVirtualLayerProvider::fields() const
@@ -464,17 +489,17 @@ const QgsFields & QgsVirtualLayerProvider::fields() const
 
 QVariant QgsVirtualLayerProvider::minimumValue( int index )
 {
-    return mSpatialite->minimumValue( index );
+    return 0;
 }
 
 QVariant QgsVirtualLayerProvider::maximumValue( int index )
 {
-    return mSpatialite->maximumValue( index );
+    return 0;
 }
 
 void QgsVirtualLayerProvider::uniqueValues( int index, QList < QVariant > &uniqueValues, int limit )
 {
-    return mSpatialite->uniqueValues( index, uniqueValues, limit );
+    //    return mSpatialite->uniqueValues( index, uniqueValues, limit );
 }
 
 bool QgsVirtualLayerProvider::isValid()
@@ -499,7 +524,7 @@ QString QgsVirtualLayerProvider::description() const
 
 QgsAttributeList QgsVirtualLayerProvider::pkAttributeIndexes()
 {
-    return mSpatialite->pkAttributeIndexes();
+    return QgsAttributeList();
 }
 
 /**

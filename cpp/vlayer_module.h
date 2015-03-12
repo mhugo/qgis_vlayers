@@ -25,5 +25,11 @@ int vtable_findfunction( sqlite3_vtab *pVtab,
 
 #ifdef __cplusplus
 }
+
+#include <memory>
+#include <qgsgeometry.h>
+
+std::unique_ptr<QgsGeometry> spatialite_blob_to_qgsgeometry( const unsigned char* blob, const size_t size );
+
 #endif
 

@@ -23,7 +23,8 @@ from qgis.core import (QGis,
                        QgsField,
                        QgsGeometry,
                        QgsPoint,
-                       QgsMapLayerRegistry
+                       QgsMapLayerRegistry,
+                       QgsRectangle
                       )
 
 from utilities import (getQgisTestApp,
@@ -375,8 +376,26 @@ class TestQgsVirtualLayerProvider(TestCase):
         self.assertEqual( l1.isValid(), True )
         QgsMapLayerRegistry.instance().addMapLayer(l1)
 
-        l2 = QgsVectorLayer( "?query=SELECT * FROM test" )
+        l3 = QgsVectorLayer( "?query=SELECT * FROM test", "tt", "virtual" )
+
+        self.assertEqual( l3.isValid(), True )
+        s = sum(f.id() for f in l3.getFeatures())
+        self.assertEqual( s, 15 )
+
+    def test_sql2(self):
+        l2 = QgsVectorLayer( os.path.join(self.testDataDir_, "france_parts.shp"), "france_parts", "ogr", False )
         self.assertEqual( l2.isValid(), True )
+        QgsMapLayerRegistry.instance().addMapLayer(l2)
+
+        query = QUrl.toPercentEncoding( "SELECT * FROM france_parts")
+        l4 = QgsVectorLayer( "?query=%s&geometry=geometry:polygon:4326" % query, "tt", "virtual" )
+        self.assertEqual( l2.isValid(), True )
+
+        print l4.dataProvider().geometryType()
+
+        r = QgsFeatureRequest( QgsRectangle(-1.677,49.624, -0.816,49.086) )
+        for f in l4.getFeatures(r):
+            print f.id(), f.geometry()
 
 
 if __name__ == '__main__':

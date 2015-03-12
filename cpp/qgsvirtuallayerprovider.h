@@ -28,6 +28,8 @@ email                : hugo dot mercier at oslandia dot com
 
 #include "common.h"
 
+class QgsVirtualLayerFeatureIterator;
+
 class QgsVirtualLayerProvider: public QgsVectorDataProvider
 {
   Q_OBJECT public:
@@ -214,6 +216,9 @@ class QgsVirtualLayerProvider: public QgsVectorDataProvider
         int wkbType;
     };
     typedef QList<GeometryField> GeometryFields;
+
+    QgsCoordinateReferenceSystem mCrs;
+
     void getSqliteFields( sqlite3* db, const QString& table, QgsFields& fields, GeometryFields& gFields );
 
     // nonce used for temporary file
@@ -221,7 +226,11 @@ class QgsVirtualLayerProvider: public QgsVectorDataProvider
 
     QgsVirtualLayerDefinition mDefinition;
 
+    QString mSubset;
+
     void resetSqlite();
+
+    friend class QgsVirtualLayerFeatureIterator;
 
 private slots:
     void onLayerDeleted();
