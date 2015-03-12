@@ -401,17 +401,22 @@ class TestQgsVirtualLayerProvider(TestCase):
             n += 1
         self.assertEqual(n, 1)
 
+        # use uid
         query = QUrl.toPercentEncoding( "SELECT * FROM france_parts")
         l5 = QgsVectorLayer( "?query=%s&geometry=geometry:polygon:4326&uid=ObjectId" % query, "tt", "virtual" )
         self.assertEqual( l5.isValid(), True )
 
-        for f in l5.getFeatures():
-            print f.id(), f.attributes()
+        idSum = sum(f.id() for f in l5.getFeatures())
+        self.assertEqual( idSum, 10659 )
 
-        print "filter"
         r = QgsFeatureRequest( 2661 )
-        for f in l5.getFeatures(r):
-            print f.id(), f.attributes()
+        idSum2 = sum(f.id() for f in l5.getFeatures(r))
+        self.assertEqual( idSum2, 2661 )
+
+        # test subset
+        l5.setSubsetString( "ObjectId = 2661" )
+        idSum2 = sum(f.id() for f in l5.getFeatures(r))
+        self.assertEqual( idSum2, 2661 )
 
 if __name__ == '__main__':
     unittest.main()

@@ -9,24 +9,32 @@ QgsVirtualLayerFeatureIterator::QgsVirtualLayerFeatureIterator( QgsVirtualLayerF
     mDefinition = mSource->provider()->mDefinition;
     mFields = mSource->provider()->fields();
 
-    // TODO subset query
     mSqlQuery = mDefinition.query();
+
+    QStringList wheres;
+    QString subset = mSource->provider()->mSubset;
+    if ( !subset.isNull() ) {
+        wheres << subset;
+    }
 
     if ( !mDefinition.geometryField().isNull() && request.filterType() == QgsFeatureRequest::FilterRect ) {
         bool do_exact = request.flags() & QgsFeatureRequest::ExactIntersect;
         QgsRectangle rect( request.filterRect() );
         QString mbr = QString("%1,%2,%3,%4").arg(rect.xMinimum()).arg(rect.yMinimum()).arg(rect.xMaximum()).arg(rect.yMaximum());
-        mSqlQuery = QString("SELECT * FROM (%1) WHERE %2Intersects(%3,BuildMbr(%4))")
-            .arg(mSqlQuery)
+        wheres <<  QString("%1Intersects(%2,BuildMbr(%3))")
             .arg(do_exact ? "Mbr" : "")
             .arg(mDefinition.geometryField())
             .arg(mbr);
     }
     else if (!mDefinition.uid().isNull() && request.filterType() == QgsFeatureRequest::FilterFid ) {
-        mSqlQuery = QString("SELECT * FROM (%1) WHERE %2=%3")
-            .arg(mSqlQuery)
+        wheres << QString("%1=%2")
             .arg(mDefinition.uid())
             .arg(request.filterFid());
+    }
+    if ( !wheres.isEmpty() ) {
+        mSqlQuery = QString("SELECT * FROM (%1) WHERE %2")
+            .arg(mSqlQuery)
+            .arg(wheres.join(" AND "));
     }
 
     mQuery.reset( new Sqlite::Query( mSqlite.get(), mSqlQuery ) );
