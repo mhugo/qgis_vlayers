@@ -509,7 +509,10 @@ bool QgsVirtualLayerProvider::isValid()
 
 int QgsVirtualLayerProvider::capabilities() const
 {
-    return 0; //SelectAtId | SelectGeometryAtId;
+    if ( !mDefinition.uid().isNull() ) {
+        return SelectAtId | SelectGeometryAtId;
+    }
+    return 0;
 }
 
 QString QgsVirtualLayerProvider::name() const
