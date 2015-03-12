@@ -31,6 +31,19 @@ QgsVirtualLayerFeatureIterator::QgsVirtualLayerFeatureIterator( QgsVirtualLayerF
             .arg(mDefinition.uid())
             .arg(request.filterFid());
     }
+    else if (!mDefinition.uid().isNull() && request.filterType() == QgsFeatureRequest::FilterFids ) {
+        QString values = mDefinition.uid() + " IN (";
+        bool first = true;
+        for ( auto& v : request.filterFids() ) {
+            if (!first) {
+                values += ",";
+            }
+            first = false;
+            values += QString::number(v);
+        }
+        values += ")";
+        wheres << values;
+    }
     if ( !wheres.isEmpty() ) {
         mSqlQuery = QString("SELECT * FROM (%1) WHERE %2")
             .arg(mSqlQuery)

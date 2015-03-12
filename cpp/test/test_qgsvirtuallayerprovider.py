@@ -413,6 +413,10 @@ class TestQgsVirtualLayerProvider(TestCase):
         idSum2 = sum(f.id() for f in l5.getFeatures(r))
         self.assertEqual( idSum2, 2661 )
 
+        r = QgsFeatureRequest()
+        r.setFilterFids( [ 2661, 2664 ] )
+        self.assertEqual( sum(f.id() for f in l5.getFeatures(r)), 2661+2664)
+
         # test subset
         l5.setSubsetString( "ObjectId = 2661" )
         idSum2 = sum(f.id() for f in l5.getFeatures(r))
