@@ -417,6 +417,14 @@ class TestQgsVirtualLayerProvider(TestCase):
         r.setFilterFids( [ 2661, 2664 ] )
         self.assertEqual( sum(f.id() for f in l5.getFeatures(r)), 2661+2664)
 
+        # test attribute subset
+        r = QgsFeatureRequest()
+        r.setFlags( QgsFeatureRequest.SubsetOfAttributes )
+        r.setSubsetOfAttributes([1])
+        s = [(f.id(), f.attributes()[0]) for f in l5.getFeatures(r)]
+        self.assertEqual(sum(map(lambda x:x[0], s)), 10659)
+        self.assertEqual(sum(map(lambda x:x[1], s)), 3064.0)
+
         # test subset
         l5.setSubsetString( "ObjectId = 2661" )
         idSum2 = sum(f.id() for f in l5.getFeatures(r))

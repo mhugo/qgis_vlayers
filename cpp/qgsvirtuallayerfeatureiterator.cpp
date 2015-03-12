@@ -1,13 +1,17 @@
 #include <qgsvirtuallayerfeatureiterator.h>
 #include "vlayer_module.h"
 
+static QString quotedColumn( QString name )
+{
+    return "\"" + name.replace("\"", "\"\"") + "\"";
+}
+
 QgsVirtualLayerFeatureIterator::QgsVirtualLayerFeatureIterator( QgsVirtualLayerFeatureSource* source, bool ownSource, const QgsFeatureRequest& request )
     : QgsAbstractFeatureIteratorFromSource<QgsVirtualLayerFeatureSource>( source, ownSource, request )
 {
     mPath = mSource->provider()->mPath;
     mSqlite = Sqlite::open( mPath );
     mDefinition = mSource->provider()->mDefinition;
-    mFields = mSource->provider()->fields();
 
     mSqlQuery = mDefinition.query();
 
@@ -23,16 +27,16 @@ QgsVirtualLayerFeatureIterator::QgsVirtualLayerFeatureIterator( QgsVirtualLayerF
         QString mbr = QString("%1,%2,%3,%4").arg(rect.xMinimum()).arg(rect.yMinimum()).arg(rect.xMaximum()).arg(rect.yMaximum());
         wheres <<  QString("%1Intersects(%2,BuildMbr(%3))")
             .arg(do_exact ? "Mbr" : "")
-            .arg(mDefinition.geometryField())
+            .arg(quotedColumn(mDefinition.geometryField()))
             .arg(mbr);
     }
     else if (!mDefinition.uid().isNull() && request.filterType() == QgsFeatureRequest::FilterFid ) {
         wheres << QString("%1=%2")
-            .arg(mDefinition.uid())
+            .arg(quotedColumn(mDefinition.uid()))
             .arg(request.filterFid());
     }
     else if (!mDefinition.uid().isNull() && request.filterType() == QgsFeatureRequest::FilterFids ) {
-        QString values = mDefinition.uid() + " IN (";
+        QString values = quotedColumn(mDefinition.uid()) + " IN (";
         bool first = true;
         for ( auto& v : request.filterFids() ) {
             if (!first) {
@@ -44,29 +48,45 @@ QgsVirtualLayerFeatureIterator::QgsVirtualLayerFeatureIterator( QgsVirtualLayerF
         values += ")";
         wheres << values;
     }
-    if ( !wheres.isEmpty() ) {
-        mSqlQuery = QString("SELECT * FROM (%1) WHERE %2")
-            .arg(mSqlQuery)
-            .arg(wheres.join(" AND "));
+
+    if ( request.flags() & QgsFeatureRequest::SubsetOfAttributes ) {
+        // copy only selected fields
+        for ( int idx: request.subsetOfAttributes() ) {
+            mFields.append( mSource->provider()->fields().at(idx) );
+        }
+    }
+    else {
+        mFields = mSource->provider()->fields();
     }
 
-    mQuery.reset( new Sqlite::Query( mSqlite.get(), mSqlQuery ) );
-
-    mUidColumn = -1;
-    int n = mQuery->column_count();
-    int j = 0;
-    for ( int i = 0; i < n; i++ ) {
-        QString colname = mQuery->column_name(i).toLower();
-        if ( colname == mDefinition.geometryField().toLower() ) {
-            mColumnMap[i] = -1;
+    QString columns;
+    {
+        // the first column is always the uid (or 0)
+        if ( !mDefinition.uid().isNull() ) {
+            columns = quotedColumn(mDefinition.uid());
         }
         else {
-            mColumnMap[i] = j++;
-            if (colname == mDefinition.uid().toLower()) {
-                mUidColumn = i;
-            }
+            columns = "0";
+        }
+        for ( int i = 0; i < mFields.count(); i++ ) {
+            columns += ",";
+            QString cname = mFields.at(i).name().toLower();
+            columns += quotedColumn(cname);
         }
     }
+    // the last column is the geometry, if any
+    if ( !(request.flags() & QgsFeatureRequest::NoGeometry) && !mDefinition.geometryField().isNull() ) {
+        columns += "," + quotedColumn(mDefinition.geometryField());
+    }
+
+    mSqlQuery = "SELECT " + columns + " FROM (" + mSqlQuery + ")";
+    if ( !wheres.isEmpty() ) {
+        mSqlQuery += " WHERE " + wheres.join(" AND ");
+    }
+
+    std::cout << mSqlQuery.toUtf8().constData() << std::endl;
+
+    mQuery.reset( new Sqlite::Query( mSqlite.get(), mSqlQuery ) );
 
     mFid = 0;
 }
@@ -111,36 +131,35 @@ bool QgsVirtualLayerFeatureIterator::fetchFeature( QgsFeature& feature )
 
     feature.setFields( &mFields, /* init */ true );
 
-    if ( mUidColumn == -1 ) {
+    if ( mDefinition.uid().isNull() ) {
         // no id column => autoincrement
         feature.setFeatureId( mFid++ );
     }
     else {
-        feature.setFeatureId( mQuery->column_int64( mUidColumn ) );
+        // first column: uid
+        feature.setFeatureId( mQuery->column_int64( 0 ) );
     }
 
     int n = mQuery->column_count();
-    for ( int i = 0; i < n; i++ ) {
-        int j = mColumnMap[i];
-        if ( j == -1 ) { 
-            // geometry field
-            QByteArray blob( mQuery->column_blob(i) );
-            std::unique_ptr<QgsGeometry> geom( spatialite_blob_to_qgsgeometry( (const unsigned char*)blob.constData(), blob.size() ) );
-            feature.setGeometry( geom.release() );
+    for ( int i = 0; i < mFields.count(); i++ ) {
+        const QgsField& f = mFields.at(i);
+        if ( f.type() == QVariant::Int ) {
+            feature.setAttribute( i, mQuery->column_int(i+1) );
         }
-        else {
-            const QgsField& f = mFields.at(j);
-            if ( f.type() == QVariant::Int ) {
-                feature.setAttribute( j, mQuery->column_int(i) );
-            }
-            else if ( f.type() == QVariant::Double ) {
-                feature.setAttribute( j, mQuery->column_double(i) );
-            }
-            else if ( f.type() == QVariant::String ) {
-                feature.setAttribute( j, mQuery->column_text(i) );
-            }
+        else if ( f.type() == QVariant::Double ) {
+            feature.setAttribute( i, mQuery->column_double(i+1) );
+        }
+        else if ( f.type() == QVariant::String ) {
+            feature.setAttribute( i, mQuery->column_text(i+1) );
         }
     }
+    if (n > mFields.count()+1) {
+        // geometry field
+        QByteArray blob( mQuery->column_blob(n-1) );
+        std::unique_ptr<QgsGeometry> geom( spatialite_blob_to_qgsgeometry( (const unsigned char*)blob.constData(), blob.size() ) );
+        feature.setGeometry( geom.release() );
+    }
+
     return true;
 }
 
