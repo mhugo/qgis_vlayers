@@ -425,6 +425,12 @@ class TestQgsVirtualLayerProvider(TestCase):
         self.assertEqual(sum(map(lambda x:x[0], s)), 10659)
         self.assertEqual(sum(map(lambda x:x[1], s)), 3064.0)
 
+        # test NoGeometry
+        # by request flag
+        r = QgsFeatureRequest()
+        r.setFlags( QgsFeatureRequest.NoGeometry )
+        self.assertEqual(all([f.geometry() is None for f in l5.getFeatures(r)]), True)
+
         # test subset
         l5.setSubsetString( "ObjectId = 2661" )
         idSum2 = sum(f.id() for f in l5.getFeatures(r))
