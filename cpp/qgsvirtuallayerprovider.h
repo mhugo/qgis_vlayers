@@ -208,12 +208,15 @@ class QgsVirtualLayerProvider: public QgsVectorDataProvider
     // temporary file used for temporary virtual layer
     QScopedPointer<QTemporaryFile> mTempFile;
 
+    QString mTableName;
+
     QgsFields mFields;
 
     struct GeometryField
     {
         QString name;
         int wkbType;
+        long srid;
     };
     typedef QList<GeometryField> GeometryFields;
 
@@ -229,6 +232,12 @@ class QgsVirtualLayerProvider: public QgsVectorDataProvider
     QString mSubset;
 
     void resetSqlite();
+
+    mutable bool mCachedStatistics;
+    mutable qint64 mFeatureCount;
+    mutable QgsRectangle mExtent;
+
+    void updateStatistics() const;
 
     friend class QgsVirtualLayerFeatureIterator;
 

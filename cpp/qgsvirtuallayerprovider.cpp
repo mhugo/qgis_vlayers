@@ -33,6 +33,11 @@ extern "C" {
 const QString VIRTUAL_LAYER_KEY = "virtual";
 const QString VIRTUAL_LAYER_DESCRIPTION = "Virtual layer data provider";
 
+static QString quotedColumn( QString name )
+{
+    return "\"" + name.replace("\"", "\"\"") + "\"";
+}
+
 // declaration of the spatialite module
 extern "C" {
     int qgsvlayer_module_init();
@@ -76,6 +81,7 @@ int QgsVirtualLayerProvider::mNonce = 0;
 
 QgsVirtualLayerProvider::QgsVirtualLayerProvider( QString const &uri )
     : QgsVectorDataProvider( uri ),
+      mCachedStatistics( false ),
       mValid( true )
 {
     QUrl url = QUrl::fromEncoded( uri.toUtf8() );
@@ -93,7 +99,7 @@ QgsVirtualLayerProvider::QgsVirtualLayerProvider( QString const &uri )
     mDefinition = QgsVirtualLayerDefinition( url );
 
     // geometry field to consider (if more than one or if it cannot be detected)
-    GeometryField geometryField;
+    GeometryField reqGeometryField;
 
     // consistency check
     if ( mDefinition.sourceLayers().size() > 1 && mDefinition.query().isEmpty() ) {
@@ -185,7 +191,9 @@ QgsVirtualLayerProvider::QgsVirtualLayerProvider( QString const &uri )
 
     noGeometry = mDefinition.geometryField() == "*no*";
     if (!noGeometry) {
-        geometryField.name = mDefinition.geometryField();
+        reqGeometryField.name = mDefinition.geometryField();
+        reqGeometryField.wkbType = mDefinition.geometryWkbType();
+        reqGeometryField.srid = mDefinition.geometrySrid();
     }
 
     for ( auto& layer : mDefinition.sourceLayers() ) {
@@ -239,25 +247,23 @@ QgsVirtualLayerProvider::QgsVirtualLayerProvider( QString const &uri )
 
             QList<QString> geometryFields;
             if ( !mDefinition.query().isEmpty() ) {
-                // create a temporary view, in order to call table_info on it
-                QString viewStr = "CREATE TEMPORARY VIEW vview AS " + mDefinition.query();
+                // create a view, and call table_info on it
+                QString viewStr = "DROP VIEW IF EXISTS _view; CREATE VIEW _view AS " + mDefinition.query();
 
                 Sqlite::Query::exec( mSqlite.get(), viewStr );
 
                 // look for column names and types
                 GeometryFields gFields;
-                getSqliteFields( mSqlite.get(), "vview", mFields, gFields );
+                getSqliteFields( mSqlite.get(), "_view", mFields, gFields );
 
                 // process geometry field
-                if ( !geometryField.name.isEmpty() ) {
+                if ( !reqGeometryField.name.isEmpty() ) {
                     // requested geometry field is in mFields => remove it from mFields and add it to mGeometryFields
                     bool found = false;
                     for ( int i = 0; i < mFields.count(); i++ ) {
-                        if ( mFields[i].name() == geometryField.name ) {
+                        if ( mFields[i].name() == reqGeometryField.name ) {
                             mFields.remove(i);
-                            GeometryField g;
-                            g.name = geometryField.name;
-                            gFields.append( g );
+                            gFields.append( reqGeometryField );
                             found = true;
                             break;
                         }
@@ -265,7 +271,7 @@ QgsVirtualLayerProvider::QgsVirtualLayerProvider( QString const &uri )
                     // if not found in mFields, look in mGeometryFields
                     if ( !found ) {
                         for ( int i = 0; !found && i < gFields.size(); i++ ) {
-                            if ( gFields[i].name == geometryField.name ) {
+                            if ( gFields[i].name == reqGeometryField.name ) {
                                 found = true;
                                 break;
                             }
@@ -277,13 +283,16 @@ QgsVirtualLayerProvider::QgsVirtualLayerProvider( QString const &uri )
                         return;
                     }
                 }
-                if ( geometryField.name.isEmpty() && !noGeometry && gFields.size() > 0 ) {
+                if ( reqGeometryField.name.isEmpty() && !noGeometry && gFields.size() > 0 ) {
                     // take the first
-                    geometryField.name = gFields[0].name;
+                    reqGeometryField = gFields[0];
                 }
 
                 if ( !noGeometry ) {
-                    Sqlite::Query::exec( mSqlite.get(), QString("INSERT OR REPLACE INTO _columns (table_id, name, type) VALUES (0, '%1', '::')" ).arg(geometryField.name) );
+                    Sqlite::Query::exec( mSqlite.get(), QString("INSERT OR REPLACE INTO _columns (table_id, name, type) VALUES (0, '%1', '%2:%3')" )
+                                         .arg(reqGeometryField.name)
+                                         .arg(reqGeometryField.wkbType)
+                                         .arg(reqGeometryField.srid) );
                 }
                 else {
                     Sqlite::Query::exec( mSqlite.get(), "INSERT OR REPLACE INTO _columns (table_id, name, type) VALUES (0, 'geometry', 'no::')" );
@@ -296,7 +305,9 @@ QgsVirtualLayerProvider::QgsVirtualLayerProvider( QString const &uri )
             else {
                 // no query => implies we must only have one virtual table
                 if (has_geometry && !noGeometry) {
-                    Sqlite::Query::exec( mSqlite.get(), "INSERT OR REPLACE INTO _columns (table_id, name, type) VALUES (0, 'geometry', '::')" );
+                    Sqlite::Query::exec( mSqlite.get(), QString("INSERT OR REPLACE INTO _columns (table_id, name, type) VALUES (0, 'geometry', '%1:%2')" )
+                                         .arg(reqGeometryField.wkbType)
+                                         .arg(reqGeometryField.srid) );
                 }
                 else {
                     Sqlite::Query::exec( mSqlite.get(), "INSERT OR REPLACE INTO _columns (table_id, name, type) VALUES (0, 'geometry', 'no::')" );
@@ -310,16 +321,24 @@ QgsVirtualLayerProvider::QgsVirtualLayerProvider( QString const &uri )
         }
     }
 
-    QString tableName;
+    /* only one table */
     if ( mDefinition.query().isEmpty() ) {
-        tableName = mLayers[0].name;
-        if ( has_geometry && !noGeometry ) {
-            geometryField.name = "geometry";
+        mTableName = mLayers[0].name;
+        if ( mDefinition.geometryField() != "*no*" ) {
+            Sqlite::Query q( mSqlite.get(), "SELECT type FROM _columns WHERE table_id=(SELECT id FROM _tables WHERE name=?) AND name='*geometry*'" );
+            q.bind(mTableName);
+            if ( q.step() == SQLITE_ROW ) {
+                QString geom = q.column_text(0);
+                QStringList sl = geom.split(":");
+                mDefinition.setGeometryWkbType( sl[0].toInt() );
+                if (sl.size() == 3 ) {
+                    mDefinition.setGeometrySrid( sl[2].toLong() );
+                }
+            }
         }
-        mDefinition.setUid("");
     }
     else {
-        tableName = "(" + mDefinition.query() + ")";
+        mTableName = "_view";
     }
 #if 0
     QgsDataSourceURI source;
@@ -469,12 +488,43 @@ size_t QgsVirtualLayerProvider::layerCount() const
 
 long QgsVirtualLayerProvider::featureCount() const
 {
-    return 0;
+    if ( !mCachedStatistics ) {
+        updateStatistics();
+    }
+    return mFeatureCount;
 }
 
 QgsRectangle QgsVirtualLayerProvider::extent()
 {
-    return QgsRectangle();
+    if ( !mCachedStatistics ) {
+        updateStatistics();
+    }
+    return mExtent;
+}
+
+void QgsVirtualLayerProvider::updateStatistics() const
+{
+    bool has_geometry = !mDefinition.geometryField().isEmpty() && mDefinition.geometryField() != "*no*";
+    QString sql = QString( "SELECT Count(*)%1 FROM %2" )
+        .arg( has_geometry ? QString( ",Min(MbrMinX(%1)),Min(MbrMinY(%1)),Max(MbrMaxX(%1)),Max(MbrMaxY(%1))" ).arg( quotedColumn( mDefinition.geometryField()) ) : "" )
+        .arg( mTableName );
+    std::cout << "sql=" << sql.toUtf8().constData() << std::endl;
+    Sqlite::Query q(mSqlite.get(), sql );
+    if ( q.step() == SQLITE_ROW ) {
+        mFeatureCount = q.column_int64(0);
+        if (has_geometry) {
+            double x1, y1, x2, y2;
+            x1 = q.column_double(1);
+            y1 = q.column_double(2);
+            x2 = q.column_double(3);
+            y2 = q.column_double(4);
+            mExtent = QgsRectangle( q.column_double(1),
+                                    q.column_double(2),
+                                    q.column_double(3),
+                                    q.column_double(4) );
+        }
+        mCachedStatistics = true;
+    }
 }
 
 void QgsVirtualLayerProvider::updateExtents()

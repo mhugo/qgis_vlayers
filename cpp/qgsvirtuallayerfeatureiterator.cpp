@@ -1,4 +1,5 @@
 #include <qgsvirtuallayerfeatureiterator.h>
+#include <qgsmessagelog.h>
 #include "vlayer_module.h"
 
 static QString quotedColumn( QString name )
@@ -9,86 +10,93 @@ static QString quotedColumn( QString name )
 QgsVirtualLayerFeatureIterator::QgsVirtualLayerFeatureIterator( QgsVirtualLayerFeatureSource* source, bool ownSource, const QgsFeatureRequest& request )
     : QgsAbstractFeatureIteratorFromSource<QgsVirtualLayerFeatureSource>( source, ownSource, request )
 {
-    mPath = mSource->provider()->mPath;
-    mSqlite = Sqlite::open( mPath );
-    mDefinition = mSource->provider()->mDefinition;
+    try {
+        mPath = mSource->provider()->mPath;
+        mSqlite = Sqlite::open( mPath );
+        mDefinition = mSource->provider()->mDefinition;
 
-    mSqlQuery = mDefinition.query();
+        QString tableName = mSource->provider()->mTableName;
 
-    QStringList wheres;
-    QString subset = mSource->provider()->mSubset;
-    if ( !subset.isNull() ) {
-        wheres << subset;
-    }
+        QStringList wheres;
+        QString subset = mSource->provider()->mSubset;
+        if ( !subset.isNull() ) {
+            wheres << subset;
+        }
 
-    if ( !mDefinition.geometryField().isNull() && request.filterType() == QgsFeatureRequest::FilterRect ) {
-        bool do_exact = request.flags() & QgsFeatureRequest::ExactIntersect;
-        QgsRectangle rect( request.filterRect() );
-        QString mbr = QString("%1,%2,%3,%4").arg(rect.xMinimum()).arg(rect.yMinimum()).arg(rect.xMaximum()).arg(rect.yMaximum());
-        wheres <<  QString("%1Intersects(%2,BuildMbr(%3))")
-            .arg(do_exact ? "Mbr" : "")
-            .arg(quotedColumn(mDefinition.geometryField()))
-            .arg(mbr);
-    }
-    else if (!mDefinition.uid().isNull() && request.filterType() == QgsFeatureRequest::FilterFid ) {
-        wheres << QString("%1=%2")
-            .arg(quotedColumn(mDefinition.uid()))
-            .arg(request.filterFid());
-    }
-    else if (!mDefinition.uid().isNull() && request.filterType() == QgsFeatureRequest::FilterFids ) {
-        QString values = quotedColumn(mDefinition.uid()) + " IN (";
-        bool first = true;
-        for ( auto& v : request.filterFids() ) {
-            if (!first) {
-                values += ",";
+        if ( !mDefinition.geometryField().isNull() && mDefinition.geometryField() != "*no*" && request.filterType() == QgsFeatureRequest::FilterRect ) {
+            bool do_exact = request.flags() & QgsFeatureRequest::ExactIntersect;
+            QgsRectangle rect( request.filterRect() );
+            QString mbr = QString("%1,%2,%3,%4").arg(rect.xMinimum()).arg(rect.yMinimum()).arg(rect.xMaximum()).arg(rect.yMaximum());
+            wheres <<  QString("%1Intersects(%2,BuildMbr(%3))")
+                .arg(do_exact ? "Mbr" : "")
+                .arg(quotedColumn(mDefinition.geometryField()))
+                .arg(mbr);
+        }
+        else if (!mDefinition.uid().isNull() && request.filterType() == QgsFeatureRequest::FilterFid ) {
+            wheres << QString("%1=%2")
+                .arg(quotedColumn(mDefinition.uid()))
+                .arg(request.filterFid());
+        }
+        else if (!mDefinition.uid().isNull() && request.filterType() == QgsFeatureRequest::FilterFids ) {
+            QString values = quotedColumn(mDefinition.uid()) + " IN (";
+            bool first = true;
+            for ( auto& v : request.filterFids() ) {
+                if (!first) {
+                    values += ",";
+                }
+                first = false;
+                values += QString::number(v);
             }
-            first = false;
-            values += QString::number(v);
+            values += ")";
+            wheres << values;
         }
-        values += ")";
-        wheres << values;
-    }
 
-    if ( request.flags() & QgsFeatureRequest::SubsetOfAttributes ) {
-        // copy only selected fields
-        for ( int idx: request.subsetOfAttributes() ) {
-            mFields.append( mSource->provider()->fields().at(idx) );
-        }
-    }
-    else {
-        mFields = mSource->provider()->fields();
-    }
-
-    QString columns;
-    {
-        // the first column is always the uid (or 0)
-        if ( !mDefinition.uid().isNull() ) {
-            columns = quotedColumn(mDefinition.uid());
+        if ( request.flags() & QgsFeatureRequest::SubsetOfAttributes ) {
+            // copy only selected fields
+            for ( int idx: request.subsetOfAttributes() ) {
+                mFields.append( mSource->provider()->fields().at(idx) );
+            }
         }
         else {
-            columns = "0";
+            mFields = mSource->provider()->fields();
         }
-        for ( int i = 0; i < mFields.count(); i++ ) {
-            columns += ",";
-            QString cname = mFields.at(i).name().toLower();
-            columns += quotedColumn(cname);
+
+        QString columns;
+        {
+            // the first column is always the uid (or 0)
+            if ( !mDefinition.uid().isNull() ) {
+                columns = quotedColumn(mDefinition.uid());
+            }
+            else {
+                columns = "0";
+            }
+            for ( int i = 0; i < mFields.count(); i++ ) {
+                columns += ",";
+                QString cname = mFields.at(i).name().toLower();
+                columns += quotedColumn(cname);
+            }
         }
+        // the last column is the geometry, if any
+        if ( !(request.flags() & QgsFeatureRequest::NoGeometry) && !mDefinition.geometryField().isNull() && mDefinition.geometryField() != "*no*" ) {
+            columns += "," + quotedColumn(mDefinition.geometryField());
+        }
+
+        mSqlQuery = "SELECT " + columns + " FROM " + tableName;
+        if ( !wheres.isEmpty() ) {
+            mSqlQuery += " WHERE " + wheres.join(" AND ");
+        }
+
+        std::cout << mSqlQuery.toUtf8().constData() << std::endl;
+
+        mQuery.reset( new Sqlite::Query( mSqlite.get(), mSqlQuery ) );
+
+        mFid = 0;
     }
-    // the last column is the geometry, if any
-    if ( !(request.flags() & QgsFeatureRequest::NoGeometry) && !mDefinition.geometryField().isNull() ) {
-        columns += "," + quotedColumn(mDefinition.geometryField());
+    catch (std::runtime_error& e)
+    {
+        QgsMessageLog::logMessage( e.what(), QObject::tr( "VLayer" ) );
+        close();
     }
-
-    mSqlQuery = "SELECT " + columns + " FROM (" + mSqlQuery + ")";
-    if ( !wheres.isEmpty() ) {
-        mSqlQuery += " WHERE " + wheres.join(" AND ");
-    }
-
-    std::cout << mSqlQuery.toUtf8().constData() << std::endl;
-
-    mQuery.reset( new Sqlite::Query( mSqlite.get(), mSqlQuery ) );
-
-    mFid = 0;
 }
 
 QgsVirtualLayerFeatureIterator::~QgsVirtualLayerFeatureIterator()

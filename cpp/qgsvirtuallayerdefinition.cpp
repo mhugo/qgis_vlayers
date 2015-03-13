@@ -1,5 +1,6 @@
 #include <QUrl>
 #include <QRegExp>
+#include <QStringList>
 
 #include <iostream>
 
@@ -189,6 +190,11 @@ QgsVirtualLayerDefinition virtualLayerDefinitionFromSqlite( const QString& path 
                 }
                 else {
                     def.setGeometryField( colname );
+                    QStringList sl = coltype.split(':');
+                    def.setGeometryWkbType( sl[0].toInt() );
+                    if ( sl.size() > 1 ) {
+                        def.setGeometrySrid( sl[1].toLong() );
+                    }
                 }
             }
             else {
