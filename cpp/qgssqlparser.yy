@@ -113,7 +113,7 @@ struct expression_parser_context
 // keyword tokens
 %token SELECT AS FROM WHERE ALL DISTINCT INNER OUTER CROSS JOIN NATURAL LEFT USING ON UNION EXCEPT INTERSECT GROUP BY HAVING ASC DESC LIMIT OFFSET ORDER
 
-%token <text> STRING COLUMN_REF FUNCTION SPECIAL_COL
+%token <text> STRING IDENTIFIER SPECIAL_COL
 
 %token COMMA
 
@@ -268,9 +268,9 @@ result_column_list:
 
 result_column:
                 MUL { $$ = new QgsSql::TableColumn( "*" ); }
-        |       COLUMN_REF '.' MUL { $$ = new QgsSql::TableColumn( "*", *$1 ); delete $1; }
+        |       IDENTIFIER '.' MUL { $$ = new QgsSql::TableColumn( "*", *$1 ); delete $1; }
         |       expression { $$ = new QgsSql::ExpressionColumn( static_cast<QgsSql::Expression*>($1) ); }
-        |       expression AS COLUMN_REF { $$ = new QgsSql::ExpressionColumn( static_cast<QgsSql::Expression*>($1), *$3 ); delete $3; }
+        |       expression AS IDENTIFIER { $$ = new QgsSql::ExpressionColumn( static_cast<QgsSql::Expression*>($1), *$3 ); delete $3; }
         ;
 
 table_or_subquery_list:
@@ -300,12 +300,12 @@ table_or_subquery_list:
         ;
 
 table_or_subquery:
-                COLUMN_REF { $$ = new QgsSql::TableName( *$1 ); delete $1; }
-        |       COLUMN_REF COLUMN_REF { $$ = new QgsSql::TableName( *$1, *$2 ); delete $1; delete $2;}
-        |       COLUMN_REF AS COLUMN_REF { $$ = new QgsSql::TableName( *$1, *$3 ); delete $1; delete $3;}
+                IDENTIFIER { $$ = new QgsSql::TableName( *$1 ); delete $1; }
+        |       IDENTIFIER IDENTIFIER { $$ = new QgsSql::TableName( *$1, *$2 ); delete $1; delete $2;}
+        |       IDENTIFIER AS IDENTIFIER { $$ = new QgsSql::TableName( *$1, *$3 ); delete $1; delete $3;}
         |       '('select_stmt ')' { $$ = new QgsSql::TableSelect( $2 ); }
-        |       '('select_stmt ')' COLUMN_REF { $$ = new QgsSql::TableSelect( $2, *$4 ); delete $4; }
-        |       '('select_stmt ')' AS COLUMN_REF { $$ = new QgsSql::TableSelect( $2, *$5 ); delete $5; }
+        |       '('select_stmt ')' IDENTIFIER { $$ = new QgsSql::TableSelect( $2, *$4 ); delete $4; }
+        |       '('select_stmt ')' AS IDENTIFIER { $$ = new QgsSql::TableSelect( $2, *$5 ); delete $5; }
         ;
 
 expression:
@@ -331,7 +331,7 @@ expression:
     | NOT expression                  { $$ = new QgsSql::ExpressionUnaryOperator($1, $2); }
     | '(' expression ')'              { $$ = $2; }
 
-    | FUNCTION '(' exp_list ')'
+    | IDENTIFIER '(' exp_list ')'
         {
           int fnIndex = QgsExpression::functionIndex(*$1);
           if (fnIndex == -1)
@@ -355,8 +355,8 @@ expression:
     | expression NOT IN '(' exp_list ')' { $$ = new QgsSql::ExpressionIn($1, $5, true); }
         |       expression IN '(' select_stmt ')' { $$ = new QgsSql::ExpressionIn( $1, $4, false ); }
         |       expression NOT IN '(' select_stmt ')' { $$ = new QgsSql::ExpressionIn( $1, $5, true ); }
-        |       expression IN COLUMN_REF { $$ = new QgsSql::ExpressionIn( $1, new QgsSql::TableName(*$3), false ); delete $3; }
-        |       expression NOT IN COLUMN_REF { $$ = new QgsSql::ExpressionIn( $1, new QgsSql::TableName(*$4), true ); delete $4;}
+        |       expression IN IDENTIFIER { $$ = new QgsSql::ExpressionIn( $1, new QgsSql::TableName(*$3), false ); delete $3; }
+        |       expression NOT IN IDENTIFIER { $$ = new QgsSql::ExpressionIn( $1, new QgsSql::TableName(*$4), true ); delete $4;}
 
     | PLUS expression %prec UMINUS { $$ = $2; }
     | MINUS expression %prec UMINUS { $$ = new QgsSql::ExpressionUnaryOperator( QgsExpression::uoMinus, $2); }
@@ -365,9 +365,9 @@ expression:
     | CASE when_then_clauses ELSE expression END  { $$ = new QgsSql::ExpressionCondition($2,$4); }
 
     // columns
-    | COLUMN_REF                  { $$ = new QgsSql::TableColumn( *$1 ); delete $1; }
+    | IDENTIFIER                  { $$ = new QgsSql::TableColumn( *$1 ); delete $1; }
 // column name with a table name
-        |       COLUMN_REF '.' COLUMN_REF { $$ = new QgsSql::TableColumn( *$3, *$1 ); delete $1; delete $3; }
+        |       IDENTIFIER '.' IDENTIFIER { $$ = new QgsSql::TableColumn( *$3, *$1 ); delete $1; delete $3; }
 
     // special columns (actually functions with no arguments)
     | SPECIAL_COL
@@ -419,6 +419,7 @@ when_then_clause:
 
 std::unique_ptr<QgsSql::Node> parseSql(const QString& str, QString& parserErrorMsg, bool formatError )
 {
+    //    yydebug = 1;
   expression_parser_context ctx;
   ctx.sqlNode = 0;
 

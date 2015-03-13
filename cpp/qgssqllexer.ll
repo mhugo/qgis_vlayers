@@ -112,12 +112,12 @@ non_ascii    [\x80-\xFF]
 
 col_first    [A-Za-z_]|{non_ascii}
 col_next     [A-Za-z0-9_]|{non_ascii}
-column_ref  {col_first}{col_next}*
+identifier  {col_first}{col_next}*
 
-special_col "$"{column_ref}
+special_col "$"{identifier}
 
 col_str_char  "\"\""|[^\"]
-column_ref_quoted  "\""{col_str_char}*"\""
+identifier_quoted  "\""{col_str_char}*"\""
 
 dig         [0-9]
 num_int     {dig}+
@@ -220,9 +220,9 @@ string      "'"{str_char}*"'"
 
 {special_col}        { TEXT; return SPECIAL_COL; }
 
-{column_ref}         { TEXT; return QgsExpression::isFunctionName(*yylval->text) ? FUNCTION : COLUMN_REF; }
+{identifier}         { TEXT; return IDENTIFIER; }
 
-{column_ref_quoted}  { TEXT_FILTER(stripColumnRef); return COLUMN_REF; }
+{identifier_quoted}  { TEXT_FILTER(stripColumnRef); return IDENTIFIER; }
 
 {white}    /* skip blanks and tabs */
 
