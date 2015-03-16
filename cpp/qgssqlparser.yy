@@ -98,7 +98,7 @@ struct expression_parser_context
 //
 
 // operator tokens
-%token <b_op> OR AND EQ NE LE GE LT GT REGEXP LIKE IS PLUS MINUS MUL DIV INTDIV MOD CONCAT POW
+%token <b_op> OR AND EQ NE LE GE LT GT REGEXP LIKE IS PLUS MINUS MUL DIV MOD CONCAT
 %token <u_op> NOT
 %token IN
 
@@ -144,8 +144,8 @@ struct expression_parser_context
 %right NOT
 %left EQ NE LE GE LT GT REGEXP LIKE IS IN
 %left PLUS MINUS
-%left MUL DIV INTDIV MOD
-%right POW
+%left MUL DIV MOD
+//                      %right POW
 %left CONCAT
 
 %right UMINUS  // fictitious symbol (for unary minus)
@@ -267,10 +267,10 @@ result_column_list:
         ;
 
 result_column:
-                MUL { $$ = new QgsSql::TableColumn( "*" ); }
-        |       IDENTIFIER '.' MUL { $$ = new QgsSql::TableColumn( "*", *$1 ); delete $1; }
-        |       expression { $$ = new QgsSql::ExpressionColumn( static_cast<QgsSql::Expression*>($1) ); }
-        |       expression AS IDENTIFIER { $$ = new QgsSql::ExpressionColumn( static_cast<QgsSql::Expression*>($1), *$3 ); delete $3; }
+                MUL { $$ = new QgsSql::AllColumns(); }
+        |       IDENTIFIER '.' MUL { $$ = new QgsSql::AllColumns( *$1 ); delete $1; }
+        |       expression { $$ = new QgsSql::ColumnExpression( static_cast<QgsSql::Expression*>($1) ); }
+        |       expression AS IDENTIFIER { $$ = new QgsSql::ColumnExpression( static_cast<QgsSql::Expression*>($1), *$3 ); delete $3; }
         ;
 
 table_or_subquery_list:
@@ -323,31 +323,17 @@ expression:
     | expression PLUS expression      { $$ = BINOP($2, $1, $3); }
     | expression MINUS expression     { $$ = BINOP($2, $1, $3); }
     | expression MUL expression       { $$ = BINOP($2, $1, $3); }
-    | expression INTDIV expression    { $$ = BINOP($2, $1, $3); }
+//QGIS extension                  | expression INTDIV expression    { $$ = BINOP($2, $1, $3); }
     | expression DIV expression       { $$ = BINOP($2, $1, $3); }
     | expression MOD expression       { $$ = BINOP($2, $1, $3); }
-    | expression POW expression       { $$ = BINOP($2, $1, $3); }
+//QGIS extension                  | expression POW expression       { $$ = BINOP($2, $1, $3); }
     | expression CONCAT expression    { $$ = BINOP($2, $1, $3); }
     | NOT expression                  { $$ = new QgsSql::ExpressionUnaryOperator($1, $2); }
     | '(' expression ')'              { $$ = $2; }
 
     | IDENTIFIER '(' exp_list ')'
         {
-          int fnIndex = QgsExpression::functionIndex(*$1);
-          if (fnIndex == -1)
-          {
-            // this should not actually happen because already in lexer we check whether an identifier is a known function
-            // (if the name is not known the token is parsed as a column)
-              sqlp_error(&yylloc, parser_ctx, "Function is not known");
-            YYERROR;
-          }
-          if ( QgsExpression::Functions()[fnIndex]->params() != -1
-               && QgsExpression::Functions()[fnIndex]->params() != $3->count() )
-          {
-              sqlp_error(&yylloc, parser_ctx, "Function is called with wrong number of arguments");
-            YYERROR;
-          }
-          $$ = new QgsSql::ExpressionFunction(fnIndex, $3);
+          $$ = new QgsSql::ExpressionFunction(*$1, $3);
           delete $1;
         }
 
@@ -368,31 +354,6 @@ expression:
     | IDENTIFIER                  { $$ = new QgsSql::TableColumn( *$1 ); delete $1; }
 // column name with a table name
         |       IDENTIFIER '.' IDENTIFIER { $$ = new QgsSql::TableColumn( *$3, *$1 ); delete $1; delete $3; }
-
-    // special columns (actually functions with no arguments)
-    | SPECIAL_COL
-        {
-          int fnIndex = QgsExpression::functionIndex(*$1);
-          if (fnIndex == -1)
-          {
-            if ( !QgsExpression::hasSpecialColumn( *$1 ) )
-	    {
-                sqlp_error(&yylloc, parser_ctx, "Special column is not known");
-	      YYERROR;
-	    }
-	    // $var is equivalent to _specialcol_( "$var" )
-	    QgsSql::List* args = new QgsSql::List();
-	    QgsSql::ExpressionLiteral* literal = new QgsSql::ExpressionLiteral( *$1 );
-            delete $1;
-	    args->append( literal );
-	    $$ = new QgsSql::ExpressionFunction( QgsExpression::functionIndex( "_specialcol_" ), args );
-          }
-	  else
-	  {
-	    $$ = new QgsSql::ExpressionFunction( fnIndex, NULL );
-	    delete $1;
-	  }
-        }
 
     //  literals
     | NUMBER_FLOAT                { $$ = new QgsSql::ExpressionLiteral( QVariant($1) ); }
@@ -417,7 +378,9 @@ when_then_clause:
 
 %%
 
-std::unique_ptr<QgsSql::Node> parseSql(const QString& str, QString& parserErrorMsg, bool formatError )
+namespace QgsSql
+{
+std::unique_ptr<Node> parseSql(const QString& str, QString& parserErrorMsg, bool formatError )
 {
     //    yydebug = 1;
   expression_parser_context ctx;
@@ -451,6 +414,7 @@ std::unique_ptr<QgsSql::Node> parseSql(const QString& str, QString& parserErrorM
       }
       return 0;
   }
+}
 }
 
 void sqlp_error(YYLTYPE* yylloc, expression_parser_context* parser_ctx, const char* msg)

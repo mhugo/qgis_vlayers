@@ -162,10 +162,8 @@ string      "'"{str_char}*"'"
 "+"  { B_OP(boPlus); return PLUS; }
 "-"  { B_OP(boMinus); return MINUS; }
 "*"  { B_OP(boMul); return MUL; }
-"//"  { B_OP(boIntDiv); return INTDIV; }
 "/"  { B_OP(boDiv); return DIV; }
 "%"  { B_OP(boMod); return MOD; }
-"^"  { B_OP(boPow); return POW; }
 
 "IN"  {  return IN; }
 

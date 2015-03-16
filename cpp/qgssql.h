@@ -4,9 +4,8 @@
 
 #include <qgsexpression.h>
 
-class QgsSql
+namespace QgsSql
 {
- public:
     struct NodeVisitor;
     class Node
     {
@@ -34,13 +33,13 @@ class QgsSql
             NODE_HAVING,
             NODE_ORDER_BY,
             NODE_LIMIT_OFFSET,
-            NODE_ORDERING_TERM
+            NODE_ORDERING_TERM,
+            NODE_COLUMN_EXPRESSION,
+            NODE_ALL_COLUMNS
         };
         Node(Type type): type_(type) {}
 
-        virtual void accept( NodeVisitor& v ) const {
-            v.visit( *this );
-        }
+        virtual void accept( NodeVisitor& v ) const;
 
         Type type() const { return type_; }
     private:
@@ -64,9 +63,7 @@ class QgsSql
         std::list<std::unique_ptr<Node>>::const_iterator begin() const { return l_.begin(); }
         std::list<std::unique_ptr<Node>>::const_iterator end() const { return l_.end(); }
 
-        virtual void accept( NodeVisitor& v ) const {
-            v.visit( *this );
-        }
+        virtual void accept( NodeVisitor& v ) const;
     private:
         std::list<std::unique_ptr<Node>> l_;
     };
@@ -75,9 +72,7 @@ class QgsSql
     {
     public:
         Expression( Node::Type type ) : Node(type) {}
-        void accept( NodeVisitor& v ) const {
-            v.visit( *this );
-        }
+        void accept( NodeVisitor& v ) const;
     };
 
     class ExpressionLiteral : public Expression
@@ -90,9 +85,7 @@ class QgsSql
 
         QVariant value() const { return value_; }
 
-        void accept( NodeVisitor& v ) const {
-            v.visit( *this );
-        }
+        void accept( NodeVisitor& v ) const;
     private:
         QVariant value_;
     };
@@ -102,6 +95,7 @@ class QgsSql
     public:
         ExpressionBinaryOperator( QgsExpression::BinaryOperator op, Expression* left, Expression* right ):
             Expression( NODE_EXPRESSION_BINARY_OP ),
+            op_(op),
             left_(left),
             right_(right)
         {}
@@ -109,10 +103,11 @@ class QgsSql
         const Expression* left() const { return left_.get(); }
         const Expression* right() const { return right_.get(); }
 
-        void accept( NodeVisitor& v ) const {
-            v.visit( *this );
-        }
+        QgsExpression::BinaryOperator op() const { return op_; }
+
+        void accept( NodeVisitor& v ) const;
     private:
+        QgsExpression::BinaryOperator op_;
         std::unique_ptr<Expression> left_;
         std::unique_ptr<Expression> right_;
     };
@@ -122,34 +117,34 @@ class QgsSql
     public:
         ExpressionUnaryOperator( QgsExpression::UnaryOperator op, Expression* expr ):
             Expression( NODE_EXPRESSION_UNARY_OP ),
+            op_(op),
             expr_(expr)
         {}
 
+        QgsExpression::UnaryOperator op() const { return op_; }
         const Expression* expression() const { return expr_.get(); }
 
-        void accept( NodeVisitor& v ) const {
-            v.visit( *this );
-        }
+        void accept( NodeVisitor& v ) const;
     private:
         std::unique_ptr<Expression> expr_;
+        QgsExpression::UnaryOperator op_;
     };
 
     class ExpressionFunction : public Expression
     {
     public:
-        ExpressionFunction( int fnIndex, List* args ):
+        ExpressionFunction( const QString& name, List* args ):
             Expression( NODE_EXPRESSION_FUNCTION ),
-            fn_(fnIndex),
+            name_( name ),
             args_(args)
         {}
 
+        QString name() const { return name_; }
         const List* args() const { return args_.get(); }
 
-        void accept( NodeVisitor& v ) const {
-            v.visit( *this );
-        }
+        void accept( NodeVisitor& v ) const;
     private:
-        int fn_;
+        QString name_;
         std::unique_ptr<List> args_;
     };
 
@@ -165,9 +160,7 @@ class QgsSql
         const List* conditions() const { return conditions_.get(); }
         const Node* else_node() const { return else_node_.get(); }
 
-        void accept( NodeVisitor& v ) const {
-            v.visit( *this );
-        }
+        void accept( NodeVisitor& v ) const;
     private:
         std::unique_ptr<List> conditions_;
         std::unique_ptr<Node> else_node_;
@@ -185,9 +178,7 @@ class QgsSql
         const Node* when() const { return when_.get(); }
         const Node* then_node() const { return then_.get(); }
 
-        void accept( NodeVisitor& v ) const {
-            v.visit( *this );
-        }
+        void accept( NodeVisitor& v ) const;
     private:
         std::unique_ptr<Node> when_, then_;
     };
@@ -195,7 +186,7 @@ class QgsSql
     class TableColumn : public Expression
     {
     public:
-        TableColumn( const QString& column = "*", const QString& table = "" ) :
+        TableColumn( const QString& column, const QString& table = "" ) :
             Expression(NODE_TABLE_COLUMN),
             column_(column),
             table_(table) {}
@@ -203,9 +194,7 @@ class QgsSql
         QString table() const { return table_; }
         QString column() const { return column_; }
 
-        virtual void accept( NodeVisitor& v ) const {
-            v.visit( *this );
-        }
+        virtual void accept( NodeVisitor& v ) const;
     private:
         QString column_, table_;
     };
@@ -218,9 +207,7 @@ class QgsSql
         QString name() const { return name_; }
         QString alias() const { return alias_; }
 
-        virtual void accept( NodeVisitor& v ) const {
-            v.visit( *this );
-        }
+        virtual void accept( NodeVisitor& v ) const;
     private:
         QString name_, alias_;
     };
@@ -237,32 +224,43 @@ class QgsSql
 
         const Node* select() const { return select_.get(); }
 
-        virtual void accept( NodeVisitor& v ) const {
-            v.visit( *this );
-        }
+        virtual void accept( NodeVisitor& v ) const;
     private:
         QString alias_;
         std::unique_ptr<Node> select_;
     };
 
-    class ExpressionColumn : public Node
+    class ColumnExpression : public Node
     {
     public:
-        ExpressionColumn( Expression* expr, const QString& alias = "" ) :
-            Node(NODE_EXPRESSION_COLUMN),
+        ColumnExpression( Expression* expr, const QString& alias = "" ) :
+            Node(NODE_COLUMN_EXPRESSION),
             expr_( expr ),
             alias_(alias) {}
 
         QString alias() const { return alias_; }
         const Expression* expression() const { return expr_.get(); }
 
-        virtual void accept( NodeVisitor& v ) const {
-            v.visit( *this );
-        }
+        virtual void accept( NodeVisitor& v ) const;
     private:
         QString alias_;
         std::unique_ptr<Expression> expr_;
     };
+
+    class AllColumns : public Node
+    {
+    public:
+        AllColumns( const QString& table = "" ) :
+            Node(NODE_ALL_COLUMNS),
+            table_(table) {}
+
+        QString table() const { return table_; }
+
+        virtual void accept( NodeVisitor& v ) const;
+    private:
+        QString table_;
+    };
+
 
     class ExpressionIn : public Expression
     {
@@ -278,9 +276,7 @@ class QgsSql
         const Node* in_what() const { return in_what_.get(); }
         bool not_in() const { return not_in_; }
 
-        void accept( NodeVisitor& v ) const {
-            v.visit( *this );
-        }
+        void accept( NodeVisitor& v ) const;
     private:
         bool not_in_;
         std::unique_ptr<Expression> expr_;
@@ -327,9 +323,7 @@ class QgsSql
         void set_on_expression( Expression* expr ) { on_expr_.reset(expr); }
         void set_using_columns( List* columns ) { using_columns_.reset(columns); }
 
-        virtual void accept( NodeVisitor& v ) const {
-            v.visit( *this );
-        }
+        virtual void accept( NodeVisitor& v ) const;
     private:
         JoinOperator join_operator_;
         bool is_natural_;
@@ -355,9 +349,7 @@ class QgsSql
 
         bool is_distinct() const { return is_distinct_; }
 
-        virtual void accept( NodeVisitor& v ) const {
-            v.visit( *this );
-        }
+        virtual void accept( NodeVisitor& v ) const;
     private:
         std::unique_ptr<Node> column_list_, from_;
         std::unique_ptr<Expression> where_;
@@ -383,9 +375,7 @@ class QgsSql
         const Select* select() const { return select_.get(); }
         CompoundOperator compound_operator() const { return op_; }
 
-        virtual void accept( NodeVisitor& v ) const {
-            v.visit( *this );
-        }
+        virtual void accept( NodeVisitor& v ) const;
     private:
         std::unique_ptr<Select> select_;
         CompoundOperator op_;
@@ -402,9 +392,7 @@ class QgsSql
 
         const Expression* expression() const { return expr_.get(); }
 
-        virtual void accept( NodeVisitor& v ) const {
-            v.visit( *this );
-        }
+        virtual void accept( NodeVisitor& v ) const;
     private:
         std::unique_ptr<Expression> expr_;
     };
@@ -420,9 +408,7 @@ class QgsSql
         const List* expressions() const { return exp_.get(); }
         const Having* having() const { return having_.get(); }
 
-        virtual void accept( NodeVisitor& v ) const {
-            v.visit( *this );
-        }
+        virtual void accept( NodeVisitor& v ) const;
     private:
         std::unique_ptr<List> exp_;
         std::unique_ptr<Having> having_;
@@ -443,9 +429,7 @@ class QgsSql
         void set_limit( Expression* limit ) { limit_.reset(limit); }
         void set_offset( Expression* offset ) { offset_.reset(offset); }
 
-        virtual void accept( NodeVisitor& v ) const {
-            v.visit( *this );
-        }
+        virtual void accept( NodeVisitor& v ) const;
     private:
         std::unique_ptr<Expression> limit_, offset_;
     };
@@ -462,9 +446,7 @@ class QgsSql
         const Expression* expression() const { return expr_.get(); }
         bool asc() const { return asc_; }
 
-        virtual void accept( NodeVisitor& v ) const {
-            v.visit( *this );
-        }
+        virtual void accept( NodeVisitor& v ) const;
     private:
         std::unique_ptr<Expression> expr_;
         bool asc_;
@@ -480,9 +462,7 @@ class QgsSql
 
         const List* terms() const { return terms_.get(); }
 
-        virtual void accept( NodeVisitor& v ) const {
-            v.visit( *this );
-        }
+        virtual void accept( NodeVisitor& v ) const;
     private:
         std::unique_ptr<List> terms_;
     };
@@ -501,9 +481,7 @@ class QgsSql
         const OrderBy* order_by() const { return order_by_.get(); }
         const LimitOffset* limit_offset() const { return limit_offset_.get(); }
 
-        virtual void accept( NodeVisitor& v ) const {
-            v.visit( *this );
-        }
+        virtual void accept( NodeVisitor& v ) const;
     private:
         std::unique_ptr<List> selects_;
         std::unique_ptr<OrderBy> order_by_;
@@ -531,6 +509,8 @@ class QgsSql
         virtual void visit( const ExpressionLiteral& ) {}
         virtual void visit( const OrderBy& ) {}
         virtual void visit( const LimitOffset& ) {}
+        virtual void visit( const AllColumns& ) {}
+        virtual void visit( const ColumnExpression& ) {}
     };
 
     // Depth-first visitor
@@ -553,9 +533,13 @@ class QgsSql
         virtual void visit( const ExpressionCondition& c ) override;
         virtual void visit( const ExpressionWhenThen& wt ) override;
         virtual void visit( const ExpressionIn& t ) override;
+        virtual void visit( const ColumnExpression& ) override;
     };
-};
 
+
+/**
+ * Return an abstract tree of a SQL query
+ */
 std::unique_ptr<QgsSql::Node> parseSql( const QString& sql, QString& parseError, bool formatError = false );
 
 /**
@@ -568,3 +552,111 @@ QString asString( const QgsSql::Node& );
  */
 
 QList<QString> referencedTables( const QgsSql::Node& );
+
+class ColumnDef
+{
+public:
+    struct Type
+    {
+        QVariant::Type type;
+        int wkbType;
+        long srid;
+
+        Type() : type(QVariant::Invalid), wkbType(-1), srid(-1) {}
+        Type( int aWkbType, long aSrid ) : wkbType(aWkbType), srid(aSrid), type(QVariant::UserType) {}
+        Type( QVariant::Type aType ) : wkbType(-1), srid(-1), type(aType) {}
+
+        bool operator==( const Type& other ) const {
+            if (type == QVariant::UserType) {
+                return other.type == QVariant::UserType && other.wkbType == wkbType && other.srid == srid;
+            }
+            return other.type == type;
+        }
+        bool operator!=( const Type& other ) const {
+            return !operator==(other);
+        }
+
+        QString toString() const {
+            if (type == QVariant::Invalid) {
+                return "null";
+            }
+            else if ( type == QVariant::Int ) {
+                return "int";
+            }
+            else if ( type == QVariant::Double ) {
+                return "real";
+            }
+            else if ( type == QVariant::String ) {
+                return "string";
+            }
+            else if ( type == QVariant::UserType ) {
+                return QString("geometry(%1,%2)").arg(wkbType).arg(srid);
+            }
+            return "?";
+        }
+    };
+
+    ColumnDef() : constant_(false) {}
+    ColumnDef( QString name, QVariant::Type t ) : constant_(false), name_(name), type_(t) {}
+    ColumnDef( QString name, int wkbType, long srid ) : constant_(false), name_(name), type_(wkbType, srid) {}
+
+    bool isConstant() const { return constant_; }
+    void setConstant( bool c ) { constant_ = c; }
+
+    void setConstantValue( QVariant v ) { value_ = v; constant_ = true; type_.type = v.type(); }
+    QVariant value() const { return value_; }
+
+    QString name() const { return name_; }
+    void setName( QString name ) { name_ = name; }
+
+    bool isGeometry() const { return type_.type == QVariant::UserType; }
+    void setGeometry( int wkbType ) { type_.type = QVariant::UserType; type_.wkbType = wkbType; }
+    void setSrid( long srid ) { type_.srid = srid; }
+
+    Type type() const { return type_; }
+    void setType( Type type ) { type_ = type; }
+
+    void setScalarType( QVariant::Type t ) { type_.type = t; }
+    QVariant::Type scalarType() const { return type_.type; }
+
+private:
+    QString name_;
+
+    Type type_;
+    QVariant value_;
+    bool constant_;
+};
+
+class TableDef : public QList<ColumnDef>
+{
+public:
+    TableDef() : QList<ColumnDef>() {}
+
+    QList<ColumnDef> findColumn( QString name ) const {
+        QList<ColumnDef> cdefs;
+        for ( auto& c: *this ) {
+            if ( c.name() == name ) {
+                cdefs << c;
+            }
+        }
+        return cdefs;
+    }
+};
+
+class TableDefs : public QMap<QString, TableDef>
+{
+public:
+    TableDefs() : QMap<QString, TableDef>() {}
+
+    QList<ColumnDef> findColumn( QString name ) const {
+        QList<ColumnDef> cdefs;
+        for ( auto& c: *this ) {
+            cdefs.append( c.findColumn( name ) );
+        }
+        return cdefs;
+    }
+};
+
+QList<ColumnDef> columnTypes( const QgsSql::Node& n, QString& errMsg, const TableDefs* tableContext = 0 );
+
+} // namespace QgsSql

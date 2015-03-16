@@ -118,7 +118,7 @@ QgsVirtualLayerProvider::QgsVirtualLayerProvider( QString const &uri )
         if ( !mDefinition.query().isEmpty() ) {
             // deduce sources from the query
             QString error;
-            std::unique_ptr<QgsSql::Node> n = parseSql( mDefinition.query(), error );
+            std::unique_ptr<QgsSql::Node> n = QgsSql::parseSql( mDefinition.query(), error );
             if ( !n ) {
                 mValid = false;
                 PROVIDER_ERROR( "SQL parsing error: " + error );
