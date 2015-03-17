@@ -128,7 +128,7 @@ void DFSVisitor::visit( const CompoundSelect& s )
 
 void DFSVisitor::visit( const List& l )
 {
-    for ( auto& n: l ) {
+    for ( const auto& n: l ) {
         n->accept(*this);
     }
 }
@@ -232,7 +232,7 @@ public:
     {
         str_ += "[";
         bool first = true;
-        for ( auto& n: l ) {
+        for ( const auto& n: l ) {
             if ( first ) {
                 first = false;
             }
@@ -857,7 +857,7 @@ public:
     {
         // add all the columns of the table to the ref
         if ( defs_->find( t.name() ) != defs_->end() ) {
-            for ( auto& c : (*defs_)[t.name()] ) {
+            for ( const auto& c : (*defs_)[t.name()] ) {
                 refs_[t.name()] << c;
             }
         }
@@ -872,7 +872,7 @@ public:
             refs_[s.alias()] = TableDef();
         }
 
-        for ( auto& c : o ) {
+        for ( const auto& c : o ) {
             refs_[s.alias()]  << c;
         }
     }
@@ -888,7 +888,7 @@ public:
         }
         else {
             // add all columns of ALL the tables
-            for ( auto& r : refs_ ) {
+            for ( const auto& r : refs_ ) {
                 types.append( r );
             }
         }
@@ -931,7 +931,7 @@ public:
     {
         QVector<ColumnType> argsDefs;
         bool allConstants = true;
-        for ( auto& arg: *c.args() ) {
+        for ( const auto& arg: *c.args() ) {
             argsDefs << eval( *arg );
             if (!argsDefs.back().isConstant()) {
                 allConstants = false;
@@ -1088,7 +1088,7 @@ public:
     {
         QList<QPair<ColumnType::Type, const Node*>> possibleTypes;
         bool allConstants = true;
-        for ( auto& n: *c.conditions() ) {
+        for ( const auto& n: *c.conditions() ) {
             Q_ASSERT( n->type() == Node::NODE_EXPRESSION_WHEN_THEN );
             ExpressionWhenThen* wt = static_cast<ExpressionWhenThen*>(n.get());
 
@@ -1117,7 +1117,7 @@ public:
         }
         ColumnType::Type lastType = possibleTypes.front().first;
         QString lastTypeNodeStr = asString( *possibleTypes.front().second );
-        for ( auto& t : possibleTypes ) {
+        for ( const auto& t : possibleTypes ) {
             if ( t.first != lastType ) {
                 QString nodeStr = asString( *t.second );
                 throw InfererException("Type mismatch between " + lastTypeNodeStr + " and " + nodeStr);
@@ -1222,7 +1222,7 @@ QList<ColumnType> columnTypes( const Node& n, QString& errMsg, const TableDefs* 
 QList<ColumnType> columnTypes( const Node& n, const QList<QString>& tables, QString& err )
 {
     TableDefs tableDefs;
-    for ( auto& lname : tables ) {
+    for ( const auto& lname : tables ) {
         QList<QgsMapLayer*> l = QgsMapLayerRegistry::instance()->mapLayersByName( lname );
         if ( l.size() == 0 )
             continue;

@@ -18,6 +18,7 @@ email                : hugo dot mercier at oslandia dot com
 #define QGSVIRTUALLAYERDEFINITION_H
 
 #include <qgsfield.h>
+#include <qgis.h>
 
 class QgsVirtualLayerDefinition
 {
@@ -69,8 +70,8 @@ class QgsVirtualLayerDefinition
     QString geometryField() const { return mGeometryField; }
     void setGeometryField( const QString& geometryField ) { mGeometryField = geometryField; }
 
-    int geometryWkbType() const { return mGeometryWkbType; }
-    void setGeometryWkbType( int t ) { mGeometryWkbType = t; }
+    QGis::WkbType geometryWkbType() const { return mGeometryWkbType; }
+    void setGeometryWkbType( QGis::WkbType t ) { mGeometryWkbType = t; }
 
     long geometrySrid() const { return mGeometrySrid; }
     void setGeometrySrid( long srid ) { mGeometrySrid = srid; }
@@ -85,11 +86,11 @@ private:
     QString mGeometryField;
     QString mUri;
     QgsFields mOverridenFields;
-    int mGeometryWkbType;
+    QGis::WkbType mGeometryWkbType;
     long mGeometrySrid;
 };
 
-int geometry_type_to_wkb_type( const QString& wkb_str );
+QGis::WkbType geometry_type_to_wkb_type( const QString& wkb_str );
 
 QgsVirtualLayerDefinition virtualLayerDefinitionFromSqlite( const QString& path );
 

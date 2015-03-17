@@ -7,28 +7,28 @@
 #include "qgsvirtuallayerdefinition.h"
 #include "common.h"
 
-int geometry_type_to_wkb_type( const QString& wkb_str )
+QGis::WkbType geometry_type_to_wkb_type( const QString& wkb_str )
 {
     QString w = wkb_str.toLower();
     if ( w == "point" ) {
-        return 1;
+        return QGis::WKBPoint;
     }
     else if ( w == "linestring" ) {
-        return 2;
+        return QGis::WKBLineString;
     }
     else if ( w == "polygon" ) {
-        return 3;
+        return QGis::WKBPolygon;
     }
     else if ( w == "multipoint" ) {
-        return 4;
+        return QGis::WKBMultiPoint;
     }
     else if ( w == "multilinestring" ) {
-        return 5;
+        return QGis::WKBMultiLineString;
     }
     else if ( w == "multipolygon" ) {
-        return 6;
+        return QGis::WKBMultiPolygon;
     }
-    return 0;
+    return QGis::WKBUnknown;
 }
 
 QgsVirtualLayerDefinition::QgsVirtualLayerDefinition( const QUrl& url )
@@ -93,8 +93,8 @@ void QgsVirtualLayerDefinition::fromUrl( const QUrl& url )
                 if ( reGeom.captureCount() > 1 ) {
                     // not used by the spatialite provider for now ...
                     mGeometryWkbType = geometry_type_to_wkb_type( reGeom.cap(2) );
-                    if (mGeometryWkbType == 0) {
-                        mGeometryWkbType = reGeom.cap(2).toLong();
+                    if (mGeometryWkbType == QGis::WKBUnknown) {
+                        mGeometryWkbType = QGis::WkbType(reGeom.cap(2).toLong());
                     }
                     mGeometrySrid = reGeom.cap(3).toLong();
                 }
@@ -191,7 +191,7 @@ QgsVirtualLayerDefinition virtualLayerDefinitionFromSqlite( const QString& path 
                 else {
                     def.setGeometryField( colname );
                     QStringList sl = coltype.split(':');
-                    def.setGeometryWkbType( sl[0].toInt() );
+                    def.setGeometryWkbType( QGis::WkbType(sl[0].toLong()) );
                     if ( sl.size() > 1 ) {
                         def.setGeometrySrid( sl[1].toLong() );
                     }

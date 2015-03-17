@@ -691,9 +691,9 @@ private:
 /**
  * Return the list of columns of the given parsed tree
  *
- * \param tableIds list of table IDs that can appear in FROM clauses
+ * \param tableIds list of table names that can appear in FROM clauses
  */
-QList<ColumnType> columnTypes( const QgsSql::Node& n, const QList<QString>& tableIds, QString& err );
+QList<ColumnType> columnTypes( const QgsSql::Node& n, const QList<QString>& tables, QString& err );
 
 
 
