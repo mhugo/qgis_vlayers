@@ -78,6 +78,12 @@ void OrderBy::accept( NodeVisitor& v ) const {
 void SelectStmt::accept( NodeVisitor& v ) const {
     v.visit( *this );
 }
+void ExpressionSubQuery::accept( NodeVisitor& v ) const {
+    v.visit( *this );
+}
+void ExpressionCast::accept( NodeVisitor& v ) const {
+    v.visit( *this );
+}
 
 
 
@@ -186,6 +192,16 @@ void DFSVisitor::visit(const ExpressionIn& t )
 {
     if (t.expression()) { t.expression()->accept(*this); }
     if (t.in_what()) { t.in_what()->accept(*this); }
+}
+
+void DFSVisitor::visit(const ExpressionSubQuery& t )
+{
+    if (t.select()) { t.select()->accept(*this); }
+}
+
+void DFSVisitor::visit(const ExpressionCast& t )
+{
+    if (t.expression()) { t.expression()->accept(*this); }
 }
 
 void DFSVisitor::visit(const ColumnExpression& t )
@@ -491,7 +507,7 @@ public:
         ColumnDef cdef = eval( *c.expression() );
 
         if ( ! c.alias().isEmpty() ) {
-            cdef.name() = c.alias();
+            cdef.setName( c.alias() );
         }
         types << cdef;
     }
@@ -499,7 +515,7 @@ public:
     virtual void visit( const ExpressionFunction& c ) override
     {
         QVector<ColumnDef> argsDefs;
-        bool allConstants = false;
+        bool allConstants = true;
         for ( auto& arg: *c.args() ) {
             argsDefs << eval( *arg );
             if (!argsDefs.back().isConstant()) {
@@ -507,49 +523,49 @@ public:
             }
         }
 
-        if ( allConstants ) {
-            // call sqlite for evaluation
-            //TODO
+        //TODO constant evaluation
+        column->setConstant( false );
+        QString fname = c.name().toLower();
+        QString h = c.name().toLower() + "(";
+        bool first = true;
+        for ( auto& d: argsDefs ) {
+            if (!first) {
+                h += ",";
+            }
+            first = false;
+            switch (d.scalarType()) {
+            case QVariant::Int:
+                h += "i";
+                break;
+            case QVariant::Double:
+                h += "r";
+                break;
+            case QVariant::String:
+                h += "s";
+                break;
+            case QVariant::UserType:
+                h += "g";
+                break;
+            }
+        }
+        h+=")";
+        std::cout << "hash:" << h.toUtf8().constData() << std::endl;
+        OutputFunctionTypes::const_iterator r = outputFunctionTypes.find(h);
+        if ( r != outputFunctionTypes.end() ) {
+            if ( r->type != QVariant::UserType ) {
+                column->setScalarType( r->type );
+            }
+            else {
+                column->setGeometry( r->wkbType );
+                if ( (r->sridParameter != -1) && argsDefs[r->sridParameter].isConstant() ) {
+                    QVariant v = argsDefs[r->sridParameter].value();
+                    column->setSrid( v.toInt() );
+                }
+            }
         }
         else {
-            QString fname = c.name().toLower();
-            QString h = c.name().toLower() + "(";
-            bool first = true;
-            for ( auto& d: argsDefs ) {
-                if (!first) {
-                    h += ",";
-                }
-                first = false;
-                switch (d.scalarType()) {
-                case QVariant::Int:
-                    h += "i";
-                    break;
-                case QVariant::Double:
-                    h += "r";
-                    break;
-                case QVariant::String:
-                    h += "s";
-                    break;
-                case QVariant::UserType:
-                    h += "g";
-                    break;
-                }
-            }
-            h+=")";
-            std::cout << "hash:" << h.toUtf8().constData() << std::endl;
-            OutputFunctionTypes::const_iterator r = outputFunctionTypes.find(h);
-            if ( r != outputFunctionTypes.end() ) {
-                if ( r->type != QVariant::UserType ) {
-                    column->setScalarType( r->type );
-                }
-                else {
-                    column->setGeometry( r->wkbType );
-                    if ( (r->sridParameter != -1) && argsDefs[r->sridParameter].isConstant() ) {
-                        QVariant v = argsDefs[r->sridParameter].value();
-                        column->setSrid( v.toInt() );
-                    }
-                }
-            }
+            // can't find function, don't know the final type
+            column->setScalarType( QVariant::Invalid );
         }
     }
 
@@ -663,6 +679,55 @@ public:
         }
         column->setConstant( false );
         column->setType( lastType );
+    }
+
+    virtual void visit( const ExpressionIn& c ) override
+    {
+        // TODO constant evaluation
+        column->setConstant( false );
+        column->setScalarType( QVariant::Int );
+    }
+
+    virtual void visit( const ExpressionSubQuery& t ) override
+    {
+        ColumnDef select = eval( *t.select() );
+        if ( select.isConstant() ) {
+            if ( t.exists() ) {
+                column->setConstantValue( 1 );
+            }
+            else {
+                column->setConstantValue( select.value() );
+            }
+        }
+        else {
+            column->setConstant( false );
+            if ( t.exists() ) {
+                column->setScalarType( QVariant::Int );
+            }
+            else {
+                column->setScalarType( select.scalarType() );
+            }
+        }
+    }
+
+    virtual void visit( const ExpressionCast& t ) override
+    {
+        ColumnDef expr = eval( *t.expression() );
+        if ( expr.isConstant() ) {
+            if ( t.type() == QVariant::Int ) {
+                column->setConstantValue( expr.value().toInt() );
+            }
+            else if ( t.type() == QVariant::Double ) {
+                column->setConstantValue( expr.value().toDouble() );
+            }
+            else {
+                column->setConstantValue( expr.value().toString() );
+            }
+        }
+        else {
+            column->setConstant( false );
+            column->setScalarType( t.type() );
+        }
     }
 
     // resulting column types

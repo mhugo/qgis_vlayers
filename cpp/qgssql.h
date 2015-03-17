@@ -35,7 +35,9 @@ namespace QgsSql
             NODE_LIMIT_OFFSET,
             NODE_ORDERING_TERM,
             NODE_COLUMN_EXPRESSION,
-            NODE_ALL_COLUMNS
+            NODE_ALL_COLUMNS,
+            NODE_EXPRESSION_SUBQUERY,
+            NODE_EXPRESSION_CAST
         };
         Node(Type type): type_(type) {}
 
@@ -282,6 +284,54 @@ namespace QgsSql
         std::unique_ptr<Expression> expr_;
         std::unique_ptr<Node> in_what_;
     };
+
+    class SelectStmt;
+    class ExpressionSubQuery : public Expression
+    {
+    public:
+        ExpressionSubQuery( SelectStmt* select, bool existsSubQuery = false ) :
+            Expression(NODE_EXPRESSION_SUBQUERY),
+            select_( select ),
+            exists_( existsSubQuery)
+        {}
+
+        const SelectStmt* select() const { return select_.get(); }
+        bool exists() const { return exists_; }
+
+        void accept( NodeVisitor& v ) const;
+    private:
+        std::unique_ptr<SelectStmt> select_;
+        bool exists_;
+    };
+
+    class ExpressionCast : public Expression
+    {
+    public:
+        ExpressionCast( Expression* expr, QString type ) :
+            Expression(NODE_EXPRESSION_CAST),
+            expr_( expr )
+        {
+            QString t = type.toLower();
+            if (( t == "integer" ) || ( t == "int" )) {
+                type_ = QVariant::Int;
+            }
+            else if ((t == "real") || (t == "double")) {
+                type_ = QVariant::Double;
+            }
+            else {
+                type_ = QVariant::String;
+            }
+        }
+
+        const Expression* expression() const { return expr_.get(); }
+        QVariant::Type type() const { return type_; }
+
+        void accept( NodeVisitor& v ) const;
+    private:
+        std::unique_ptr<Expression> expr_;
+        QVariant::Type type_;
+    };
+
     class JoinedTable : public Node
     {
     public:
@@ -511,6 +561,8 @@ namespace QgsSql
         virtual void visit( const LimitOffset& ) {}
         virtual void visit( const AllColumns& ) {}
         virtual void visit( const ColumnExpression& ) {}
+        virtual void visit( const ExpressionSubQuery& ) {}
+        virtual void visit( const ExpressionCast& ) {}
     };
 
     // Depth-first visitor
@@ -534,6 +586,8 @@ namespace QgsSql
         virtual void visit( const ExpressionWhenThen& wt ) override;
         virtual void visit( const ExpressionIn& t ) override;
         virtual void visit( const ColumnExpression& ) override;
+        virtual void visit( const ExpressionSubQuery& ) override;
+        virtual void visit( const ExpressionCast& ) override;
     };
 
 

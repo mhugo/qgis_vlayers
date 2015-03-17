@@ -195,6 +195,8 @@ string      "'"{str_char}*"'"
 "GROUP"     { return GROUP; }
 "BY"        { return BY; }
 "HAVING"    { return HAVING; }
+"EXISTS"    { return EXISTS; }
+"CAST"      { return CAST; }
 
 [()\.]      { return yytext[0]; }
 

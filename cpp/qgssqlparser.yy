@@ -111,7 +111,7 @@ struct expression_parser_context
 %token CASE WHEN THEN ELSE END
 
 // keyword tokens
-%token SELECT AS FROM WHERE ALL DISTINCT INNER OUTER CROSS JOIN NATURAL LEFT USING ON UNION EXCEPT INTERSECT GROUP BY HAVING ASC DESC LIMIT OFFSET ORDER
+%token SELECT AS FROM WHERE ALL DISTINCT INNER OUTER CROSS JOIN NATURAL LEFT USING ON UNION EXCEPT INTERSECT GROUP BY HAVING ASC DESC LIMIT OFFSET ORDER EXISTS CAST
 
 %token <text> STRING IDENTIFIER SPECIAL_COL
 
@@ -343,6 +343,8 @@ expression:
         |       expression NOT IN '(' select_stmt ')' { $$ = new QgsSql::ExpressionIn( $1, $5, true ); }
         |       expression IN IDENTIFIER { $$ = new QgsSql::ExpressionIn( $1, new QgsSql::TableName(*$3), false ); delete $3; }
         |       expression NOT IN IDENTIFIER { $$ = new QgsSql::ExpressionIn( $1, new QgsSql::TableName(*$4), true ); delete $4;}
+        |       EXISTS '(' select_stmt ')' { $$ = new QgsSql::ExpressionSubQuery( static_cast<QgsSql::SelectStmt*>($3), /* exists */ true ); }
+        |       '('select_stmt ')' { $$ = new QgsSql::ExpressionSubQuery( static_cast<QgsSql::SelectStmt*>($2) ); }
 
     | PLUS expression %prec UMINUS { $$ = $2; }
     | MINUS expression %prec UMINUS { $$ = new QgsSql::ExpressionUnaryOperator( QgsExpression::uoMinus, $2); }
@@ -360,6 +362,7 @@ expression:
     | NUMBER_INT                  { $$ = new QgsSql::ExpressionLiteral( QVariant($1) ); }
     | STRING                      { $$ = new QgsSql::ExpressionLiteral( QVariant(*$1) ); delete $1; }
     | NULLVALUE                   { $$ = new QgsSql::ExpressionLiteral( QVariant() ); }
+        |       CAST '(' expression AS IDENTIFIER ')' { $$ = new QgsSql::ExpressionCast($3, *$5); delete $5; }
 ;
 
 exp_list:
