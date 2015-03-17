@@ -78,7 +78,7 @@ void TestSqlParser::testColumnTypes()
 
     TableDefs t;
     t["t"] = TableDef();
-    t["t"] << ColumnDef( "geom", 2, 4326 ) << ColumnDef( "a", QVariant::Int );
+    t["t"] << ColumnType( "geom", QGis::WKBLineString, 4326 ) << ColumnType( "a", QVariant::Int );
 
     QString err;
     {
@@ -88,7 +88,7 @@ void TestSqlParser::testColumnTypes()
             std::cout << "ERROR: " << err.toUtf8().constData() << std::endl;
             return;
         }
-        QList<ColumnDef> cdefs = columnTypes( *n, err, &t );
+        QList<ColumnType> cdefs = columnTypes( *n, err, &t );
         QVERIFY( cdefs.size() == 6 );
         QVERIFY( cdefs[0].scalarType() == QVariant::Double );
         QVERIFY( cdefs[0].name() == "ab" );
@@ -98,7 +98,7 @@ void TestSqlParser::testColumnTypes()
         QVERIFY( cdefs[1].value() == 3 );
 
         QVERIFY( cdefs[2].isGeometry() );
-        QVERIFY( cdefs[2].wkbType() == 1 );
+        QVERIFY( cdefs[2].wkbType() == QGis::WKBPoint );
         QVERIFY( cdefs[2].srid() == 4326 );
         QVERIFY( cdefs[2].name() == "geom2" );
 
@@ -106,7 +106,7 @@ void TestSqlParser::testColumnTypes()
         QVERIFY( cdefs[3].scalarType() == QVariant::String );
 
         QVERIFY( cdefs[4].isGeometry() );
-        QVERIFY( cdefs[4].wkbType() == 2);
+        QVERIFY( cdefs[4].wkbType() == QGis::WKBLineString);
         QVERIFY( cdefs[4].srid() == 4326 );
         QVERIFY( cdefs[4].name() == "geom" );
 
@@ -122,7 +122,7 @@ void TestSqlParser::testColumnTypes()
             std::cout << "ERROR: " << err.toUtf8().constData() << std::endl;
             return;
         }
-        QList<ColumnDef> cdefs = columnTypes( *n, err, &t );
+        QList<ColumnType> cdefs = columnTypes( *n, err, &t );
         QVERIFY( err == "Cannot find column b" );
     }
     {
@@ -133,7 +133,7 @@ void TestSqlParser::testColumnTypes()
             std::cout << "ERROR: " << err.toUtf8().constData() << std::endl;
             return;
         }
-        QList<ColumnDef> cdefs = columnTypes( *n, err, &t );
+        QList<ColumnType> cdefs = columnTypes( *n, err, &t );
         QVERIFY( cdefs.size() == 2 );
         QVERIFY( cdefs[0].isConstant() );
         QVERIFY( cdefs[0].value() == "ok" );
@@ -148,7 +148,7 @@ void TestSqlParser::testColumnTypes()
             std::cout << "ERROR: " << err.toUtf8().constData() << std::endl;
             return;
         }
-        QList<ColumnDef> cdefs = columnTypes( *n, err, &t );
+        QList<ColumnType> cdefs = columnTypes( *n, err, &t );
         QVERIFY( err == "Type mismatch between ok and 34" );
     }
     {
@@ -159,10 +159,10 @@ void TestSqlParser::testColumnTypes()
             std::cout << "ERROR: " << err.toUtf8().constData() << std::endl;
             return;
         }
-        QList<ColumnDef> cdefs = columnTypes( *n, err, &t );
+        QList<ColumnType> cdefs = columnTypes( *n, err, &t );
         QVERIFY( cdefs.size() == 2 );
         QVERIFY( cdefs[0].isGeometry() );
-        QVERIFY( cdefs[0].wkbType() == 1001 );
+        QVERIFY( cdefs[0].wkbType() == QGis::WKBPoint25D );
         QVERIFY( cdefs[0].srid() == 2154 );
 
         QVERIFY( cdefs[1].isGeometry() );

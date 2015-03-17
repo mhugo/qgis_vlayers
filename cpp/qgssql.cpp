@@ -1,5 +1,8 @@
 #include <qgssql.h>
 #include <qgsfeature.h>
+#include <qgsmaplayerregistry.h>
+#include <qgsvectorlayer.h>
+#include <qgsvectordataprovider.h>
 
 #include <QSet>
 
@@ -301,7 +304,7 @@ private:
     QString err_;
 };
 
-QList<ColumnDef> columnTypes_r( const Node& n, const TableDefs* tableContext );
+QList<ColumnType> columnTypes_r( const Node& n, const TableDefs* tableContext );
 
 QVariant::Type resultingArithmeticType( QVariant::Type ta, QVariant::Type tb )
 {
@@ -365,7 +368,7 @@ QVariant::Type resultingArithmeticType( QVariant::Type ta, QVariant::Type tb )
 
 struct FunctionResult {
     QVariant::Type type;
-    int wkbType;
+    QGis::WkbType wkbType;
     int sridParameter;
 };
 
@@ -377,9 +380,9 @@ class OutputFunctionTypes : public QHash<QString, FunctionResult>
 
     void add( QString k, QVariant::Type t )
     {
-        insert( k, {t, -1, -1} );
+        insert( k, {t, QGis::WKBNoGeometry, -1} );
     }
-    void add( QString k, int wkbType, int sridParameter = -1 ) {
+    void add( QString k, QGis::WkbType wkbType, int sridParameter = -1 ) {
         insert( k, {QVariant::UserType, wkbType, sridParameter} );
     }
 };
@@ -391,204 +394,200 @@ OutputFunctionTypes initOutputFunctionTypes()
     t.add( "casttointeger1", QVariant::Int );
     t.add( "casttodouble1", QVariant::Double );
     t.add( "casttotext1", QVariant::String );
-    t.add( "st_point2", 1 );
-    t.add( "makepoint2", 1 );
-    t.add( "makepoint3", 1001, 2 );
-    t.add( "makepointz3", 1001 );
-    t.add( "makepointz4", 1001, 3 );
-    t.add( "makepointm3", 2001 );
-    t.add( "makepointm4", 2001, 3 );
-    t.add( "makepointzm4", 3001 );
-    t.add( "makepointzm5", 3001, 4 );
-    t.add( "makeline1", 2 ); // aggregate
-    t.add( "makeline2", 2 );
-    t.add( "pointfromtext1", 1 );
-    t.add( "pointfromtext2", 1, 1 );
-    t.add( "st_pointfromtext1", 1 );
-    t.add( "st_pointfromtext2", 1, 1 );
+    t.add( "st_point2", QGis::WKBPoint );
+    t.add( "makepoint2", QGis::WKBPoint );
+    t.add( "makepoint3", QGis::WKBPoint, 2 );
+    t.add( "makepointz3", QGis::WKBPoint25D );
+    t.add( "makepointz4", QGis::WKBPoint25D, 3 );
+    t.add( "makeline1", QGis::WKBLineString ); // aggregate
+    t.add( "makeline2", QGis::WKBLineString );
+    t.add( "pointfromtext1", QGis::WKBPoint );
+    t.add( "pointfromtext2", QGis::WKBPoint, 1 );
+    t.add( "st_pointfromtext1", QGis::WKBPoint );
+    t.add( "st_pointfromtext2", QGis::WKBPoint, 1 );
 
-    t.add( "linefromtext1", 2 );
-    t.add( "linefromtext2", 2, 1 );
-    t.add( "linestringfromtext1", 2 );
-    t.add( "linestringfromtext2", 2, 1 );
-    t.add( "st_linefromtext1", 2 );
-    t.add( "st_linefromtext2", 2, 1 );
-    t.add( "st_linestringfromtext1", 2 );
-    t.add( "st_linestringfromtext2", 2, 1 );
+    t.add( "linefromtext1", QGis::WKBLineString );
+    t.add( "linefromtext2", QGis::WKBLineString, 1 );
+    t.add( "linestringfromtext1", QGis::WKBLineString );
+    t.add( "linestringfromtext2", QGis::WKBLineString, 1 );
+    t.add( "st_linefromtext1", QGis::WKBLineString );
+    t.add( "st_linefromtext2", QGis::WKBLineString, 1 );
+    t.add( "st_linestringfromtext1", QGis::WKBLineString );
+    t.add( "st_linestringfromtext2", QGis::WKBLineString, 1 );
 
-    t.add( "polyfromtext1", 3 );
-    t.add( "polyfromtext2", 3, 1 );
-    t.add( "polygonfromtext1", 3 );
-    t.add( "polygonfromtext2", 3, 1 );
-    t.add( "st_polyfromtext1", 3 );
-    t.add( "st_polyfromtext2", 3, 1 );
-    t.add( "st_polygonfromtext1", 3 );
-    t.add( "st_polygonfromtext2", 3, 1 );
+    t.add( "polyfromtext1", QGis::WKBPolygon );
+    t.add( "polyfromtext2", QGis::WKBPolygon, 1 );
+    t.add( "polygonfromtext1", QGis::WKBPolygon );
+    t.add( "polygonfromtext2", QGis::WKBPolygon, 1 );
+    t.add( "st_polyfromtext1", QGis::WKBPolygon );
+    t.add( "st_polyfromtext2", QGis::WKBPolygon, 1 );
+    t.add( "st_polygonfromtext1", QGis::WKBPolygon );
+    t.add( "st_polygonfromtext2", QGis::WKBPolygon, 1 );
 
-    t.add( "mpointfromtext1", 4 );
-    t.add( "mpointfromtext2", 4, 1 );
-    t.add( "st_mpointfromtext1", 4 );
-    t.add( "st_mpointfromtext2", 4, 1 );
-    t.add( "multipointfromtext1", 4 );
-    t.add( "multipointfromtext2", 4, 1 );
-    t.add( "st_multipointfromtext1", 4 );
-    t.add( "st_multipointfromtext2", 4, 1 );
+    t.add( "mpointfromtext1", QGis::WKBMultiPoint );
+    t.add( "mpointfromtext2", QGis::WKBMultiPoint, 1 );
+    t.add( "st_mpointfromtext1", QGis::WKBMultiPoint );
+    t.add( "st_mpointfromtext2", QGis::WKBMultiPoint, 1 );
+    t.add( "multipointfromtext1", QGis::WKBMultiPoint );
+    t.add( "multipointfromtext2", QGis::WKBMultiPoint, 1 );
+    t.add( "st_multipointfromtext1", QGis::WKBMultiPoint );
+    t.add( "st_multipointfromtext2", QGis::WKBMultiPoint, 1 );
 
-    t.add( "mlinefromtext1", 5 );
-    t.add( "mlinefromtext2", 5, 1 );
-    t.add( "multilinestringfromtext1", 5 );
-    t.add( "multilinestringfromtext2", 5, 1 );
-    t.add( "st_mlinefromtext1", 5 );
-    t.add( "st_mlinefromtext2", 5, 1 );
-    t.add( "st_multilinestringfromtext1", 5 );
-    t.add( "st_multilinestringfromtext2", 5, 1 );
+    t.add( "mlinefromtext1", QGis::WKBMultiLineString );
+    t.add( "mlinefromtext2", QGis::WKBMultiLineString, 1 );
+    t.add( "multilinestringfromtext1", QGis::WKBMultiLineString );
+    t.add( "multilinestringfromtext2", QGis::WKBMultiLineString, 1 );
+    t.add( "st_mlinefromtext1", QGis::WKBMultiLineString );
+    t.add( "st_mlinefromtext2", QGis::WKBMultiLineString, 1 );
+    t.add( "st_multilinestringfromtext1", QGis::WKBMultiLineString );
+    t.add( "st_multilinestringfromtext2", QGis::WKBMultiLineString, 1 );
 
-    t.add( "mpolyfromtext1", 6 );
-    t.add( "mpolyfromtext2", 6, 1 );
-    t.add( "multipolygonfromtext1", 6 );
-    t.add( "multipolygonfromtext2", 6, 1 );
-    t.add( "st_mpolyfromtext1", 6 );
-    t.add( "st_mpolyfromtext2", 6, 1 );
-    t.add( "st_multipolygonfromtext1", 6 );
-    t.add( "st_multipolygonfromtext2", 6, 1 );
+    t.add( "mpolyfromtext1", QGis::WKBMultiPolygon );
+    t.add( "mpolyfromtext2", QGis::WKBMultiPolygon, 1 );
+    t.add( "multipolygonfromtext1", QGis::WKBMultiPolygon );
+    t.add( "multipolygonfromtext2", QGis::WKBMultiPolygon, 1 );
+    t.add( "st_mpolyfromtext1", QGis::WKBMultiPolygon );
+    t.add( "st_mpolyfromtext2", QGis::WKBMultiPolygon, 1 );
+    t.add( "st_multipolygonfromtext1", QGis::WKBMultiPolygon );
+    t.add( "st_multipolygonfromtext2", QGis::WKBMultiPolygon, 1 );
 
-    t.add( "pointfromwkb1", 1 );
-    t.add( "pointfromwkb2", 1, 1 );
-    t.add( "st_pointfromwkb1", 1 );
-    t.add( "st_pointfromwkb2", 1, 1 );
+    t.add( "pointfromwkb1", QGis::WKBPoint );
+    t.add( "pointfromwkb2", QGis::WKBPoint, 1 );
+    t.add( "st_pointfromwkb1", QGis::WKBPoint );
+    t.add( "st_pointfromwkb2", QGis::WKBPoint, 1 );
 
-    t.add( "linefromwkb1", 2 );
-    t.add( "linefromwkb2", 2, 1 );
-    t.add( "linestringfromwkb1", 2 );
-    t.add( "linestringfromwkb2", 2, 1 );
-    t.add( "st_linefromwkb1", 2 );
-    t.add( "st_linefromwkb2", 2, 1 );
-    t.add( "st_linestringfromwkb1", 2 );
-    t.add( "st_linestringfromwkb2", 2, 1 );
+    t.add( "linefromwkb1", QGis::WKBLineString );
+    t.add( "linefromwkb2", QGis::WKBLineString, 1 );
+    t.add( "linestringfromwkb1", QGis::WKBLineString );
+    t.add( "linestringfromwkb2", QGis::WKBLineString, 1 );
+    t.add( "st_linefromwkb1", QGis::WKBLineString );
+    t.add( "st_linefromwkb2", QGis::WKBLineString, 1 );
+    t.add( "st_linestringfromwkb1", QGis::WKBLineString );
+    t.add( "st_linestringfromwkb2", QGis::WKBLineString, 1 );
 
-    t.add( "polyfromwkb1", 3 );
-    t.add( "polyfromwkb2", 3, 1 );
-    t.add( "polygonfromwkb1", 3 );
-    t.add( "polygonfromwkb2", 3, 1 );
-    t.add( "st_polyfromwkb1", 3 );
-    t.add( "st_polyfromwkb2", 3, 1 );
-    t.add( "st_polygonfromwkb1", 3 );
-    t.add( "st_polygonfromwkb2", 3, 1 );
+    t.add( "polyfromwkb1", QGis::WKBPolygon );
+    t.add( "polyfromwkb2", QGis::WKBPolygon, 1 );
+    t.add( "polygonfromwkb1", QGis::WKBPolygon );
+    t.add( "polygonfromwkb2", QGis::WKBPolygon, 1 );
+    t.add( "st_polyfromwkb1", QGis::WKBPolygon );
+    t.add( "st_polyfromwkb2", QGis::WKBPolygon, 1 );
+    t.add( "st_polygonfromwkb1", QGis::WKBPolygon );
+    t.add( "st_polygonfromwkb2", QGis::WKBPolygon, 1 );
 
-    t.add( "mpointfromwkb1", 4 );
-    t.add( "mpointfromwkb2", 4, 1 );
-    t.add( "st_mpointfromwkb1", 4 );
-    t.add( "st_mpointfromwkb2", 4, 1 );
-    t.add( "multipointfromwkb1", 4 );
-    t.add( "multipointfromwkb2", 4, 1 );
-    t.add( "st_multipointfromwkb1", 4 );
-    t.add( "st_multipointfromwkb2", 4, 1 );
+    t.add( "mpointfromwkb1", QGis::WKBMultiPoint );
+    t.add( "mpointfromwkb2", QGis::WKBMultiPoint, 1 );
+    t.add( "st_mpointfromwkb1", QGis::WKBMultiPoint );
+    t.add( "st_mpointfromwkb2", QGis::WKBMultiPoint, 1 );
+    t.add( "multipointfromwkb1", QGis::WKBMultiPoint );
+    t.add( "multipointfromwkb2", QGis::WKBMultiPoint, 1 );
+    t.add( "st_multipointfromwkb1", QGis::WKBMultiPoint );
+    t.add( "st_multipointfromwkb2", QGis::WKBMultiPoint, 1 );
 
-    t.add( "mlinefromwkb1", 5 );
-    t.add( "mlinefromwkb2", 5, 1 );
-    t.add( "multilinestringfromwkb1", 5 );
-    t.add( "multilinestringfromwkb2", 5, 1 );
-    t.add( "st_mlinefromwkb1", 5 );
-    t.add( "st_mlinefromwkb2", 5, 1 );
-    t.add( "st_multilinestringfromwkb1", 5 );
-    t.add( "st_multilinestringfromwkb2", 5, 1 );
+    t.add( "mlinefromwkb1", QGis::WKBMultiLineString );
+    t.add( "mlinefromwkb2", QGis::WKBMultiLineString, 1 );
+    t.add( "multilinestringfromwkb1", QGis::WKBMultiLineString );
+    t.add( "multilinestringfromwkb2", QGis::WKBMultiLineString, 1 );
+    t.add( "st_mlinefromwkb1", QGis::WKBMultiLineString );
+    t.add( "st_mlinefromwkb2", QGis::WKBMultiLineString, 1 );
+    t.add( "st_multilinestringfromwkb1", QGis::WKBMultiLineString );
+    t.add( "st_multilinestringfromwkb2", QGis::WKBMultiLineString, 1 );
 
-    t.add( "mpolyfromwkb1", 6 );
-    t.add( "mpolyfromwkb2", 6, 1 );
-    t.add( "multipolygonfromwkb1", 6 );
-    t.add( "multipolygonfromwkb2", 6, 1 );
-    t.add( "st_mpolyfromwkb1", 6 );
-    t.add( "st_mpolyfromwkb2", 6, 1 );
-    t.add( "st_multipolygonfromwkb1", 6 );
-    t.add( "st_multipolygonfromwkb2", 6, 1 );
+    t.add( "mpolyfromwkb1", QGis::WKBMultiPolygon );
+    t.add( "mpolyfromwkb2", QGis::WKBMultiPolygon, 1 );
+    t.add( "multipolygonfromwkb1", QGis::WKBMultiPolygon );
+    t.add( "multipolygonfromwkb2", QGis::WKBMultiPolygon, 1 );
+    t.add( "st_mpolyfromwkb1", QGis::WKBMultiPolygon );
+    t.add( "st_mpolyfromwkb2", QGis::WKBMultiPolygon, 1 );
+    t.add( "st_multipolygonfromwkb1", QGis::WKBMultiPolygon );
+    t.add( "st_multipolygonfromwkb2", QGis::WKBMultiPolygon, 1 );
 
-    t.add( "envelope1", 3 );
-    t.add( "st_envelope1", 3 );
-    t.add( "reverse1", 2 );
-    t.add( "st_reverse1", 2 );
-    t.add( "forcelhr", 3 );
-    t.add( "st_forcelhr", 3 );
+    t.add( "envelope1", QGis::WKBPolygon );
+    t.add( "st_envelope1", QGis::WKBPolygon );
+    t.add( "reverse1", QGis::WKBLineString );
+    t.add( "st_reverse1", QGis::WKBLineString );
+    t.add( "forcelhr", QGis::WKBPolygon );
+    t.add( "st_forcelhr", QGis::WKBPolygon );
 
-    t.add( "casttopoint1", 1 );
-    t.add( "casttolinestring1", 2 );
-    t.add( "casttopolygon1", 3 );
-    t.add( "casttomultipoint1", 4 );
-    t.add( "casttomultilinestring1", 5 );
-    t.add( "casttomultipolygon1", 6 );
+    t.add( "casttopoint1", QGis::WKBPoint );
+    t.add( "casttolinestring1", QGis::WKBLineString );
+    t.add( "casttopolygon1", QGis::WKBPolygon );
+    t.add( "casttomultipoint1", QGis::WKBMultiPoint );
+    t.add( "casttomultilinestring1", QGis::WKBMultiLineString );
+    t.add( "casttomultipolygon1", QGis::WKBMultiPolygon );
 
-    t.add( "startpoint1", 1 );
-    t.add( "st_startpoint1", 1 );
-    t.add( "endpoint1", 1 );
-    t.add( "st_endpoint1", 1 );
-    t.add( "pointonsurface1", 1 );
-    t.add( "st_pointonsurface1", 1 );
-    t.add( "pointn1", 1 );
-    t.add( "st_pointn1", 1 );
-    t.add( "addpoint2", 2 );
-    t.add( "addpoint3", 2 );
-    t.add( "st_addpoint2", 2 );
-    t.add( "st_addpoint3", 2 );
-    t.add( "setpoint3", 2 );
-    t.add( "st_setpoint3", 2 );
-    t.add( "removepoint2", 2 );
-    t.add( "st_removepoint2", 2 );
+    t.add( "startpoint1", QGis::WKBPoint );
+    t.add( "st_startpoint1", QGis::WKBPoint );
+    t.add( "endpoint1", QGis::WKBPoint );
+    t.add( "st_endpoint1", QGis::WKBPoint );
+    t.add( "pointonsurface1", QGis::WKBPoint );
+    t.add( "st_pointonsurface1", QGis::WKBPoint );
+    t.add( "pointn1", QGis::WKBPoint );
+    t.add( "st_pointn1", QGis::WKBPoint );
+    t.add( "addpoint2", QGis::WKBLineString );
+    t.add( "addpoint3", QGis::WKBLineString );
+    t.add( "st_addpoint2", QGis::WKBLineString );
+    t.add( "st_addpoint3", QGis::WKBLineString );
+    t.add( "setpoint3", QGis::WKBLineString );
+    t.add( "st_setpoint3", QGis::WKBLineString );
+    t.add( "removepoint2", QGis::WKBLineString );
+    t.add( "st_removepoint2", QGis::WKBLineString );
 
-    t.add( "centroid1", 1 );
-    t.add( "st_centroid1", 1 );
+    t.add( "centroid1", QGis::WKBPoint );
+    t.add( "st_centroid1", QGis::WKBPoint );
 
-    t.add( "exteriorring1", 2 );
-    t.add( "st_exteriorring1", 2 );
-    t.add( "interiorringn2", 2 );
-    t.add( "st_interiorringn2", 2 );
+    t.add( "exteriorring1", QGis::WKBLineString );
+    t.add( "st_exteriorring1", QGis::WKBLineString );
+    t.add( "interiorringn2", QGis::WKBLineString );
+    t.add( "st_interiorringn2", QGis::WKBLineString );
 
-    t.add( "buffer2", 3 );
-    t.add( "st_buffer2", 3 );
-    t.add( "convexhull1", 3 );
-    t.add( "st_convexhull1", 3 );
-    t.add( "line_interpolate_point2", 1 );
-    t.add( "st_line_interpolate_point2", 1 );
-    t.add( "line_interpolate_equidistant_points2", 4 );
-    t.add( "st_line_interpolate_equidistant_points2", 4 );
-    t.add( "line_substring3", 2 );
-    t.add( "st_line_substring3", 2 );
-    t.add( "closestpoint2", 1 );
-    t.add( "st_closestpoint2", 1 );
-    t.add( "shortestline2", 2 );
-    t.add( "st_shortestline2", 2 );
+    t.add( "buffer2", QGis::WKBPolygon );
+    t.add( "st_buffer2", QGis::WKBPolygon );
+    t.add( "convexhull1", QGis::WKBPolygon );
+    t.add( "st_convexhull1", QGis::WKBPolygon );
+    t.add( "line_interpolate_point2", QGis::WKBPoint );
+    t.add( "st_line_interpolate_point2", QGis::WKBPoint );
+    t.add( "line_interpolate_equidistant_points2", QGis::WKBMultiPoint );
+    t.add( "st_line_interpolate_equidistant_points2", QGis::WKBMultiPoint );
+    t.add( "line_substring3", QGis::WKBLineString );
+    t.add( "st_line_substring3", QGis::WKBLineString );
+    t.add( "closestpoint2", QGis::WKBPoint );
+    t.add( "st_closestpoint2", QGis::WKBPoint );
+    t.add( "shortestline2", QGis::WKBLineString );
+    t.add( "st_shortestline2", QGis::WKBLineString );
 
-    t.add( "makepolygon1", 3 );
-    t.add( "makepolygon2", 3 );
-    t.add( "st_makepolygon1", 3 );
-    t.add( "st_makepolygon2", 3 );
+    t.add( "makepolygon1", QGis::WKBPolygon );
+    t.add( "makepolygon2", QGis::WKBPolygon );
+    t.add( "st_makepolygon1", QGis::WKBPolygon );
+    t.add( "st_makepolygon2", QGis::WKBPolygon );
 
-    t.add( "extractmultipoint1", 4 );
-    t.add( "extractmultilinestring1", 5 );
-    t.add( "extractmultipolygon1", 6 );
+    t.add( "extractmultipoint1", QGis::WKBMultiPoint );
+    t.add( "extractmultilinestring1", QGis::WKBMultiLineString );
+    t.add( "extractmultipolygon1", QGis::WKBMultiPolygon );
 
     // geometry functions that do not touch their types
-    t.add( "snap3", -1 );
-    t.add( "st_snap3", -1 );
-    t.add( "makevalid1", -1 );
-    t.add( "st_makevalid1", -1 );
-    t.add( "offsetcurve3", -1 );
-    t.add( "st_offsetcurve3", -1 );
-    t.add( "transform2", -1, 1 );
-    t.add( "st_transform2", -1, 1 );
-    t.add( "setsrid2", -1, 1 );
-    t.add( "st_transform2", -1, 1 );
-    t.add( "st_translate4", -1 );
-    t.add( "st_shift_longitude1", -1 );
-    t.add( "normalizelonlat1", -1 );
-    t.add( "scalecoords2", -1 );
-    t.add( "scalecoords3", -1 );
-    t.add( "scalecoordinates2", -1 );
-    t.add( "scalecoordinates3", -1 );
-    t.add( "rotatecoords2", -1 );
-    t.add( "rotatecoordinates2", -1 );
-    t.add( "reflectcoords3", -1 );
-    t.add( "reflectcoordinates3", -1 );
-    t.add( "swapcoords1", -1 );
-    t.add( "swapcoordinates1", -1 );
+    t.add( "snap3", QGis::WKBUnknown );
+    t.add( "st_snap3", QGis::WKBUnknown );
+    t.add( "makevalid1", QGis::WKBUnknown );
+    t.add( "st_makevalid1", QGis::WKBUnknown );
+    t.add( "offsetcurve3", QGis::WKBUnknown );
+    t.add( "st_offsetcurve3", QGis::WKBUnknown );
+    t.add( "transform2", QGis::WKBUnknown, 1 );
+    t.add( "st_transform2", QGis::WKBUnknown, 1 );
+    t.add( "setsrid2", QGis::WKBUnknown, 1 );
+    t.add( "st_transform2", QGis::WKBUnknown, 1 );
+    t.add( "st_translate4", QGis::WKBUnknown );
+    t.add( "st_shift_longitude1", QGis::WKBUnknown );
+    t.add( "normalizelonlat1", QGis::WKBUnknown );
+    t.add( "scalecoords2", QGis::WKBUnknown );
+    t.add( "scalecoords3", QGis::WKBUnknown );
+    t.add( "scalecoordinates2", QGis::WKBUnknown );
+    t.add( "scalecoordinates3", QGis::WKBUnknown );
+    t.add( "rotatecoords2", QGis::WKBUnknown );
+    t.add( "rotatecoordinates2", QGis::WKBUnknown );
+    t.add( "reflectcoords3", QGis::WKBUnknown );
+    t.add( "reflectcoordinates3", QGis::WKBUnknown );
+    t.add( "swapcoords1", QGis::WKBUnknown );
+    t.add( "swapcoordinates1", QGis::WKBUnknown );
 
     // special functions
 
@@ -607,7 +606,7 @@ OutputFunctionTypes initOutputFunctionTypes()
     return t;
 }
 
-int intersectionType( int ta, int tb )
+QGis::WkbType intersectionType( QGis::WkbType ta, QGis::WkbType tb )
 {
     if (ta > tb) {
         return intersectionType(tb,ta);
@@ -615,107 +614,210 @@ int intersectionType( int ta, int tb )
     // ta < tb
     switch (ta)
     {
-    case 1:
-        return 1;
-    case 2:
+    case QGis::WKBPoint:
+        return QGis::WKBPoint;
+    case QGis::WKBLineString:
         switch (tb) {
-        case 2:
-            return 1;
-        case 3:
-            return 2;
-        case 4:
-            return 4;
-        case 5:
-            return 4;
-        case 6:
-            return 5;
+        case QGis::WKBLineString:
+            return QGis::WKBPoint;
+        case QGis::WKBPolygon:
+            return QGis::WKBLineString;
+        case QGis::WKBMultiPoint:
+            return QGis::WKBMultiPoint;
+        case QGis::WKBMultiLineString:
+            return QGis::WKBMultiPoint;
+        case QGis::WKBMultiPolygon:
+            return QGis::WKBMultiLineString;
         }
-    case 3:
+    case QGis::WKBPolygon:
         switch (tb) {
-        case 3:
-            return 3;
-        case 4:
-            return 4;
-        case 5:
-            return 5;
-        case 6:
-            return 6;
+        case QGis::WKBPolygon:
+            return QGis::WKBPolygon;
+        case QGis::WKBMultiPoint:
+            return QGis::WKBMultiPoint;
+        case QGis::WKBMultiLineString:
+            return QGis::WKBMultiLineString;
+        case QGis::WKBMultiPolygon:
+            return QGis::WKBMultiPolygon;
         }
-    case 4:
+    case QGis::WKBMultiPoint:
         switch (tb) {
-        case 4:
-            return 4;
-        case 5:
-            return 4;
-        case 6:
-            return 4;
+        case QGis::WKBMultiPoint:
+            return QGis::WKBMultiPoint;
+        case QGis::WKBMultiLineString:
+            return QGis::WKBMultiPoint;
+        case QGis::WKBMultiPolygon:
+            return QGis::WKBMultiPoint;
         }
-    case 5:
+    case QGis::WKBMultiLineString:
         switch (tb)
         {
-        case 5:
-            return 4;
-        case 6:
-            return 5;
+        case QGis::WKBMultiLineString:
+            return QGis::WKBMultiPoint;
+        case QGis::WKBMultiPolygon:
+            return QGis::WKBMultiLineString;
         }
-    case 6:
-        return 6;
+    case QGis::WKBMultiPolygon:
+        return QGis::WKBMultiPolygon;
     };
-    return 0;
+    return QGis::WKBUnknown;
 }
 
-int unionType( int ta, int tb )
+QGis::WkbType unionType( QGis::WkbType ta, QGis::WkbType tb )
 {
     switch (ta) {
-    case 1:
-    case 4:
-        if (tb == 1 || tb == 4) {
-            return 4;
+    case QGis::WKBPoint:
+    case QGis::WKBMultiPoint:
+        if (tb == QGis::WKBPoint || tb == QGis::WKBMultiPoint) {
+            return QGis::WKBMultiPoint;
         }
         break;
-    case 2:
-    case 5:
-        if (tb == 2 || tb == 5) {
-            return 5;
+    case QGis::WKBLineString:
+    case QGis::WKBMultiLineString:
+        if (tb == QGis::WKBLineString || tb == QGis::WKBMultiLineString) {
+            return QGis::WKBMultiLineString;
         }
         break;
-    case 3:
-    case 6:
-        if (tb == 2 || tb == 5) {
-            return 6;
+    case QGis::WKBPolygon:
+    case QGis::WKBMultiPolygon:
+        if (tb == QGis::WKBLineString || tb == QGis::WKBMultiLineString) {
+            return QGis::WKBMultiPolygon;
         }
         break;
     }
     // else its a collection
-    return 7;
+    return QGis::WKBUnknown;
 }
 
-int differenceType( int ta, int tb )
+QGis::WkbType differenceType( QGis::WkbType ta, QGis::WkbType tb )
 {
     switch (ta)
     {
-    case 1:
-    case 4:
+    case QGis::WKBPoint:
+    case QGis::WKBMultiPoint:
         return ta;
-    case 2:
-    case 5:
+    case QGis::WKBLineString:
+    case QGis::WKBMultiLineString:
         switch (tb) {
-        case 2:
-        case 5:
-        case 3:
-        case 6:
+        case QGis::WKBLineString:
+        case QGis::WKBMultiLineString:
+        case QGis::WKBPolygon:
+        case QGis::WKBMultiPolygon:
             return ta;
         }
-    case 3:
-    case 6:
+    case QGis::WKBPolygon:
+    case QGis::WKBMultiPolygon:
         switch (tb) {
-        case 3:
-        case 6:
+        case QGis::WKBPolygon:
+        case QGis::WKBMultiPolygon:
             return ta;
         }
     }
     // else invalid
-    return 0;
+    return QGis::WKBUnknown;
+}
+
+QGis::WkbType toMulti( QGis::WkbType ta )
+{
+    switch (ta) {
+    case QGis::WKBPoint:
+    case QGis::WKBMultiPoint:
+        return QGis::WKBMultiPoint;
+    case QGis::WKBLineString:
+    case QGis::WKBMultiLineString:
+        return QGis::WKBMultiLineString;
+    case QGis::WKBPolygon:
+    case QGis::WKBMultiPolygon:
+        return QGis::WKBMultiPolygon;
+    case QGis::WKBPoint25D:
+    case QGis::WKBMultiPoint25D:
+        return QGis::WKBMultiPoint25D;
+    case QGis::WKBLineString25D:
+    case QGis::WKBMultiLineString25D:
+        return QGis::WKBMultiLineString25D;
+    case QGis::WKBPolygon25D:
+    case QGis::WKBMultiPolygon25D:
+        return QGis::WKBMultiPolygon25D;
+    }
+    return QGis::WKBUnknown;
+}
+
+QGis::WkbType toSingle( QGis::WkbType ta )
+{
+    switch (ta) {
+    case QGis::WKBPoint:
+    case QGis::WKBMultiPoint:
+        return QGis::WKBPoint;
+    case QGis::WKBLineString:
+    case QGis::WKBMultiLineString:
+        return QGis::WKBLineString;
+    case QGis::WKBPolygon:
+    case QGis::WKBMultiPolygon:
+        return QGis::WKBPolygon;
+    case QGis::WKBPoint25D:
+    case QGis::WKBMultiPoint25D:
+        return QGis::WKBPoint25D;
+    case QGis::WKBLineString25D:
+    case QGis::WKBMultiLineString25D:
+        return QGis::WKBLineString25D;
+    case QGis::WKBPolygon25D:
+    case QGis::WKBMultiPolygon25D:
+        return QGis::WKBPolygon25D;
+    }
+    return QGis::WKBUnknown;
+}
+
+QGis::WkbType toXY( QGis::WkbType ta )
+{
+    switch (ta) {
+    case QGis::WKBPoint:
+    case QGis::WKBMultiPoint:
+    case QGis::WKBLineString:
+    case QGis::WKBMultiLineString:
+    case QGis::WKBPolygon:
+    case QGis::WKBMultiPolygon:
+        return ta;
+    case QGis::WKBPoint25D:
+        return QGis::WKBPoint;
+    case QGis::WKBMultiPoint25D:
+        return QGis::WKBMultiPoint;
+    case QGis::WKBLineString25D:
+        return QGis::WKBLineString;
+    case QGis::WKBMultiLineString25D:
+        return QGis::WKBMultiLineString;
+    case QGis::WKBPolygon25D:
+        return QGis::WKBPolygon;
+    case QGis::WKBMultiPolygon25D:
+        return QGis::WKBMultiPolygon;
+    }
+    return QGis::WKBUnknown;
+}
+
+
+QGis::WkbType toXYZ( QGis::WkbType ta )
+{
+    switch (ta) {
+    case QGis::WKBPoint25D:
+    case QGis::WKBMultiPoint25D:
+    case QGis::WKBLineString25D:
+    case QGis::WKBMultiLineString25D:
+    case QGis::WKBPolygon25D:
+    case QGis::WKBMultiPolygon25D:
+        return ta;
+    case QGis::WKBPoint:
+        return QGis::WKBPoint25D;
+    case QGis::WKBMultiPoint:
+        return QGis::WKBMultiPoint25D;
+    case QGis::WKBLineString:
+        return QGis::WKBLineString25D;
+    case QGis::WKBMultiLineString:
+        return QGis::WKBMultiLineString25D;
+    case QGis::WKBPolygon:
+        return QGis::WKBPolygon25D;
+    case QGis::WKBMultiPolygon:
+        return QGis::WKBMultiPolygon25D;
+    }
+    return QGis::WKBUnknown;
 }
 
 class ColumnTypeInferer : public DFSVisitor
@@ -729,11 +831,11 @@ public:
     {
     }
 
-    ColumnDef eval( const Node& n )
+    ColumnType eval( const Node& n )
     {
         // save current context
-        ColumnDef *pColumn = column;
-        ColumnDef c;
+        ColumnType *pColumn = column;
+        ColumnType c;
         column = &c;
         n.accept(*this);
         // restore context
@@ -764,7 +866,7 @@ public:
     virtual void visit( const TableSelect& s ) override
     {
         // subquery (recursive call)
-        QList<ColumnDef> o = columnTypes_r( *s.select(), defs_ );
+        QList<ColumnType> o = columnTypes_r( *s.select(), defs_ );
 
         if ( refs_.find(s.alias()) == refs_.end() ) {
             refs_[s.alias()] = TableDef();
@@ -796,7 +898,7 @@ public:
     {
         if ( !c.table().isEmpty() ) {
             // set the current column
-            QList<ColumnDef> cdefs = refs_[c.table()].findColumn( c.column() );
+            QList<ColumnType> cdefs = refs_[c.table()].findColumn( c.column() );
             if (cdefs.isEmpty()) {
                 throw InfererException("Cannot find column " + c.column() + " in table " + c.table() );
             }
@@ -804,7 +906,7 @@ public:
         }
         else {
             // look for the column in ALL tables
-            QList<ColumnDef> cdefs = refs_.findColumn( c.column() );
+            QList<ColumnType> cdefs = refs_.findColumn( c.column() );
             if (cdefs.isEmpty()) {
                 throw InfererException("Cannot find column " + c.column() );
             }
@@ -817,7 +919,7 @@ public:
 
     virtual void visit( const ColumnExpression& c ) override
     {
-        ColumnDef cdef = eval( *c.expression() );
+        ColumnType cdef = eval( *c.expression() );
 
         if ( ! c.alias().isEmpty() ) {
             cdef.setName( c.alias() );
@@ -827,7 +929,7 @@ public:
 
     virtual void visit( const ExpressionFunction& c ) override
     {
-        QVector<ColumnDef> argsDefs;
+        QVector<ColumnType> argsDefs;
         bool allConstants = true;
         for ( auto& arg: *c.args() ) {
             argsDefs << eval( *arg );
@@ -846,9 +948,9 @@ public:
                 column->setScalarType( r->type );
             }
             else {
-                ColumnDef geodef;
+                ColumnType geodef;
                 // take the first geometry argument found
-                for ( ColumnDef def: argsDefs ) {
+                for ( ColumnType def: argsDefs ) {
                     if ( def.isGeometry() ) {
                         geodef.setGeometry( def.wkbType() );
                         geodef.setSrid( def.srid() );
@@ -856,14 +958,14 @@ public:
                     }
                 }
 
-                if ( r->wkbType == -1 ) {
+                if ( r->wkbType == QGis::WKBUnknown ) {
                     // copy wkbtype from arguments
                     if ( geodef.isGeometry() ) {
                         column->setGeometry( geodef.wkbType() );
                     }
                     else {
                         // undetermined geometry
-                        column->setGeometry( 0 );
+                        column->setGeometry( QGis::WKBUnknown );
                     }
                 }
                 else {
@@ -879,39 +981,19 @@ public:
             }
         }
         else if ( ((h == "casttomulti1") || (h == "st_multi1")) && argsDefs[0].isGeometry() ) {
-            if (argsDefs[0].wkbType() & 7 <= 3) {
-                // cast to multi
-                column->setGeometry( argsDefs[0].wkbType() + 3 );
-            }
-            else {
-                column->setGeometry( argsDefs[0].wkbType() );
-            }
+            column->setGeometry( toMulti(argsDefs[0].wkbType()) );
             column->setSrid( argsDefs[0].srid() );
         }
         else if ( (h == "casttosingle1") && argsDefs[0].isGeometry() ) {
-            if (argsDefs[0].wkbType() & 7 > 3) {
-                // cast to single
-                column->setGeometry( argsDefs[0].wkbType() - 3 );
-            }
-            else {
-                column->setGeometry( argsDefs[0].wkbType() );
-            }
+            column->setGeometry( toSingle(argsDefs[0].wkbType()) );
             column->setSrid( argsDefs[0].srid() );
         }
         else if ( (h == "casttoxy1") && argsDefs[0].isGeometry() ) {
-            column->setGeometry( argsDefs[0].wkbType() & 7 );
+            column->setGeometry( toXY(argsDefs[0].wkbType()) );
             column->setSrid( argsDefs[0].srid() );
         }
         else if ( (h == "casttoxyz1") && argsDefs[0].isGeometry() ) {
-            column->setGeometry( 1000 + (argsDefs[0].wkbType() & 7) );
-            column->setSrid( argsDefs[0].srid() );
-        }
-        else if ( (h == "casttoxym1") && argsDefs[0].isGeometry() ) {
-            column->setGeometry( 2000 + (argsDefs[0].wkbType() & 7) );
-            column->setSrid( argsDefs[0].srid() );
-        }
-        else if ( (h == "casttoxyzm1") && argsDefs[0].isGeometry() ) {
-            column->setGeometry( 3000 + (argsDefs[0].wkbType() & 7) );
+            column->setGeometry( toXYZ(argsDefs[0].wkbType()) );
             column->setSrid( argsDefs[0].srid() );
         }
         else if ( ((h == "intersection2") || (h == "st_intersection2")) && argsDefs[0].isGeometry() && argsDefs[1].isGeometry() ) {
@@ -940,7 +1022,7 @@ public:
 
     virtual void visit( const ExpressionBinaryOperator& b ) override
     {
-        ColumnDef left, right;
+        ColumnType left, right;
 
         left = eval( *b.left() );
         right = eval( *b.right() );
@@ -973,7 +1055,7 @@ public:
 
     virtual void visit( const ExpressionUnaryOperator& b ) override
     {
-        ColumnDef left;
+        ColumnType left;
 
         left = eval( *b.expression() );
 
@@ -1004,16 +1086,16 @@ public:
 
     virtual void visit( const ExpressionCondition& c ) override
     {
-        QList<QPair<ColumnDef::Type, const Node*>> possibleTypes;
+        QList<QPair<ColumnType::Type, const Node*>> possibleTypes;
         bool allConstants = true;
         for ( auto& n: *c.conditions() ) {
             Q_ASSERT( n->type() == Node::NODE_EXPRESSION_WHEN_THEN );
             ExpressionWhenThen* wt = static_cast<ExpressionWhenThen*>(n.get());
 
-            ColumnDef when = eval( *wt->when() );
+            ColumnType when = eval( *wt->when() );
             if ( allConstants && when.isConstant() ) {
                 if ( when.value().toInt() != 0 ) {
-                    ColumnDef then_node = eval( *wt->then_node() );
+                    ColumnType then_node = eval( *wt->then_node() );
                     *column = then_node;
                     return;
                 }
@@ -1021,11 +1103,11 @@ public:
             else {
                 allConstants = false;
 
-                ColumnDef then_node = eval( *wt->then_node() );
+                ColumnType then_node = eval( *wt->then_node() );
                 possibleTypes << qMakePair(then_node.type(), wt->then_node());
             }
         }
-        ColumnDef elseNode = eval( *c.else_node() );
+        ColumnType elseNode = eval( *c.else_node() );
         if (allConstants) {
             *column = elseNode;
             return;
@@ -1033,7 +1115,7 @@ public:
         else {
             possibleTypes << qMakePair(elseNode.type(), c.else_node() );
         }
-        ColumnDef::Type lastType = possibleTypes.front().first;
+        ColumnType::Type lastType = possibleTypes.front().first;
         QString lastTypeNodeStr = asString( *possibleTypes.front().second );
         for ( auto& t : possibleTypes ) {
             if ( t.first != lastType ) {
@@ -1054,7 +1136,7 @@ public:
 
     virtual void visit( const ExpressionSubQuery& t ) override
     {
-        ColumnDef select = eval( *t.select() );
+        ColumnType select = eval( *t.select() );
         if ( select.isConstant() ) {
             if ( t.exists() ) {
                 column->setConstantValue( 1 );
@@ -1076,7 +1158,7 @@ public:
 
     virtual void visit( const ExpressionCast& t ) override
     {
-        ColumnDef expr = eval( *t.expression() );
+        ColumnType expr = eval( *t.expression() );
         if ( expr.isConstant() ) {
             if ( t.type() == QVariant::Int ) {
                 column->setConstantValue( expr.value().toInt() );
@@ -1095,10 +1177,10 @@ public:
     }
 
     // resulting column types
-    QList<ColumnDef> types;
+    QList<ColumnType> types;
 
     // current column
-    ColumnDef* column;
+    ColumnType* column;
 
     static const OutputFunctionTypes outputFunctionTypes;
 private:
@@ -1113,19 +1195,19 @@ private:
 
 const OutputFunctionTypes ColumnTypeInferer::outputFunctionTypes = initOutputFunctionTypes();
 
-QList<ColumnDef> columnTypes_r( const Node& n, const TableDefs* tableContext )
+QList<ColumnType> columnTypes_r( const Node& n, const TableDefs* tableContext )
 {
     ColumnTypeInferer v( tableContext );
-    ColumnDef cdef;
+    ColumnType cdef;
     v.column = &cdef;
     n.accept( v );
 
     return v.types;
 }
 
-QList<ColumnDef> columnTypes( const Node& n, QString& errMsg, const TableDefs* tableContext )
+QList<ColumnType> columnTypes( const Node& n, QString& errMsg, const TableDefs* tableContext )
 {
-    QList<ColumnDef> cdefs;
+    QList<ColumnType> cdefs;
     try
     {
         cdefs = columnTypes_r( n, tableContext );
@@ -1135,6 +1217,28 @@ QList<ColumnDef> columnTypes( const Node& n, QString& errMsg, const TableDefs* t
         errMsg = e.err();
     }
     return cdefs;
+}
+
+QList<ColumnType> columnTypes( const Node& n, const QList<QString>& tables, QString& err )
+{
+    TableDefs tableDefs;
+    for ( auto& lname : tables ) {
+        QList<QgsMapLayer*> l = QgsMapLayerRegistry::instance()->mapLayersByName( lname );
+        if ( l.size() == 0 )
+            continue;
+        if ( l.back()->type() != QgsMapLayer::VectorLayer )
+            continue;
+        auto vl = static_cast<QgsVectorLayer*>(l.back());
+        tableDefs[lname] = TableDef();
+        const QgsFields& fields = vl->dataProvider()->fields();
+        for ( int i = 0; i < fields.count(); i++ ) {
+            tableDefs[lname] << ColumnType( fields.at(i).name(), fields.at(i).type() );
+        }
+        if ( vl->dataProvider()->geometryType() != QGis::WKBNoGeometry) {
+            tableDefs[lname] << ColumnType( "geometry", vl->dataProvider()->geometryType(), vl->crs().postgisSrid() );
+        }
+    }
+    return columnTypes( n, err, &tableDefs );
 }
 
 } // namespace QgsSql

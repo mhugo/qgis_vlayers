@@ -3,6 +3,7 @@
 #include <QStack>
 
 #include <qgsexpression.h>
+#include <qgis.h>
 
 namespace QgsSql
 {
@@ -604,21 +605,25 @@ QString asString( const QgsSql::Node& );
 /**
  * Get a list of referenced tables in the query
  */
-
 QList<QString> referencedTables( const QgsSql::Node& );
 
-class ColumnDef
+/**
+ * Type used to define the type of a column
+ *
+ * It can hold a 'scalar' type (int, double, string) or a geometry type (WKB) and an SRID
+ */
+class ColumnType
 {
 public:
     struct Type
     {
         QVariant::Type type;
-        int wkbType;
+        QGis::WkbType wkbType;
         long srid;
 
-        Type() : type(QVariant::Invalid), wkbType(-1), srid(-1) {}
-        Type( int aWkbType, long aSrid ) : wkbType(aWkbType), srid(aSrid), type(QVariant::UserType) {}
-        Type( QVariant::Type aType ) : wkbType(-1), srid(-1), type(aType) {}
+        Type() : type(QVariant::Invalid), wkbType(QGis::WKBUnknown), srid(-1) {}
+        Type( QGis::WkbType aWkbType, long aSrid ) : wkbType(aWkbType), srid(aSrid), type(QVariant::UserType) {}
+        Type( QVariant::Type aType ) : wkbType(QGis::WKBUnknown), srid(-1), type(aType) {}
 
         bool operator==( const Type& other ) const {
             if (type == QVariant::UserType) {
@@ -650,9 +655,9 @@ public:
         }
     };
 
-    ColumnDef() : constant_(false) {}
-    ColumnDef( QString name, QVariant::Type t ) : constant_(false), name_(name), type_(t) {}
-    ColumnDef( QString name, int wkbType, long srid ) : constant_(false), name_(name), type_(wkbType, srid) {}
+    ColumnType() : constant_(false) {}
+    ColumnType( QString name, QVariant::Type t ) : constant_(false), name_(name), type_(t) {}
+    ColumnType( QString name, QGis::WkbType wkbType, long srid ) : constant_(false), name_(name), type_(wkbType, srid) {}
 
     bool isConstant() const { return constant_; }
     void setConstant( bool c ) { constant_ = c; }
@@ -664,7 +669,7 @@ public:
     void setName( QString name ) { name_ = name; }
 
     bool isGeometry() const { return type_.type == QVariant::UserType; }
-    void setGeometry( int wkbType ) { type_.type = QVariant::UserType; type_.wkbType = wkbType; }
+    void setGeometry( QGis::WkbType wkbType ) { type_.type = QVariant::UserType; type_.wkbType = wkbType; }
     long srid() const { return type_.srid; }
     void setSrid( long srid ) { type_.srid = srid; }
 
@@ -673,7 +678,7 @@ public:
 
     void setScalarType( QVariant::Type t ) { type_.type = t; }
     QVariant::Type scalarType() const { return type_.type; }
-    int wkbType() const { return type_.wkbType; }
+    QGis::WkbType wkbType() const { return type_.wkbType; }
 
 private:
     QString name_;
@@ -683,13 +688,22 @@ private:
     bool constant_;
 };
 
-class TableDef : public QList<ColumnDef>
+/**
+ * Return the list of columns of the given parsed tree
+ *
+ * \param tableIds list of table IDs that can appear in FROM clauses
+ */
+QList<ColumnType> columnTypes( const QgsSql::Node& n, const QList<QString>& tableIds, QString& err );
+
+
+
+class TableDef : public QList<ColumnType>
 {
 public:
-    TableDef() : QList<ColumnDef>() {}
+    TableDef() : QList<ColumnType>() {}
 
-    QList<ColumnDef> findColumn( QString name ) const {
-        QList<ColumnDef> cdefs;
+    QList<ColumnType> findColumn( QString name ) const {
+        QList<ColumnType> cdefs;
         for ( auto& c: *this ) {
             if ( c.name() == name ) {
                 cdefs << c;
@@ -704,8 +718,8 @@ class TableDefs : public QMap<QString, TableDef>
 public:
     TableDefs() : QMap<QString, TableDef>() {}
 
-    QList<ColumnDef> findColumn( QString name ) const {
-        QList<ColumnDef> cdefs;
+    QList<ColumnType> findColumn( QString name ) const {
+        QList<ColumnType> cdefs;
         for ( auto& c: *this ) {
             cdefs.append( c.findColumn( name ) );
         }
@@ -713,6 +727,11 @@ public:
     }
 };
 
-QList<ColumnDef> columnTypes( const QgsSql::Node& n, QString& errMsg, const TableDefs* tableContext = 0 );
+/**
+ * Return the list of columns of the given parsed tree
+ *
+ * \param tableDefs list of table definitions
+ */
+QList<ColumnType> columnTypes( const Node& n, QString& errMsg, const TableDefs* tableContext = 0 );
 
 } // namespace QgsSql
