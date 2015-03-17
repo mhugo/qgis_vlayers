@@ -665,6 +665,7 @@ public:
 
     bool isGeometry() const { return type_.type == QVariant::UserType; }
     void setGeometry( int wkbType ) { type_.type = QVariant::UserType; type_.wkbType = wkbType; }
+    long srid() const { return type_.srid; }
     void setSrid( long srid ) { type_.srid = srid; }
 
     Type type() const { return type_; }
@@ -672,6 +673,7 @@ public:
 
     void setScalarType( QVariant::Type t ) { type_.type = t; }
     QVariant::Type scalarType() const { return type_.type; }
+    int wkbType() const { return type_.wkbType; }
 
 private:
     QString name_;

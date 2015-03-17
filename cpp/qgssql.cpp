@@ -388,21 +388,334 @@ OutputFunctionTypes initOutputFunctionTypes()
 {
     std::cout << "initOutputFunctionTypes" << std::endl;
     OutputFunctionTypes t;
-    t.add( "abs(i)", QVariant::Int );
-    t.add( "abs(r)", QVariant::Double );
-    t.add( "abs(s)", QVariant::Double );
-    t.add( "abs(g)", QVariant::Double );
-    t.add( "pointfromtext(s)", 1 );
-    t.add( "pointfromtext(s,i)", 1, 1 );
-    t.add( "makepoint(s,s)", 1 );
-    t.add( "makepoint(s,s,i)", 1, 2 );
-    t.add( "linestringfromtext(s)", 2 );
-    t.add( "linestringfromtext(s,i)", 2, 1 );
-    t.add( "polygonfromtext(s)", 3 );
-    t.add( "polygonfromtext(s,i)", 3 );
-    t.add( "transform(g,i)", -1, 1 );
-    t.add( "setsrid(g,i)", -1, 1 );
+    t.add( "casttointeger1", QVariant::Int );
+    t.add( "casttodouble1", QVariant::Double );
+    t.add( "casttotext1", QVariant::String );
+    t.add( "st_point2", 1 );
+    t.add( "makepoint2", 1 );
+    t.add( "makepoint3", 1001, 2 );
+    t.add( "makepointz3", 1001 );
+    t.add( "makepointz4", 1001, 3 );
+    t.add( "makepointm3", 2001 );
+    t.add( "makepointm4", 2001, 3 );
+    t.add( "makepointzm4", 3001 );
+    t.add( "makepointzm5", 3001, 4 );
+    t.add( "makeline1", 2 ); // aggregate
+    t.add( "makeline2", 2 );
+    t.add( "pointfromtext1", 1 );
+    t.add( "pointfromtext2", 1, 1 );
+    t.add( "st_pointfromtext1", 1 );
+    t.add( "st_pointfromtext2", 1, 1 );
+
+    t.add( "linefromtext1", 2 );
+    t.add( "linefromtext2", 2, 1 );
+    t.add( "linestringfromtext1", 2 );
+    t.add( "linestringfromtext2", 2, 1 );
+    t.add( "st_linefromtext1", 2 );
+    t.add( "st_linefromtext2", 2, 1 );
+    t.add( "st_linestringfromtext1", 2 );
+    t.add( "st_linestringfromtext2", 2, 1 );
+
+    t.add( "polyfromtext1", 3 );
+    t.add( "polyfromtext2", 3, 1 );
+    t.add( "polygonfromtext1", 3 );
+    t.add( "polygonfromtext2", 3, 1 );
+    t.add( "st_polyfromtext1", 3 );
+    t.add( "st_polyfromtext2", 3, 1 );
+    t.add( "st_polygonfromtext1", 3 );
+    t.add( "st_polygonfromtext2", 3, 1 );
+
+    t.add( "mpointfromtext1", 4 );
+    t.add( "mpointfromtext2", 4, 1 );
+    t.add( "st_mpointfromtext1", 4 );
+    t.add( "st_mpointfromtext2", 4, 1 );
+    t.add( "multipointfromtext1", 4 );
+    t.add( "multipointfromtext2", 4, 1 );
+    t.add( "st_multipointfromtext1", 4 );
+    t.add( "st_multipointfromtext2", 4, 1 );
+
+    t.add( "mlinefromtext1", 5 );
+    t.add( "mlinefromtext2", 5, 1 );
+    t.add( "multilinestringfromtext1", 5 );
+    t.add( "multilinestringfromtext2", 5, 1 );
+    t.add( "st_mlinefromtext1", 5 );
+    t.add( "st_mlinefromtext2", 5, 1 );
+    t.add( "st_multilinestringfromtext1", 5 );
+    t.add( "st_multilinestringfromtext2", 5, 1 );
+
+    t.add( "mpolyfromtext1", 6 );
+    t.add( "mpolyfromtext2", 6, 1 );
+    t.add( "multipolygonfromtext1", 6 );
+    t.add( "multipolygonfromtext2", 6, 1 );
+    t.add( "st_mpolyfromtext1", 6 );
+    t.add( "st_mpolyfromtext2", 6, 1 );
+    t.add( "st_multipolygonfromtext1", 6 );
+    t.add( "st_multipolygonfromtext2", 6, 1 );
+
+    t.add( "pointfromwkb1", 1 );
+    t.add( "pointfromwkb2", 1, 1 );
+    t.add( "st_pointfromwkb1", 1 );
+    t.add( "st_pointfromwkb2", 1, 1 );
+
+    t.add( "linefromwkb1", 2 );
+    t.add( "linefromwkb2", 2, 1 );
+    t.add( "linestringfromwkb1", 2 );
+    t.add( "linestringfromwkb2", 2, 1 );
+    t.add( "st_linefromwkb1", 2 );
+    t.add( "st_linefromwkb2", 2, 1 );
+    t.add( "st_linestringfromwkb1", 2 );
+    t.add( "st_linestringfromwkb2", 2, 1 );
+
+    t.add( "polyfromwkb1", 3 );
+    t.add( "polyfromwkb2", 3, 1 );
+    t.add( "polygonfromwkb1", 3 );
+    t.add( "polygonfromwkb2", 3, 1 );
+    t.add( "st_polyfromwkb1", 3 );
+    t.add( "st_polyfromwkb2", 3, 1 );
+    t.add( "st_polygonfromwkb1", 3 );
+    t.add( "st_polygonfromwkb2", 3, 1 );
+
+    t.add( "mpointfromwkb1", 4 );
+    t.add( "mpointfromwkb2", 4, 1 );
+    t.add( "st_mpointfromwkb1", 4 );
+    t.add( "st_mpointfromwkb2", 4, 1 );
+    t.add( "multipointfromwkb1", 4 );
+    t.add( "multipointfromwkb2", 4, 1 );
+    t.add( "st_multipointfromwkb1", 4 );
+    t.add( "st_multipointfromwkb2", 4, 1 );
+
+    t.add( "mlinefromwkb1", 5 );
+    t.add( "mlinefromwkb2", 5, 1 );
+    t.add( "multilinestringfromwkb1", 5 );
+    t.add( "multilinestringfromwkb2", 5, 1 );
+    t.add( "st_mlinefromwkb1", 5 );
+    t.add( "st_mlinefromwkb2", 5, 1 );
+    t.add( "st_multilinestringfromwkb1", 5 );
+    t.add( "st_multilinestringfromwkb2", 5, 1 );
+
+    t.add( "mpolyfromwkb1", 6 );
+    t.add( "mpolyfromwkb2", 6, 1 );
+    t.add( "multipolygonfromwkb1", 6 );
+    t.add( "multipolygonfromwkb2", 6, 1 );
+    t.add( "st_mpolyfromwkb1", 6 );
+    t.add( "st_mpolyfromwkb2", 6, 1 );
+    t.add( "st_multipolygonfromwkb1", 6 );
+    t.add( "st_multipolygonfromwkb2", 6, 1 );
+
+    t.add( "envelope1", 3 );
+    t.add( "st_envelope1", 3 );
+    t.add( "reverse1", 2 );
+    t.add( "st_reverse1", 2 );
+    t.add( "forcelhr", 3 );
+    t.add( "st_forcelhr", 3 );
+
+    t.add( "casttopoint1", 1 );
+    t.add( "casttolinestring1", 2 );
+    t.add( "casttopolygon1", 3 );
+    t.add( "casttomultipoint1", 4 );
+    t.add( "casttomultilinestring1", 5 );
+    t.add( "casttomultipolygon1", 6 );
+
+    t.add( "startpoint1", 1 );
+    t.add( "st_startpoint1", 1 );
+    t.add( "endpoint1", 1 );
+    t.add( "st_endpoint1", 1 );
+    t.add( "pointonsurface1", 1 );
+    t.add( "st_pointonsurface1", 1 );
+    t.add( "pointn1", 1 );
+    t.add( "st_pointn1", 1 );
+    t.add( "addpoint2", 2 );
+    t.add( "addpoint3", 2 );
+    t.add( "st_addpoint2", 2 );
+    t.add( "st_addpoint3", 2 );
+    t.add( "setpoint3", 2 );
+    t.add( "st_setpoint3", 2 );
+    t.add( "removepoint2", 2 );
+    t.add( "st_removepoint2", 2 );
+
+    t.add( "centroid1", 1 );
+    t.add( "st_centroid1", 1 );
+
+    t.add( "exteriorring1", 2 );
+    t.add( "st_exteriorring1", 2 );
+    t.add( "interiorringn2", 2 );
+    t.add( "st_interiorringn2", 2 );
+
+    t.add( "buffer2", 3 );
+    t.add( "st_buffer2", 3 );
+    t.add( "convexhull1", 3 );
+    t.add( "st_convexhull1", 3 );
+    t.add( "line_interpolate_point2", 1 );
+    t.add( "st_line_interpolate_point2", 1 );
+    t.add( "line_interpolate_equidistant_points2", 4 );
+    t.add( "st_line_interpolate_equidistant_points2", 4 );
+    t.add( "line_substring3", 2 );
+    t.add( "st_line_substring3", 2 );
+    t.add( "closestpoint2", 1 );
+    t.add( "st_closestpoint2", 1 );
+    t.add( "shortestline2", 2 );
+    t.add( "st_shortestline2", 2 );
+
+    t.add( "makepolygon1", 3 );
+    t.add( "makepolygon2", 3 );
+    t.add( "st_makepolygon1", 3 );
+    t.add( "st_makepolygon2", 3 );
+
+    t.add( "extractmultipoint1", 4 );
+    t.add( "extractmultilinestring1", 5 );
+    t.add( "extractmultipolygon1", 6 );
+
+    // geometry functions that do not touch their types
+    t.add( "snap3", -1 );
+    t.add( "st_snap3", -1 );
+    t.add( "makevalid1", -1 );
+    t.add( "st_makevalid1", -1 );
+    t.add( "offsetcurve3", -1 );
+    t.add( "st_offsetcurve3", -1 );
+    t.add( "transform2", -1, 1 );
+    t.add( "st_transform2", -1, 1 );
+    t.add( "setsrid2", -1, 1 );
+    t.add( "st_transform2", -1, 1 );
+    t.add( "st_translate4", -1 );
+    t.add( "st_shift_longitude1", -1 );
+    t.add( "normalizelonlat1", -1 );
+    t.add( "scalecoords2", -1 );
+    t.add( "scalecoords3", -1 );
+    t.add( "scalecoordinates2", -1 );
+    t.add( "scalecoordinates3", -1 );
+    t.add( "rotatecoords2", -1 );
+    t.add( "rotatecoordinates2", -1 );
+    t.add( "reflectcoords3", -1 );
+    t.add( "reflectcoordinates3", -1 );
+    t.add( "swapcoords1", -1 );
+    t.add( "swapcoordinates1", -1 );
+
+    // special functions
+
+    // geomfromtext
+    // geomfromwkb
+    // casttomulti
+    // castosingle
+    // casttoxy
+    // casttoxyz
+    // casttoxym
+    // casttoxyzm
+    // intersection
+    // difference
+    // gunion
+    // symdifference
     return t;
+}
+
+int intersectionType( int ta, int tb )
+{
+    if (ta > tb) {
+        return intersectionType(tb,ta);
+    }
+    // ta < tb
+    switch (ta)
+    {
+    case 1:
+        return 1;
+    case 2:
+        switch (tb) {
+        case 2:
+            return 1;
+        case 3:
+            return 2;
+        case 4:
+            return 4;
+        case 5:
+            return 4;
+        case 6:
+            return 5;
+        }
+    case 3:
+        switch (tb) {
+        case 3:
+            return 3;
+        case 4:
+            return 4;
+        case 5:
+            return 5;
+        case 6:
+            return 6;
+        }
+    case 4:
+        switch (tb) {
+        case 4:
+            return 4;
+        case 5:
+            return 4;
+        case 6:
+            return 4;
+        }
+    case 5:
+        switch (tb)
+        {
+        case 5:
+            return 4;
+        case 6:
+            return 5;
+        }
+    case 6:
+        return 6;
+    };
+    return 0;
+}
+
+int unionType( int ta, int tb )
+{
+    switch (ta) {
+    case 1:
+    case 4:
+        if (tb == 1 || tb == 4) {
+            return 4;
+        }
+        break;
+    case 2:
+    case 5:
+        if (tb == 2 || tb == 5) {
+            return 5;
+        }
+        break;
+    case 3:
+    case 6:
+        if (tb == 2 || tb == 5) {
+            return 6;
+        }
+        break;
+    }
+    // else its a collection
+    return 7;
+}
+
+int differenceType( int ta, int tb )
+{
+    switch (ta)
+    {
+    case 1:
+    case 4:
+        return ta;
+    case 2:
+    case 5:
+        switch (tb) {
+        case 2:
+        case 5:
+        case 3:
+        case 6:
+            return ta;
+        }
+    case 3:
+    case 6:
+        switch (tb) {
+        case 3:
+        case 6:
+            return ta;
+        }
+    }
+    // else invalid
+    return 0;
 }
 
 class ColumnTypeInferer : public DFSVisitor
@@ -526,42 +839,93 @@ public:
         //TODO constant evaluation
         column->setConstant( false );
         QString fname = c.name().toLower();
-        QString h = c.name().toLower() + "(";
-        bool first = true;
-        for ( auto& d: argsDefs ) {
-            if (!first) {
-                h += ",";
-            }
-            first = false;
-            switch (d.scalarType()) {
-            case QVariant::Int:
-                h += "i";
-                break;
-            case QVariant::Double:
-                h += "r";
-                break;
-            case QVariant::String:
-                h += "s";
-                break;
-            case QVariant::UserType:
-                h += "g";
-                break;
-            }
-        }
-        h+=")";
-        std::cout << "hash:" << h.toUtf8().constData() << std::endl;
+        QString h = c.name().toLower() + QString::number(argsDefs.size());
         OutputFunctionTypes::const_iterator r = outputFunctionTypes.find(h);
         if ( r != outputFunctionTypes.end() ) {
             if ( r->type != QVariant::UserType ) {
                 column->setScalarType( r->type );
             }
             else {
-                column->setGeometry( r->wkbType );
+                ColumnDef geodef;
+                // take the first geometry argument found
+                for ( ColumnDef def: argsDefs ) {
+                    if ( def.isGeometry() ) {
+                        geodef.setGeometry( def.wkbType() );
+                        geodef.setSrid( def.srid() );
+                        break;
+                    }
+                }
+
+                if ( r->wkbType == -1 ) {
+                    // copy wkbtype from arguments
+                    if ( geodef.isGeometry() ) {
+                        column->setGeometry( geodef.wkbType() );
+                    }
+                    else {
+                        // undetermined geometry
+                        column->setGeometry( 0 );
+                    }
+                }
+                else {
+                    column->setGeometry( r->wkbType );
+                }
                 if ( (r->sridParameter != -1) && argsDefs[r->sridParameter].isConstant() ) {
                     QVariant v = argsDefs[r->sridParameter].value();
                     column->setSrid( v.toInt() );
                 }
+                else {
+                    column->setSrid( geodef.srid() );
+                }
             }
+        }
+        else if ( ((h == "casttomulti1") || (h == "st_multi1")) && argsDefs[0].isGeometry() ) {
+            if (argsDefs[0].wkbType() & 7 <= 3) {
+                // cast to multi
+                column->setGeometry( argsDefs[0].wkbType() + 3 );
+            }
+            else {
+                column->setGeometry( argsDefs[0].wkbType() );
+            }
+            column->setSrid( argsDefs[0].srid() );
+        }
+        else if ( (h == "casttosingle1") && argsDefs[0].isGeometry() ) {
+            if (argsDefs[0].wkbType() & 7 > 3) {
+                // cast to single
+                column->setGeometry( argsDefs[0].wkbType() - 3 );
+            }
+            else {
+                column->setGeometry( argsDefs[0].wkbType() );
+            }
+            column->setSrid( argsDefs[0].srid() );
+        }
+        else if ( (h == "casttoxy1") && argsDefs[0].isGeometry() ) {
+            column->setGeometry( argsDefs[0].wkbType() & 7 );
+            column->setSrid( argsDefs[0].srid() );
+        }
+        else if ( (h == "casttoxyz1") && argsDefs[0].isGeometry() ) {
+            column->setGeometry( 1000 + (argsDefs[0].wkbType() & 7) );
+            column->setSrid( argsDefs[0].srid() );
+        }
+        else if ( (h == "casttoxym1") && argsDefs[0].isGeometry() ) {
+            column->setGeometry( 2000 + (argsDefs[0].wkbType() & 7) );
+            column->setSrid( argsDefs[0].srid() );
+        }
+        else if ( (h == "casttoxyzm1") && argsDefs[0].isGeometry() ) {
+            column->setGeometry( 3000 + (argsDefs[0].wkbType() & 7) );
+            column->setSrid( argsDefs[0].srid() );
+        }
+        else if ( ((h == "intersection2") || (h == "st_intersection2")) && argsDefs[0].isGeometry() && argsDefs[1].isGeometry() ) {
+            column->setGeometry( intersectionType( argsDefs[0].wkbType(), argsDefs[1].wkbType() ) );
+            column->setSrid( argsDefs[0].srid() );
+        }
+        else if ( ((h == "difference2") || (h == "st_difference2") || (h == "symdifference2") || (h == "st_symdifference2"))
+                  && argsDefs[0].isGeometry() && argsDefs[1].isGeometry() ) {
+            column->setGeometry( differenceType( argsDefs[0].wkbType(), argsDefs[1].wkbType() ) );
+            column->setSrid( argsDefs[0].srid() );
+        }
+        else if ( ((h == "gunion2") || (h == "st_union2")) && argsDefs[0].isGeometry() && argsDefs[1].isGeometry() ) {
+            column->setGeometry( unionType( argsDefs[0].wkbType(), argsDefs[1].wkbType() ) );
+            column->setSrid( argsDefs[0].srid() );
         }
         else {
             // can't find function, don't know the final type
