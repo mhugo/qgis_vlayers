@@ -121,6 +121,8 @@ class TestQgsVirtualLayerProvider(TestCase):
         l2 = QgsVectorLayer( "?layer_ref=%s&geometry=geometry:3:4326&query=%s&uid=OBJECTID" % (l1.id(), query), "vtab", "virtual", False )
         self.assertEqual( l2.isValid(), True )
         self.assertEqual( l2.dataProvider().geometryType(), 3 )
+        for f in l2.getFeatures():
+            print f.id(), f.attributes()
         ref_sum2 = sum(f.attributes()[0] for f in l2.getFeatures())
         ref_sum3 = sum(f.id() for f in l2.getFeatures())
         # check we have the same rows
@@ -129,18 +131,15 @@ class TestQgsVirtualLayerProvider(TestCase):
         self.assertEqual( ref_sum, ref_sum3 )
 
         # the same, without specifying the geometry column name
-        # FIXME
-        # don't know how to detect geometry type (and srid)
-        if False:
-            l2 = QgsVectorLayer( "?layer_ref=%s&query=%s&uid=OBJECTID" % (l1.id(), query), "vtab", "virtual", False )
-            self.assertEqual( l2.isValid(), True )
-            self.assertEqual( l2.dataProvider().geometryType(), 3 )
-            ref_sum2 = sum(f.attributes()[0] for f in l2.getFeatures())
-            ref_sum3 = sum(f.id() for f in l2.getFeatures())
-            # check we have the same rows
-            self.assertEqual( ref_sum, ref_sum2 )
-            # check the id is ok
-            self.assertEqual( ref_sum, ref_sum3 )
+        l2 = QgsVectorLayer( "?layer_ref=%s&query=%s&uid=OBJECTID" % (l1.id(), query), "vtab", "virtual", False )
+        self.assertEqual( l2.isValid(), True )
+        self.assertEqual( l2.dataProvider().geometryType(), 3 )
+        ref_sum2 = sum(f.attributes()[0] for f in l2.getFeatures())
+        ref_sum3 = sum(f.id() for f in l2.getFeatures())
+        # check we have the same rows
+        self.assertEqual( ref_sum, ref_sum2 )
+        # check the id is ok
+        self.assertEqual( ref_sum, ref_sum3 )
 
         # with two geometry columns
         query = QUrl.toPercentEncoding("SELECT *,geometry as geom FROM vtab1")
@@ -155,17 +154,15 @@ class TestQgsVirtualLayerProvider(TestCase):
         self.assertEqual( ref_sum, ref_sum3 )
 
         # with two geometry columns, but no geometry column specified (will take the first)
-        # FIXME
-        if False:
-            l2 = QgsVectorLayer( "?layer_ref=%s&query=%s&uid=OBJECTID" % (l1.id(), query), "vtab", "virtual", False )
-            self.assertEqual( l2.isValid(), True )
-            self.assertEqual( l2.dataProvider().geometryType(), 3 )
-            ref_sum2 = sum(f.attributes()[0] for f in l2.getFeatures())
-            ref_sum3 = sum(f.id() for f in l2.getFeatures())
-            # check we have the same rows
-            self.assertEqual( ref_sum, ref_sum2 )
-            # check the id is ok
-            self.assertEqual( ref_sum, ref_sum3 )
+        l2 = QgsVectorLayer( "?layer_ref=%s&query=%s&uid=OBJECTID" % (l1.id(), query), "vtab", "virtual", False )
+        self.assertEqual( l2.isValid(), True )
+        self.assertEqual( l2.dataProvider().geometryType(), 3 )
+        ref_sum2 = sum(f.attributes()[0] for f in l2.getFeatures())
+        ref_sum3 = sum(f.id() for f in l2.getFeatures())
+        # check we have the same rows
+        self.assertEqual( ref_sum, ref_sum2 )
+        # check the id is ok
+        self.assertEqual( ref_sum, ref_sum3 )
 
         # the same, without geometry
         query = QUrl.toPercentEncoding("SELECT * FROM ww")

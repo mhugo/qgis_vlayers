@@ -725,6 +725,9 @@ public:
         }
         return cdefs;
     }
+
+
+    void addColumnsFromLayer( const QString& tableName, const QgsVectorLayer* vl );
 };
 
 /**

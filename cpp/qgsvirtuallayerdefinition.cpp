@@ -41,6 +41,7 @@ void QgsVirtualLayerDefinition::fromUrl( const QUrl& url )
     mUri = url.path();
 
     mGeometrySrid = -1;
+    mGeometryWkbType = QGis::WKBNoGeometry;
 
     int layer_idx = 0;
     QList<QPair<QByteArray, QByteArray> > items = url.encodedQueryItems();
@@ -187,6 +188,8 @@ QgsVirtualLayerDefinition virtualLayerDefinitionFromSqlite( const QString& path 
                 // geometry field
                 if ( coltype.left(2) == "no" ) {
                     def.setGeometryField( "*no*" );
+                    def.setGeometryWkbType( QGis::WKBNoGeometry );
+                    def.setGeometrySrid(0);
                 }
                 else {
                     def.setGeometryField( colname );
@@ -205,4 +208,14 @@ QgsVirtualLayerDefinition virtualLayerDefinitionFromSqlite( const QString& path 
     }
     def.setOverridenFields( forcedFields );
     return def;
+}
+
+bool QgsVirtualLayerDefinition::hasSourceLayer( QString name ) const
+{
+    for ( const auto& l: mSourceLayers ) {
+        if ( l.name() == name ) {
+            return true;
+        }
+    }
+    return false;
 }

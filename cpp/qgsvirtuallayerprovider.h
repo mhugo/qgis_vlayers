@@ -202,9 +202,6 @@ class QgsVirtualLayerProvider: public QgsVectorDataProvider
 
     bool mValid;
 
-    // the underlying spatialite provider
-    QScopedPointer<QgsSpatiaLiteProvider> mSpatialite;
-
     // temporary file used for temporary virtual layer
     QScopedPointer<QTemporaryFile> mTempFile;
 
@@ -228,6 +225,10 @@ class QgsVirtualLayerProvider: public QgsVectorDataProvider
     mutable QgsRectangle mExtent;
 
     void updateStatistics() const;
+
+    bool openIt_();
+    bool createIt_();
+    void loadSourceLayers_();
 
     friend class QgsVirtualLayerFeatureIterator;
 

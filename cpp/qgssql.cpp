@@ -304,6 +304,20 @@ private:
     QString err_;
 };
 
+void TableDefs::addColumnsFromLayer( const QString& tableName, const QgsVectorLayer* vl )
+{
+    if ( !vl || vl->type() != QgsMapLayer::VectorLayer) {
+        return;
+    }
+    const QgsFields& fields = vl->dataProvider()->fields();
+    for ( int i = 0; i < fields.count(); i++ ) {
+        (*this)[tableName] << ColumnType( fields.at(i).name(), fields.at(i).type() );
+    }
+    if ( vl->dataProvider()->geometryType() != QGis::WKBNoGeometry ) {
+        (*this)[tableName] << ColumnType( "geometry", vl->dataProvider()->geometryType(), vl->crs().postgisSrid() );
+    }
+}
+
 QList<ColumnType> columnTypes_r( const Node& n, const TableDefs* tableContext );
 
 QVariant::Type resultingArithmeticType( QVariant::Type ta, QVariant::Type tb )
@@ -717,93 +731,9 @@ QGis::WkbType differenceType( QGis::WkbType ta, QGis::WkbType tb )
     return QGis::WKBUnknown;
 }
 
-QGis::WkbType toMulti( QGis::WkbType ta )
-{
-    switch (ta) {
-    case QGis::WKBPoint:
-    case QGis::WKBMultiPoint:
-        return QGis::WKBMultiPoint;
-    case QGis::WKBLineString:
-    case QGis::WKBMultiLineString:
-        return QGis::WKBMultiLineString;
-    case QGis::WKBPolygon:
-    case QGis::WKBMultiPolygon:
-        return QGis::WKBMultiPolygon;
-    case QGis::WKBPoint25D:
-    case QGis::WKBMultiPoint25D:
-        return QGis::WKBMultiPoint25D;
-    case QGis::WKBLineString25D:
-    case QGis::WKBMultiLineString25D:
-        return QGis::WKBMultiLineString25D;
-    case QGis::WKBPolygon25D:
-    case QGis::WKBMultiPolygon25D:
-        return QGis::WKBMultiPolygon25D;
-    }
-    return QGis::WKBUnknown;
-}
-
-QGis::WkbType toSingle( QGis::WkbType ta )
-{
-    switch (ta) {
-    case QGis::WKBPoint:
-    case QGis::WKBMultiPoint:
-        return QGis::WKBPoint;
-    case QGis::WKBLineString:
-    case QGis::WKBMultiLineString:
-        return QGis::WKBLineString;
-    case QGis::WKBPolygon:
-    case QGis::WKBMultiPolygon:
-        return QGis::WKBPolygon;
-    case QGis::WKBPoint25D:
-    case QGis::WKBMultiPoint25D:
-        return QGis::WKBPoint25D;
-    case QGis::WKBLineString25D:
-    case QGis::WKBMultiLineString25D:
-        return QGis::WKBLineString25D;
-    case QGis::WKBPolygon25D:
-    case QGis::WKBMultiPolygon25D:
-        return QGis::WKBPolygon25D;
-    }
-    return QGis::WKBUnknown;
-}
-
-QGis::WkbType toXY( QGis::WkbType ta )
-{
-    switch (ta) {
-    case QGis::WKBPoint:
-    case QGis::WKBMultiPoint:
-    case QGis::WKBLineString:
-    case QGis::WKBMultiLineString:
-    case QGis::WKBPolygon:
-    case QGis::WKBMultiPolygon:
-        return ta;
-    case QGis::WKBPoint25D:
-        return QGis::WKBPoint;
-    case QGis::WKBMultiPoint25D:
-        return QGis::WKBMultiPoint;
-    case QGis::WKBLineString25D:
-        return QGis::WKBLineString;
-    case QGis::WKBMultiLineString25D:
-        return QGis::WKBMultiLineString;
-    case QGis::WKBPolygon25D:
-        return QGis::WKBPolygon;
-    case QGis::WKBMultiPolygon25D:
-        return QGis::WKBMultiPolygon;
-    }
-    return QGis::WKBUnknown;
-}
-
-
 QGis::WkbType toXYZ( QGis::WkbType ta )
 {
     switch (ta) {
-    case QGis::WKBPoint25D:
-    case QGis::WKBMultiPoint25D:
-    case QGis::WKBLineString25D:
-    case QGis::WKBMultiLineString25D:
-    case QGis::WKBPolygon25D:
-    case QGis::WKBMultiPolygon25D:
-        return ta;
     case QGis::WKBPoint:
         return QGis::WKBPoint25D;
     case QGis::WKBMultiPoint:
@@ -817,7 +747,7 @@ QGis::WkbType toXYZ( QGis::WkbType ta )
     case QGis::WKBMultiPolygon:
         return QGis::WKBMultiPolygon25D;
     }
-    return QGis::WKBUnknown;
+    return ta;
 }
 
 class ColumnTypeInferer : public DFSVisitor
@@ -981,15 +911,15 @@ public:
             }
         }
         else if ( ((h == "casttomulti1") || (h == "st_multi1")) && argsDefs[0].isGeometry() ) {
-            column->setGeometry( toMulti(argsDefs[0].wkbType()) );
+            column->setGeometry( QGis::multiType(argsDefs[0].wkbType()) );
             column->setSrid( argsDefs[0].srid() );
         }
         else if ( (h == "casttosingle1") && argsDefs[0].isGeometry() ) {
-            column->setGeometry( toSingle(argsDefs[0].wkbType()) );
+            column->setGeometry( QGis::singleType(argsDefs[0].wkbType()) );
             column->setSrid( argsDefs[0].srid() );
         }
         else if ( (h == "casttoxy1") && argsDefs[0].isGeometry() ) {
-            column->setGeometry( toXY(argsDefs[0].wkbType()) );
+            column->setGeometry( QGis::flatType(argsDefs[0].wkbType()) );
             column->setSrid( argsDefs[0].srid() );
         }
         else if ( (h == "casttoxyz1") && argsDefs[0].isGeometry() ) {

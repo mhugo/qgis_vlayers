@@ -58,6 +58,8 @@ class QgsVirtualLayerDefinition
 
     const QList<SourceLayer>& sourceLayers() const { return mSourceLayers; }
 
+    bool hasSourceLayer( QString name ) const;
+
     QString query() const { return mQuery; }
     void setQuery( const QString& query ) { mQuery = query; }
 

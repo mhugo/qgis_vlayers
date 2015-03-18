@@ -552,7 +552,7 @@ int vtable_create_connect( sqlite3* sql, void* aux, int argc, const char* const*
             columns_str += QString("INSERT INTO _columns (table_id,name,type) VALUES(%1,'%2','%3');")
                 .arg(table_id)
                 .arg(fields[i].name())
-                .arg(fields[i].typeName());
+                .arg(QVariant::typeToName(fields[i].type()));
         }
 
         // add geometry field, if any
