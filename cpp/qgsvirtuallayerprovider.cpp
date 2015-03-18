@@ -54,6 +54,8 @@ QgsVirtualLayerProvider::QgsVirtualLayerProvider( QString const &uri )
       mCachedStatistics( false ),
       mValid( true )
 {
+    mError.clear();
+
     QUrl url = QUrl::fromEncoded( uri.toUtf8() );
     if ( !url.isValid() ) {
         mValid = false;
@@ -84,7 +86,6 @@ QgsVirtualLayerProvider::QgsVirtualLayerProvider( QString const &uri )
         return;
     }
 
-
     // connect to layer removal signals
     for ( auto& layer : mLayers ) {
         if ( layer.layer ) {
@@ -97,20 +98,18 @@ QgsVirtualLayerProvider::QgsVirtualLayerProvider( QString const &uri )
     }
 }
 
-void QgsVirtualLayerProvider::loadSourceLayers_()
+bool QgsVirtualLayerProvider::loadSourceLayers_()
 {
     for ( const auto& layer : mDefinition.sourceLayers() ) {
         if ( layer.isReferenced() ) {
             QgsMapLayer *l = QgsMapLayerRegistry::instance()->mapLayer( layer.reference() );
             if ( l == 0 ) {
-                mValid = false;
                 PROVIDER_ERROR( QString("Cannot find layer %1").arg(layer.reference()) );
-                return;
+                return false;
             }
             if ( l->type() != QgsMapLayer::VectorLayer ) {
-                mValid = false;
                 PROVIDER_ERROR( QString("Layer %1 is not a vector layer").arg(layer.reference()) );
-                return;
+                return false;
             }
             // add the layer to the list
             mLayers << SourceLayer(static_cast<QgsVectorLayer*>(l), layer.name());
@@ -119,6 +118,7 @@ void QgsVirtualLayerProvider::loadSourceLayers_()
             mLayers << SourceLayer(layer.provider(), layer.source(), layer.name());
         }
     }
+    return true;
 }
 
 bool QgsVirtualLayerProvider::openIt_()
@@ -140,7 +140,9 @@ bool QgsVirtualLayerProvider::openIt_()
     mSqlite.reset(db);
 
     // load source layers
-    loadSourceLayers_();
+    if (!loadSourceLayers_()) {
+        return false;
+    }
 
     /* only one table */
     if ( mDefinition.query().isEmpty() ) {
@@ -178,6 +180,11 @@ bool QgsVirtualLayerProvider::createIt_()
         return false;
     }
 
+    if ( !mDefinition.uri().isEmpty() && mDefinition.hasReferencedLayers() ) {
+        PROVIDER_ERROR( QString("Cannot store referenced layers") );
+        return false;        
+    }
+
     std::unique_ptr<QgsSql::Node> queryTree;
     QList<QgsSql::ColumnType> fields, gFields;
     QgsSql::TableDefs refTables;
@@ -200,10 +207,13 @@ bool QgsVirtualLayerProvider::createIt_()
             // is it in loaded layers ?
             bool found = false;
             for ( const auto& l : QgsMapLayerRegistry::instance()->mapLayers() ) {
-                if ((l->name() == tname) || (l->id() == tname)) {
-                    mDefinition.addSource( tname, l->id() );
-                    // add fields to context
-                    refTables.addColumnsFromLayer( tname, static_cast<const QgsVectorLayer*>(l) );
+                if ( l->type() != QgsMapLayer::VectorLayer ) {
+                    PROVIDER_ERROR( QString( "Referenced table %1 is not a vector layer!" ).arg(tname) );
+                    return false;
+                }
+                const auto vl = static_cast<QgsVectorLayer*>(l);
+                if ((vl->name() == tname) || (vl->id() == tname)) {
+                    mDefinition.addSource( tname, vl->source(), vl->providerType() );
                     found = true;
                     break;
                 }
@@ -237,6 +247,8 @@ bool QgsVirtualLayerProvider::createIt_()
         return false;
     }
     mSqlite.reset(db);
+    resetSqlite();
+    initMetadata( mSqlite.get() );
 
     bool noGeometry = false;
     bool has_geometry = false;
@@ -251,10 +263,9 @@ bool QgsVirtualLayerProvider::createIt_()
         reqGeometryField.setSrid( mDefinition.geometrySrid() );
     }
 
-    loadSourceLayers_();
-
-    resetSqlite();
-    initMetadata( mSqlite.get() );
+    if (!loadSourceLayers_()) {
+        return false;
+    }
 
     // now create virtual tables based on layers
     for ( int i = 0; i < mLayers.size(); i++ ) {
@@ -307,6 +318,10 @@ bool QgsVirtualLayerProvider::createIt_()
         {
             QString err;
             QList<QgsSql::ColumnType> columns = QgsSql::columnTypes( *queryTree, err, &refTables );
+            if ( !err.isEmpty() ) {
+                PROVIDER_ERROR( err );
+                return false;
+            }
 
             int i = 1;
             for ( auto& c: columns ) {
@@ -429,7 +444,7 @@ void QgsVirtualLayerProvider::resetSqlite()
     if ( has_mtables ) {
         Sqlite::Query q( mSqlite.get(), "SELECT name FROM _tables WHERE id>0" );
         while ( q.step() == SQLITE_ROW ) {
-            sql += "DROP TABLE " + QString((const char*)sqlite3_column_text( q.stmt(), 0 )) + ";";
+            sql += "DROP TABLE " + q.column_text(0) + ";";
         }
         sql += "DELETE FROM _tables;";
         sql += "DELETE FROM _columns;";

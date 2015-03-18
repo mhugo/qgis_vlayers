@@ -228,7 +228,7 @@ class QgsVirtualLayerProvider: public QgsVectorDataProvider
 
     bool openIt_();
     bool createIt_();
-    void loadSourceLayers_();
+    bool loadSourceLayers_();
 
     friend class QgsVirtualLayerFeatureIterator;
 

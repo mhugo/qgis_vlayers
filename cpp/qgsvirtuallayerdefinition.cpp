@@ -219,3 +219,13 @@ bool QgsVirtualLayerDefinition::hasSourceLayer( QString name ) const
     }
     return false;
 }
+
+bool QgsVirtualLayerDefinition::hasReferencedLayers() const
+{
+    for ( const auto& l: mSourceLayers ) {
+        if ( l.isReferenced() ) {
+            return true;
+        }
+    }
+    return false;
+}

@@ -705,7 +705,7 @@ public:
     QList<ColumnType> findColumn( QString name ) const {
         QList<ColumnType> cdefs;
         for ( auto& c: *this ) {
-            if ( c.name() == name ) {
+            if ( c.name().toLower() == name.toLower() ) {
                 cdefs << c;
             }
         }

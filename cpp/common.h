@@ -41,7 +41,8 @@ namespace Sqlite
             QByteArray ba( q.toLocal8Bit() );
             int r = sqlite3_prepare_v2( db, ba.constData(), ba.size(), &stmt_, NULL );
             if (r) {
-                throw std::runtime_error( sqlite3_errmsg(db) );
+                QString err = QString( "Query preparation error on %1" ).arg(q);
+                throw std::runtime_error( err.toLocal8Bit().constData() );
             }
         }
 
@@ -68,10 +69,11 @@ namespace Sqlite
 
         static void exec( sqlite3* db, const QString& sql )
         {
-            char *errMsg;
+            char *errMsg = 0;
             int r = sqlite3_exec( db, sql.toLocal8Bit().constData(), NULL, NULL, &errMsg );
             if (r) {
-                throw std::runtime_error( errMsg );
+                QString err = QString( "Query execution error on %1: %2 - %3" ).arg(sql).arg(r).arg(errMsg);
+                throw std::runtime_error( err.toLocal8Bit().constData() );
             }
         }
 

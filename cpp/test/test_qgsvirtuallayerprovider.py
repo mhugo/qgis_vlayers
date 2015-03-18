@@ -25,7 +25,8 @@ from qgis.core import (QGis,
                        QgsPoint,
                        QgsMapLayerRegistry,
                        QgsRectangle,
-                       QgsErrorMessage
+                       QgsErrorMessage,
+                       QgsProviderRegistry
                       )
 
 from utilities import (getQgisTestApp,
@@ -369,6 +370,17 @@ class TestQgsVirtualLayerProvider(TestCase):
             self.assertEqual(sum([f.id() for f in l2.getFeatures()]), 21)
             QgsMapLayerRegistry.instance().removeMapLayer(l2.id())
 
+    def test_refLayers2(self):
+        l1 = QgsVectorLayer( os.path.join(self.testDataDir_, "delimitedtext/test.csv") + "?type=csv&geomType=none&subsetIndex=no&watchFile=no", "test", "delimitedtext", False)
+        self.assertEqual( l1.isValid(), True )
+        QgsMapLayerRegistry.instance().addMapLayer(l1)
+        
+        # referenced layers cannot be stored !
+        tmp = os.path.join(tempfile.gettempdir(), "t.sqlite")
+        l2 = QgsVectorLayer( "%s?layer_ref=%s" % (tmp, l1.id()), "tt", "virtual", False )
+        self.assertEqual( l2.isValid(), False )
+        self.assertEqual( "Cannot store referenced layers" in l2.dataProvider().error().message(), True )
+
     def test_sql(self):
         l1 = QgsVectorLayer( os.path.join(self.testDataDir_, "delimitedtext/test.csv") + "?type=csv&geomType=none&subsetIndex=no&watchFile=no", "test", "delimitedtext", False)
         self.assertEqual( l1.isValid(), True )
@@ -465,6 +477,22 @@ class TestQgsVirtualLayerProvider(TestCase):
         l4 = QgsVectorLayer( "?query=%s" % query, "tt", "virtual", False )
         self.assertEqual( l4.isValid(), True )
         self.assertEqual( l4.dataProvider().geometryType(), 1 )
+
+    def test_sql4(self):
+        l2 = QgsVectorLayer( os.path.join(self.testDataDir_, "france_parts.shp"), "france_parts", "ogr", False )
+        self.assertEqual( l2.isValid(), True )
+        QgsMapLayerRegistry.instance().addMapLayer(l2)
+        print l2.id()
+
+        print "list"
+        for k,v in QgsMapLayerRegistry.instance().mapLayers().items():
+            print k, v.name()
+
+        query = QUrl.toPercentEncoding( "SELECT OBJECTId from france_parts" )
+        l4 = QgsVectorLayer( "?query=%s" % query, "tt", "virtual", False )
+        self.assertEqual( l4.isValid(), True )
+        s = sum( f.attributes()[0] for f in l4.getFeatures() )
+        self.assertEqual( s, 10659 )
 
 if __name__ == '__main__':
     unittest.main()
