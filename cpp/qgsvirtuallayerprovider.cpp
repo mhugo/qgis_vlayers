@@ -29,6 +29,7 @@ extern "C" {
 #include <qgsmaplayerregistry.h>
 #include <qgsdatasourceuri.h>
 #include "common.h"
+#include "vlayer_module.h"
 
 const QString VIRTUAL_LAYER_KEY = "virtual";
 const QString VIRTUAL_LAYER_DESCRIPTION = "Virtual layer data provider";
@@ -82,16 +83,24 @@ QgsVirtualLayerProvider::QgsVirtualLayerProvider( QString const &uri )
     // ?key=value = create a temporary virtual layer
 
     // read url
-    mDefinition = QgsVirtualLayerDefinition( url );
+    try {
+        mDefinition = QgsVirtualLayerDefinition( url );
 
-    if ( mDefinition.sourceLayers().empty() && !mDefinition.uri().isEmpty() && mDefinition.query().isEmpty() ) {
-        // open the file
-        mValid = openIt_();
+        if ( mDefinition.sourceLayers().empty() && !mDefinition.uri().isEmpty() && mDefinition.query().isEmpty() ) {
+            // open the file
+            mValid = openIt_();
+        }
+        else {
+            // create the file
+            mValid = createIt_();
+        }
     }
-    else {
-        // create the file
-        mValid = createIt_();
+    catch (std::runtime_error& e) {
+        mValid = false;
+        PROVIDER_ERROR( e.what() );
+        return;
     }
+
 
     // connect to layer removal signals
     for ( auto& layer : mLayers ) {
@@ -181,6 +190,11 @@ bool QgsVirtualLayerProvider::createIt_()
         return false;
     }
 
+    if ( mDefinition.sourceLayers().empty() && mDefinition.uri().isEmpty() && mDefinition.query().isEmpty() ) {
+        PROVIDER_ERROR( QString("Please specify at least one source layer or a query") );
+        return false;
+    }
+
     std::unique_ptr<QgsSql::Node> queryTree;
     QList<QgsSql::ColumnType> fields, gFields;
     QgsSql::TableDefs refTables;
@@ -216,11 +230,6 @@ bool QgsVirtualLayerProvider::createIt_()
                 return false;
             }
         }
-    }
-
-    if ( mDefinition.sourceLayers().empty() && mDefinition.uri().isEmpty() ) {
-        PROVIDER_ERROR( QString("Please specify at least one source layer") );
-        return false;
     }
 
     mPath = mDefinition.uri();
@@ -261,145 +270,155 @@ bool QgsVirtualLayerProvider::createIt_()
 
     loadSourceLayers_();
 
-    try {
-        resetSqlite();
+    resetSqlite();
+    initMetadata( mSqlite.get() );
 
-        // now create virtual tables based on layers
-        for ( int i = 0; i < mLayers.size(); i++ ) {
-            QgsVectorLayer* vlayer = mLayers.at(i).layer;
-            QString vname = mLayers.at(i).name;
-            if ( vlayer ) {
-                QString createStr = QString("DROP TABLE IF EXISTS %1; CREATE VIRTUAL TABLE %1 USING QgsVLayer(%2);").arg(vname).arg(vlayer->id());
-                Sqlite::Query::exec( mSqlite.get(), createStr );
-            }
-            else {
-                QString provider = mLayers.at(i).provider;
-                QString source = mLayers.at(i).source;
-                QString createStr = QString( "DROP TABLE IF EXISTS %1; CREATE VIRTUAL TABLE %1 USING QgsVLayer(%2,'%3')").arg(vname).arg(provider).arg(source);
-                Sqlite::Query::exec( mSqlite.get(), createStr );
-            }
-        }
-
-        QList<QString> geometryFields;
-        if ( !mDefinition.query().isEmpty() ) {
-            // create a view, and call table_info on it
-            QString viewStr = "DROP VIEW IF EXISTS _view; CREATE VIEW _view AS " + mDefinition.query();
-
-            Sqlite::Query::exec( mSqlite.get(), viewStr );
-
-            // add columns of virtual tables to the context
-            {
-                Sqlite::Query q( mSqlite.get(), "SELECT t.name, c.name, type FROM _columns as c, _tables as t WHERE c.table_id = t.id ORDER BY c.table_id" );
-                while (q.step() == SQLITE_ROW) {
-                    QString tableName = q.column_text(0);
-                    QString columnName = q.column_text(1);
-                    QString columnType = q.column_text(2);
-                    if ( columnName != "*geometry*" ) {
-                        QVariant::Type t = QVariant::nameToType( columnType.toUtf8().constData() );
-                        refTables[tableName] << QgsSql::ColumnType( columnName, t );
-                    }
-                    else {
-                        QStringList ls = columnType.split(':');
-                        QgsSql::ColumnType c;
-                        if (ls.size() == 3) {
-                            c.setName( "geometry" );
-                            c.setGeometry( QGis::WkbType( ls[0].toLong() ) );
-                            c.setSrid( ls[2].toLong() );
-                            refTables[tableName] << c;
-                        }
-                    }
-                }
-            }
-
-            // look for column types of the query
-            getSqliteFields( *queryTree, refTables, mFields, gFields );
-
-            // process geometry field
-            if ( !reqGeometryField.name().isEmpty() ) {
-                // if the geometry field is detected with a scalar type, move it to the geometry fields
-                bool found = false;
-                for ( int i = 0; i < mFields.count(); i++ ) {
-                    if ( mFields[i].name() == reqGeometryField.name() ) {
-                        mFields.remove(i);
-                        gFields.append( reqGeometryField );
-                        found = true;
-                        break;
-                    }
-                }
-                // if not found in mFields, look in mGeometryFields
-                if ( !found ) {
-                    for ( int i = 0; !found && i < gFields.size(); i++ ) {
-                        if ( gFields[i].name() == reqGeometryField.name() ) {
-                            reqGeometryField = gFields[i];
-                            found = true;
-                            break;
-                        }
-                    }
-                }
-                if ( !found ) {
-                    PROVIDER_ERROR( "Cannot find the specified geometry field !" );
-                    return false;
-                }
-            }
-            if ( reqGeometryField.name().isEmpty() && !noGeometry && gFields.size() > 0 ) {
-                // take the first
-                reqGeometryField = gFields[0];
-            }
-
-            if ( !noGeometry ) {
-                Sqlite::Query::exec( mSqlite.get(), QString("INSERT OR REPLACE INTO _columns (table_id, name, type) VALUES (0, '%1', '%2:%3')" )
-                                     .arg(reqGeometryField.name())
-                                     .arg(reqGeometryField.wkbType())
-                                     .arg(reqGeometryField.srid()) );
-            }
-            else {
-                Sqlite::Query::exec( mSqlite.get(), "INSERT OR REPLACE INTO _columns (table_id, name, type) VALUES (0, 'geometry', 'no::')" );
-            }
-
-            Sqlite::Query q(mSqlite.get(), "INSERT OR REPLACE INTO _tables (id, name, source) VALUES (0, ?, ?)");
-            q.bind(mDefinition.uid()).bind(mDefinition.query());
-            q.step();
-            mTableName = "_view";
+    // now create virtual tables based on layers
+    for ( int i = 0; i < mLayers.size(); i++ ) {
+        QgsVectorLayer* vlayer = mLayers.at(i).layer;
+        QString vname = mLayers.at(i).name;
+        if ( vlayer ) {
+            QString createStr = QString("DROP TABLE IF EXISTS %1; CREATE VIRTUAL TABLE %1 USING QgsVLayer(%2);").arg(vname).arg(vlayer->id());
+            Sqlite::Query::exec( mSqlite.get(), createStr );
         }
         else {
-            // no query => implies we must only have one virtual table
-            mTableName = mLayers[0].name;
-            // check geometry field
-            if ( !noGeometry ) {
-                bool has_geometry = false;
-                {
-                    Sqlite::Query q( db, QString("SELECT geometry_type, srid FROM virts_geometry_columns WHERE virt_name='%1'").arg(mTableName) );
-                    if ( q.step() == SQLITE_ROW ) {
-                        has_geometry = true;
-                        reqGeometryField.setName("geometry");
-                        reqGeometryField.setGeometry( QGis::WkbType(q.column_int(0)) );
-                        reqGeometryField.setSrid( q.column_int(1) );
-                    }
-                }
-                Sqlite::Query::exec( mSqlite.get(), QString("INSERT OR REPLACE INTO _columns (table_id, name, type) VALUES (0, 'geometry', '%1:%2')" )
-                                     .arg(reqGeometryField.wkbType())
-                                     .arg(reqGeometryField.srid()) );
-
-            }
-            else {
-                Sqlite::Query::exec( mSqlite.get(), "INSERT OR REPLACE INTO _columns (table_id, name, type) VALUES (0, 'geometry', 'no::')" );
-            }
-        }
-
-        // save the geometry type back
-        if (!noGeometry) {
-            mDefinition.setGeometryField( reqGeometryField.name() );
-            mDefinition.setGeometryWkbType( reqGeometryField.wkbType() );
-            mDefinition.setGeometrySrid( reqGeometryField.srid() );
-        }
-        else {
-            mDefinition.setGeometryField( "*no*" );
-            mDefinition.setGeometryWkbType( QGis::WKBNoGeometry );
+            QString provider = mLayers.at(i).provider;
+            QString source = mLayers.at(i).source;
+            QString createStr = QString( "DROP TABLE IF EXISTS %1; CREATE VIRTUAL TABLE %1 USING QgsVLayer(%2,'%3')").arg(vname).arg(provider).arg(source);
+            Sqlite::Query::exec( mSqlite.get(), createStr );
         }
     }
-    catch (std::runtime_error& e) {
-        PROVIDER_ERROR( e.what() );
-        return false;
+
+    QList<QString> geometryFields;
+    if ( !mDefinition.query().isEmpty() ) {
+        // create a view, and call table_info on it
+        QString viewStr = "DROP VIEW IF EXISTS _view; CREATE VIEW _view AS " + mDefinition.query();
+
+        Sqlite::Query::exec( mSqlite.get(), viewStr );
+
+        // add columns of virtual tables to the context
+        if ( mLayers.size() > 0 ) {
+            Sqlite::Query q( mSqlite.get(), "SELECT t.name, c.name, type FROM _columns as c, _tables as t WHERE c.table_id = t.id ORDER BY c.table_id" );
+            while (q.step() == SQLITE_ROW) {
+                QString tableName = q.column_text(0);
+                QString columnName = q.column_text(1);
+                QString columnType = q.column_text(2);
+                if ( columnName != "*geometry*" ) {
+                    QVariant::Type t = QVariant::nameToType( columnType.toUtf8().constData() );
+                    refTables[tableName] << QgsSql::ColumnType( columnName, t );
+                }
+                else {
+                    QStringList ls = columnType.split(':');
+                    QgsSql::ColumnType c;
+                    if (ls.size() == 3) {
+                        c.setName( "geometry" );
+                        c.setGeometry( QGis::WkbType( ls[0].toLong() ) );
+                        c.setSrid( ls[2].toLong() );
+                        refTables[tableName] << c;
+                    }
+                }
+            }
+        }
+
+        // look for column types of the query
+        {
+            QString err;
+            QList<QgsSql::ColumnType> columns = QgsSql::columnTypes( *queryTree, err, &refTables );
+
+            int i = 1;
+            for ( auto& c: columns ) {
+                if ( c.isGeometry() ) {
+                    gFields << c;
+                }
+                else {
+                    if ( c.name().isEmpty() ) {
+                        PROVIDER_ERROR( QString("Result column #%1 has no name !").arg(i) );
+                        return false;
+                    }
+                    if ( c.scalarType() == QVariant::Invalid ) {
+                        c.setScalarType( QVariant::String );
+                    }
+                    // if the geometry field is detected with a scalar type, move it to the geometry fields
+                    if ( c.name() == reqGeometryField.name() ) {
+                        gFields << c;
+                    }
+                    else {
+                        mFields.append( QgsField( c.name(), c.scalarType() ) );
+                    }
+                }
+                i++;
+            }
+        }
+
+        // process geometry field
+        if ( !reqGeometryField.name().isEmpty() ) {
+            bool found = false;
+            for ( int i = 0; i < gFields.size(); i++ ) {
+                if ( gFields[i].name() == reqGeometryField.name() ) {
+                    reqGeometryField = gFields[i];
+                    found = true;
+                    break;
+                }
+            }
+            if ( !found ) {
+                PROVIDER_ERROR( "Cannot find the specified geometry field !" );
+                return false;
+            }
+        }
+        if ( reqGeometryField.name().isEmpty() && !noGeometry && gFields.size() > 0 ) {
+            // take the first
+            reqGeometryField = gFields[0];
+        }
+
+        if ( !noGeometry ) {
+            Sqlite::Query::exec( mSqlite.get(), QString("INSERT OR REPLACE INTO _columns (table_id, name, type) VALUES (0, '%1', '%2:%3')" )
+                                 .arg(reqGeometryField.name())
+                                 .arg(reqGeometryField.wkbType())
+                                 .arg(reqGeometryField.srid()) );
+        }
+        else {
+            Sqlite::Query::exec( mSqlite.get(), "INSERT OR REPLACE INTO _columns (table_id, name, type) VALUES (0, 'geometry', 'no::')" );
+        }
+
+        Sqlite::Query q(mSqlite.get(), "INSERT OR REPLACE INTO _tables (id, name, source) VALUES (0, ?, ?)");
+        q.bind(mDefinition.uid()).bind(mDefinition.query());
+        q.step();
+        mTableName = "_view";
+    }
+    else {
+        // no query => implies we must only have one virtual table
+        mTableName = mLayers[0].name;
+        // check geometry field
+        if ( !noGeometry ) {
+            bool has_geometry = false;
+            {
+                Sqlite::Query q( db, QString("SELECT geometry_type, srid FROM virts_geometry_columns WHERE virt_name='%1'").arg(mTableName) );
+                if ( q.step() == SQLITE_ROW ) {
+                    has_geometry = true;
+                    reqGeometryField.setName("geometry");
+                    reqGeometryField.setGeometry( QGis::WkbType(q.column_int(0)) );
+                    reqGeometryField.setSrid( q.column_int(1) );
+                }
+            }
+            Sqlite::Query::exec( mSqlite.get(), QString("INSERT OR REPLACE INTO _columns (table_id, name, type) VALUES (0, 'geometry', '%1:%2')" )
+                                 .arg(reqGeometryField.wkbType())
+                                 .arg(reqGeometryField.srid()) );
+
+        }
+        else {
+            Sqlite::Query::exec( mSqlite.get(), "INSERT OR REPLACE INTO _columns (table_id, name, type) VALUES (0, 'geometry', 'no::')" );
+        }
+    }
+
+    // save the geometry type back
+    if (!noGeometry) {
+        mDefinition.setGeometryField( reqGeometryField.name() );
+        mDefinition.setGeometryWkbType( reqGeometryField.wkbType() );
+        mDefinition.setGeometrySrid( reqGeometryField.srid() );
+    }
+    else {
+        mDefinition.setGeometryField( "*no*" );
+        mDefinition.setGeometryWkbType( QGis::WKBNoGeometry );
     }
 
     return true;
@@ -430,7 +449,7 @@ void QgsVirtualLayerProvider::resetSqlite()
         }
         sql += "DELETE FROM _tables;";
         sql += "DELETE FROM _columns;";
-        sql += "DROP TABLE _meta;";
+        sql += "DROP TABLE IF EXISTS _meta;";
     }
     bool has_spatialrefsys = false;
     {

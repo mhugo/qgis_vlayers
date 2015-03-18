@@ -24,7 +24,8 @@ from qgis.core import (QGis,
                        QgsGeometry,
                        QgsPoint,
                        QgsMapLayerRegistry,
-                       QgsRectangle
+                       QgsRectangle,
+                       QgsErrorMessage
                       )
 
 from utilities import (getQgisTestApp,
@@ -433,6 +434,27 @@ class TestQgsVirtualLayerProvider(TestCase):
         l5.setSubsetString( "ObjectId = 2661" )
         idSum2 = sum(f.id() for f in l5.getFeatures(r))
         self.assertEqual( idSum2, 2661 )
+
+    def test_sql3(self):
+        l2 = QgsVectorLayer( os.path.join(self.testDataDir_, "france_parts.shp"), "france_parts", "ogr", False )
+        self.assertEqual( l2.isValid(), True )
+        QgsMapLayerRegistry.instance().addMapLayer(l2)
+
+        # unnamed column
+        query = QUrl.toPercentEncoding( "SELECT 42" )
+        l4 = QgsVectorLayer( "?query=%s" % query, "tt", "virtual", False )
+        self.assertEqual( l4.isValid(), False )
+        self.assertEqual( "Result column #1 has no name" in l4.dataProvider().error().message(), True )
+
+        query = QUrl.toPercentEncoding( "SELECT 42 as t, 'ok'||'ok' as t2, GeomFromText('') as t3" )
+        l4 = QgsVectorLayer( "?query=%s" % query, "tt", "virtual", False )
+        self.assertEqual( l4.isValid(), True )
+        self.assertEqual( l4.dataProvider().fields().at(0).name(), "t" )
+        self.assertEqual( l4.dataProvider().fields().at(0).type(), QVariant.Int )
+        self.assertEqual( l4.dataProvider().fields().at(1).name(), "t2" )
+        self.assertEqual( l4.dataProvider().fields().at(1).type(), QVariant.String )
+        self.assertEqual( l4.dataProvider().fields().at(2).name(), "t3" )
+        self.assertEqual( l4.dataProvider().fields().at(2).type(), QVariant.String )
 
 if __name__ == '__main__':
     unittest.main()

@@ -31,5 +31,7 @@ int vtable_findfunction( sqlite3_vtab *pVtab,
 
 std::unique_ptr<QgsGeometry> spatialite_blob_to_qgsgeometry( const unsigned char* blob, const size_t size );
 
+void initMetadata( sqlite3* db );
+
 #endif
 

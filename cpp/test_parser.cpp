@@ -168,6 +168,21 @@ void TestSqlParser::testColumnTypes()
         QVERIFY( cdefs[1].isGeometry() );
         QVERIFY( cdefs[1].srid() == 1234 );
     }
+    {
+        // type inferer: unknown name and types
+        QString sql( "SELECT 1, GeomFromText('')" );
+        std::unique_ptr<Node> n( parseSql( sql, err ) );
+        if ( !n ) {
+            std::cout << "ERROR: " << err.toUtf8().constData() << std::endl;
+            return;
+        }
+        QList<ColumnType> cdefs = columnTypes( *n, err, &t );
+        QVERIFY( cdefs.size() == 2 );
+        QVERIFY( cdefs[0].scalarType() == QVariant::Int );
+        QVERIFY( cdefs[0].name().isEmpty() );
+        QVERIFY( cdefs[1].scalarType() == QVariant::Invalid );
+        QVERIFY( cdefs[1].name().isEmpty() );
+    }
 }
 
 QTEST_MAIN( TestSqlParser )
