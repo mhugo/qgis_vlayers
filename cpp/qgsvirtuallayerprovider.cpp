@@ -47,23 +47,6 @@ extern "C" {
 #define PROVIDER_ERROR( msg ) do { mError = QgsError( msg, VIRTUAL_LAYER_KEY ); QgsDebugMsg( msg ); } while(0)
 
 
-void getSqliteFields( const QgsSql::Node& tree, const QgsSql::TableDefs& tables, QgsFields& fields, QList<QgsSql::ColumnType>& gFields )
-{
-    QString err;
-    QList<QgsSql::ColumnType> columns = QgsSql::columnTypes( tree, err, &tables );
-    for ( auto& c: columns ) {
-        if ( c.isGeometry() ) {
-            gFields << c;
-        }
-        else {
-            if ( c.scalarType() == QVariant::Invalid ) {
-                c.setScalarType( QVariant::String );
-            }
-            fields.append( QgsField( c.name(), c.scalarType() ) );
-        }
-    }
-}
-
 int QgsVirtualLayerProvider::mNonce = 0;
 
 QgsVirtualLayerProvider::QgsVirtualLayerProvider( QString const &uri )
@@ -340,7 +323,8 @@ bool QgsVirtualLayerProvider::createIt_()
                     }
                     // if the geometry field is detected with a scalar type, move it to the geometry fields
                     if ( c.name() == reqGeometryField.name() ) {
-                        gFields << c;
+                        PROVIDER_ERROR( "Can't deduce the geometry type of the geometry field !" );
+                        return false;
                     }
                     else {
                         mFields.append( QgsField( c.name(), c.scalarType() ) );

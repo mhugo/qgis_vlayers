@@ -456,5 +456,15 @@ class TestQgsVirtualLayerProvider(TestCase):
         self.assertEqual( l4.dataProvider().fields().at(2).name(), "t3" )
         self.assertEqual( l4.dataProvider().fields().at(2).type(), QVariant.String )
 
+        query = QUrl.toPercentEncoding( "SELECT GeomFromText('POINT(0 0)') as geom")
+        l4 = QgsVectorLayer( "?query=%s&geometry=geom" % query, "tt", "virtual", False )
+        self.assertEqual( l4.isValid(), False )
+        self.assertEqual( "Can't deduce the geometry type of the geometry field" in l4.dataProvider().error().message(), True )
+
+        query = QUrl.toPercentEncoding( "SELECT CastToPoint(GeomFromText('POINT(0 0)')) as geom")
+        l4 = QgsVectorLayer( "?query=%s" % query, "tt", "virtual", False )
+        self.assertEqual( l4.isValid(), True )
+        self.assertEqual( l4.dataProvider().geometryType(), 1 )
+
 if __name__ == '__main__':
     unittest.main()
