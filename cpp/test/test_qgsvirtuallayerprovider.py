@@ -385,10 +385,11 @@ class TestQgsVirtualLayerProvider(TestCase):
         QgsMapLayerRegistry.instance().addMapLayer(l2)
 
         query = QUrl.toPercentEncoding( "SELECT * FROM france_parts")
-        l4 = QgsVectorLayer( "?query=%s&geometry=geometry:polygon:4326" % query, "tt", "virtual" )
+        l4 = QgsVectorLayer( "?query=%s" % query, "tt", "virtual" )
         self.assertEqual( l4.isValid(), True )
 
         self.assertEqual(l4.dataProvider().geometryType(), 3)
+        self.assertEqual(l4.dataProvider().crs().postgisSrid(), 4326)
 
         n = 0
         r = QgsFeatureRequest( QgsRectangle(-1.677,49.624, -0.816,49.086) )
