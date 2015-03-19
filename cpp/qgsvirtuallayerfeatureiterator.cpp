@@ -164,8 +164,10 @@ bool QgsVirtualLayerFeatureIterator::fetchFeature( QgsFeature& feature )
     if (n > mFields.count()+1) {
         // geometry field
         QByteArray blob( mQuery->column_blob(n-1) );
-        std::unique_ptr<QgsGeometry> geom( spatialite_blob_to_qgsgeometry( (const unsigned char*)blob.constData(), blob.size() ) );
-        feature.setGeometry( geom.release() );
+        if ( blob.size() > 0 ) {
+            std::unique_ptr<QgsGeometry> geom( spatialite_blob_to_qgsgeometry( (const unsigned char*)blob.constData(), blob.size() ) );
+            feature.setGeometry( geom.release() );
+        }
     }
 
     return true;
