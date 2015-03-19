@@ -6,6 +6,8 @@ PROJECT( vlayer_plugin )
 # set path to additional CMake modules
 SET(CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake ${CMAKE_MODULE_PATH})
 
+FIND_PACKAGE(QGIS REQUIRED)
+
 FIND_PACKAGE(Qt4 4.7.0 REQUIRED)
 
 INCLUDE(Flex)
@@ -270,25 +272,6 @@ ADD_DEFINITIONS("-DAPP_EXPORT=${DLLIMPORT}")
 ADD_DEFINITIONS("-DCUSTOMWIDGETS_EXPORT=${DLLIMPORT}")
 ADD_DEFINITIONS("-DSERVER_EXPORT=${DLLIMPORT}")
 
-#############################################################
-# user-changeable settings which can be used to customize
-# layout of QGIS installation
-# (default values are platform-specific)
-
-SET (QGIS_BIN_SUBDIR     ${DEFAULT_BIN_SUBDIR})
-SET (QGIS_CGIBIN_SUBDIR  ${DEFAULT_CGIBIN_SUBDIR})
-SET (QGIS_LIB_SUBDIR     ${DEFAULT_LIB_SUBDIR})
-SET (QGIS_LIBEXEC_SUBDIR ${DEFAULT_LIBEXEC_SUBDIR})
-SET (QGIS_DATA_SUBDIR    ${DEFAULT_DATA_SUBDIR})
-SET (QGIS_PLUGIN_SUBDIR  ${DEFAULT_PLUGIN_SUBDIR})
-SET (QGIS_INCLUDE_SUBDIR ${DEFAULT_INCLUDE_SUBDIR})
-
-# full paths for the installation
-SET (QGIS_LIB_DIR     ${CMAKE_INSTALL_PREFIX}/${QGIS_LIB_SUBDIR} CACHE STRING "QGIS library directory")
-SET (QGIS_DATA_DIR    ${CMAKE_INSTALL_PREFIX}/${QGIS_DATA_SUBDIR} CACHE STRING "QGIS data directory")
-SET (QGIS_PLUGIN_DIR  ${CMAKE_INSTALL_PREFIX}/${QGIS_PLUGIN_SUBDIR} CACHE STRING "QGIS plugins directory")
-SET (QGIS_INCLUDE_DIR ${CMAKE_INSTALL_PREFIX}/${QGIS_INCLUDE_SUBDIR} CACHE STRING "QGIS include directory")
-
 ######################################
 
 LINK_DIRECTORIES(
@@ -334,9 +317,8 @@ ADD_LIBRARY(virtuallayerprovider MODULE
 )
 
 TARGET_LINK_LIBRARIES( virtuallayerprovider
-  qgis_core
-  qgis_gui
-  spatialiteprovider
+  ${QGIS_CORE_LIBRARY}
+  ${QGIS_GUI_LIBRARY}
 )
 
 INSTALL(TARGETS virtuallayerprovider
@@ -355,8 +337,8 @@ QT4_ADD_RESOURCES(vlayer_plugin_RCC_SRCS vlayer_plugin.qrc)
 ADD_LIBRARY(vlayer_plugin MODULE vlayer_plugin.cpp ${vlayer_plugin_RCC_SRCS} ${vlayer_plugin_MOC_SRCS} )
 
 TARGET_LINK_LIBRARIES( vlayer_plugin
-  qgis_core
-  qgis_gui
+  ${QGIS_CORE_LIBRARY}
+  ${QGIS_GUI_LIBRARY}
 )
 
 
@@ -382,8 +364,8 @@ SET_TARGET_PROPERTIES( test_parser PROPERTIES AUTOMOC TRUE)
 TARGET_LINK_LIBRARIES( test_parser
   ${QT_QTCORE_LIBRARY}
   ${QT_QTTEST_LIBRARY}
-  qgis_core
-  qgis_gui
+  ${QGIS_CORE_LIBRARY}
+  ${QGIS_GUI_LIBRARY}
 )
 
 ############################################################
