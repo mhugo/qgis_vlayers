@@ -285,11 +285,6 @@ bool QgsVirtualLayerProvider::createIt_()
 
     QList<QString> geometryFields;
     if ( !mDefinition.query().isEmpty() ) {
-        // create a view, and call table_info on it
-        QString viewStr = "DROP VIEW IF EXISTS _view; CREATE VIEW _view AS " + mDefinition.query();
-
-        Sqlite::Query::exec( mSqlite.get(), viewStr );
-
         // add columns of virtual tables to the context
         if ( mLayers.size() > 0 ) {
             Sqlite::Query q( mSqlite.get(), "SELECT t.name, c.name, type FROM _columns as c, _tables as t WHERE c.table_id = t.id ORDER BY c.table_id" );
@@ -383,6 +378,10 @@ bool QgsVirtualLayerProvider::createIt_()
         q.bind(mDefinition.uid()).bind(mDefinition.query());
         q.step();
         mTableName = "_view";
+
+        // create a view
+        QString viewStr = "DROP VIEW IF EXISTS _view; CREATE VIEW _view AS " + mDefinition.query();
+        Sqlite::Query::exec( mSqlite.get(), viewStr );
     }
     else {
         // no query => implies we must only have one virtual table
