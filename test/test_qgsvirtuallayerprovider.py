@@ -52,7 +52,7 @@ class TestQgsVirtualLayerProvider(TestCase):
         print "****************************************************"
 
     def test_CsvNoGeometry(self):
-        l1 = QgsVectorLayer( os.path.join(self.testDataDir_, "delimitedtext/test.csv") + "?type=csv&geomType=none&subsetIndex=no&watchFile=no", "test", "delimitedtext", False)
+        l1 = QgsVectorLayer( os.path.join(self.testDataDir_, "test.csv") + "?type=csv&geomType=none&subsetIndex=no&watchFile=no", "test", "delimitedtext", False)
         self.assertEqual( l1.isValid(), True )
         QgsMapLayerRegistry.instance().addMapLayer(l1)
 
@@ -64,13 +64,13 @@ class TestQgsVirtualLayerProvider(TestCase):
 
     def test_source_escaping(self):
         # the source contains ':'
-        source = QUrl.toPercentEncoding("file:///" + os.path.join(self.testDataDir_, "delimitedtext/test.csv") + "?type=csv&geomType=none&subsetIndex=no&watchFile=no")
+        source = QUrl.toPercentEncoding("file:///" + os.path.join(self.testDataDir_, "test.csv") + "?type=csv&geomType=none&subsetIndex=no&watchFile=no")
         l = QgsVectorLayer( "?layer=delimitedtext:%s:t" % source, "vtab", "virtual", False )
         self.assertEqual(l.isValid(), True)
         print sum([f.id() for f in l.getFeatures()])
 
     def test_DynamicGeometry(self):
-        l1 = QgsVectorLayer( os.path.join(self.testDataDir_, "delimitedtext/testextpt.txt") + "?type=csv&delimiter=%7C&geomType=none&subsetIndex=no&watchFile=no", "test", "delimitedtext", False)
+        l1 = QgsVectorLayer( os.path.join(self.testDataDir_, "testextpt.txt") + "?type=csv&delimiter=%7C&geomType=none&subsetIndex=no&watchFile=no", "test", "delimitedtext", False)
         self.assertEqual( l1.isValid(), True )
         QgsMapLayerRegistry.instance().addMapLayer(l1)
 
@@ -82,7 +82,7 @@ class TestQgsVirtualLayerProvider(TestCase):
         QgsMapLayerRegistry.instance().removeMapLayer(l1.id())        
 
     def test_FieldTypes(self):
-        l1 = QgsVectorLayer( os.path.join(self.testDataDir_, "delimitedtext/testextpt.txt") + "?type=csv&delimiter=%7C&geomType=none&subsetIndex=no&watchFile=no", "test", "delimitedtext", False)
+        l1 = QgsVectorLayer( os.path.join(self.testDataDir_, "testextpt.txt") + "?type=csv&delimiter=%7C&geomType=none&subsetIndex=no&watchFile=no", "test", "delimitedtext", False)
         self.assertEqual( l1.isValid(), True )
         QgsMapLayerRegistry.instance().addMapLayer(l1)
 
@@ -342,7 +342,7 @@ class TestQgsVirtualLayerProvider(TestCase):
         print sum([f.id() for f in l2.getFeatures()])
 
     def test_refLayer(self):
-        l1 = QgsVectorLayer( os.path.join(self.testDataDir_, "delimitedtext/test.csv") + "?type=csv&geomType=none&subsetIndex=no&watchFile=no", "test", "delimitedtext", False)
+        l1 = QgsVectorLayer( os.path.join(self.testDataDir_, "test.csv") + "?type=csv&geomType=none&subsetIndex=no&watchFile=no", "test", "delimitedtext", False)
         self.assertEqual( l1.isValid(), True )
         QgsMapLayerRegistry.instance().addMapLayer(l1)
 
@@ -356,7 +356,7 @@ class TestQgsVirtualLayerProvider(TestCase):
         print sum([f.id() for f in l2.getFeatures()])
 
     def test_refLayers(self):
-        l1 = QgsVectorLayer( os.path.join(self.testDataDir_, "delimitedtext/test.csv") + "?type=csv&geomType=none&subsetIndex=no&watchFile=no", "test", "delimitedtext", False)
+        l1 = QgsVectorLayer( os.path.join(self.testDataDir_, "test.csv") + "?type=csv&geomType=none&subsetIndex=no&watchFile=no", "test", "delimitedtext", False)
         self.assertEqual( l1.isValid(), True )
         QgsMapLayerRegistry.instance().addMapLayer(l1)
         
@@ -371,7 +371,7 @@ class TestQgsVirtualLayerProvider(TestCase):
             QgsMapLayerRegistry.instance().removeMapLayer(l2.id())
 
     def test_refLayers2(self):
-        l1 = QgsVectorLayer( os.path.join(self.testDataDir_, "delimitedtext/test.csv") + "?type=csv&geomType=none&subsetIndex=no&watchFile=no", "test", "delimitedtext", False)
+        l1 = QgsVectorLayer( os.path.join(self.testDataDir_, "test.csv") + "?type=csv&geomType=none&subsetIndex=no&watchFile=no", "test", "delimitedtext", False)
         self.assertEqual( l1.isValid(), True )
         QgsMapLayerRegistry.instance().addMapLayer(l1)
         
@@ -382,7 +382,7 @@ class TestQgsVirtualLayerProvider(TestCase):
         self.assertEqual( "Cannot store referenced layers" in l2.dataProvider().error().message(), True )
 
     def test_sql(self):
-        l1 = QgsVectorLayer( os.path.join(self.testDataDir_, "delimitedtext/test.csv") + "?type=csv&geomType=none&subsetIndex=no&watchFile=no", "test", "delimitedtext", False)
+        l1 = QgsVectorLayer( os.path.join(self.testDataDir_, "test.csv") + "?type=csv&geomType=none&subsetIndex=no&watchFile=no", "test", "delimitedtext", False)
         self.assertEqual( l1.isValid(), True )
         QgsMapLayerRegistry.instance().addMapLayer(l1)
 
