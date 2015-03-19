@@ -212,7 +212,7 @@ QgsVirtualLayerDefinition virtualLayerDefinitionFromSqlite( const QString& path 
 
 bool QgsVirtualLayerDefinition::hasSourceLayer( QString name ) const
 {
-    for ( const auto& l: mSourceLayers ) {
+    foreach ( const auto& l, mSourceLayers ) {
         if ( l.name() == name ) {
             return true;
         }
@@ -222,7 +222,7 @@ bool QgsVirtualLayerDefinition::hasSourceLayer( QString name ) const
 
 bool QgsVirtualLayerDefinition::hasReferencedLayers() const
 {
-    for ( const auto& l: mSourceLayers ) {
+    foreach ( const auto& l, mSourceLayers ) {
         if ( l.isReferenced() ) {
             return true;
         }

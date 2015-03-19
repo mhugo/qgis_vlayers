@@ -128,8 +128,8 @@ void DFSVisitor::visit( const CompoundSelect& s )
 
 void DFSVisitor::visit( const List& l )
 {
-    for ( const auto& n: l ) {
-        n->accept(*this);
+    for ( auto it = l.begin(); it != l.end(); it++ ) {
+        (*it)->accept(*this);
     }
 }
 
@@ -232,14 +232,14 @@ public:
     {
         str_ += "[";
         bool first = true;
-        for ( const auto& n: l ) {
+		for ( auto it = l.begin(); it != l.end(); it++ ) {
             if ( first ) {
                 first = false;
             }
             else {
                 str_ += ", ";
             }
-            n->accept(*this);
+            (*it)->accept(*this);
         }
         str_ += "]";
     }
@@ -384,6 +384,8 @@ struct FunctionResult {
     QVariant::Type type;
     QGis::WkbType wkbType;
     int sridParameter;
+	FunctionResult( QVariant::Type aType, QGis::WkbType aWkbType, int aSrid ) : 
+	  type(aType), wkbType(aWkbType), sridParameter(aSrid) {}
 };
 
 class OutputFunctionTypes : public QHash<QString, FunctionResult>
@@ -394,10 +396,10 @@ class OutputFunctionTypes : public QHash<QString, FunctionResult>
 
     void add( QString k, QVariant::Type t )
     {
-        insert( k, {t, QGis::WKBNoGeometry, -1} );
+        insert( k, FunctionResult(t, QGis::WKBNoGeometry, -1) );
     }
     void add( QString k, QGis::WkbType wkbType, int sridParameter = -1 ) {
-        insert( k, {QVariant::UserType, wkbType, sridParameter} );
+        insert( k, FunctionResult(QVariant::UserType, wkbType, sridParameter) );
     }
 };
 
@@ -787,8 +789,9 @@ public:
     {
         // add all the columns of the table to the ref
         if ( defs_->find( t.name() ) != defs_->end() ) {
-            for ( const auto& c : (*defs_)[t.name()] ) {
-                refs_[t.name()] << c;
+			const auto& m = (*defs_)[t.name()];
+			for ( auto it = m.begin(); it != m.end(); it++ ) {
+                refs_[t.name()] << *it;
             }
         }
     }
@@ -802,8 +805,8 @@ public:
             refs_[s.alias()] = TableDef();
         }
 
-        for ( const auto& c : o ) {
-            refs_[s.alias()]  << c;
+        for ( auto it = o.begin(); it != o.end(); it++ ) {
+            refs_[s.alias()]  << *it;
         }
     }
 
@@ -818,8 +821,8 @@ public:
         }
         else {
             // add all columns of ALL the tables
-            for ( const auto& r : refs_ ) {
-                types.append( r );
+			for ( auto it = refs_.begin(); it != refs_.end(); it++ ) {
+                types.append( *it );
             }
         }
     }
@@ -861,8 +864,9 @@ public:
     {
         QVector<ColumnType> argsDefs;
         bool allConstants = true;
-        for ( const auto& arg: *c.args() ) {
-            argsDefs << eval( *arg );
+		const auto& l = *c.args();
+        for ( auto it = l.begin(); it != l.end(); it++ ) {
+            argsDefs << eval( *(*it) );
             if (!argsDefs.back().isConstant()) {
                 allConstants = false;
             }
@@ -880,7 +884,7 @@ public:
             else {
                 ColumnType geodef;
                 // take the first geometry argument found
-                for ( ColumnType def: argsDefs ) {
+                foreach ( ColumnType def, argsDefs ) {
                     if ( def.isGeometry() ) {
                         geodef.setGeometry( def.wkbType() );
                         geodef.setSrid( def.srid() );
@@ -1018,9 +1022,10 @@ public:
     {
         QList<QPair<ColumnType::Type, const Node*>> possibleTypes;
         bool allConstants = true;
-        for ( const auto& n: *c.conditions() ) {
-            Q_ASSERT( n->type() == Node::NODE_EXPRESSION_WHEN_THEN );
-            ExpressionWhenThen* wt = static_cast<ExpressionWhenThen*>(n.get());
+		const auto& cc = *c.conditions();
+        for ( auto it = cc.begin(); it != cc.end(); it++ ) {
+            Q_ASSERT( (*it)->type() == Node::NODE_EXPRESSION_WHEN_THEN );
+            ExpressionWhenThen* wt = static_cast<ExpressionWhenThen*>(it->get());
 
             ColumnType when = eval( *wt->when() );
             if ( allConstants && when.isConstant() ) {
@@ -1047,9 +1052,9 @@ public:
         }
         ColumnType::Type lastType = possibleTypes.front().first;
         QString lastTypeNodeStr = asString( *possibleTypes.front().second );
-        for ( const auto& t : possibleTypes ) {
-            if ( t.first != lastType ) {
-                QString nodeStr = asString( *t.second );
+        for( auto it = possibleTypes.begin(); it != possibleTypes.end(); it++ ) {
+            if ( it->first != lastType ) {
+                QString nodeStr = asString( *it->second );
                 throw InfererException("Type mismatch between " + lastTypeNodeStr + " and " + nodeStr);
             }
         }
@@ -1152,7 +1157,7 @@ QList<ColumnType> columnTypes( const Node& n, QString& errMsg, const TableDefs* 
 QList<ColumnType> columnTypes( const Node& n, const QList<QString>& tables, QString& err )
 {
     TableDefs tableDefs;
-    for ( const auto& lname : tables ) {
+    foreach( const QString& lname, tables ) {
         QList<QgsMapLayer*> l = QgsMapLayerRegistry::instance()->mapLayersByName( lname );
         if ( l.size() == 0 )
             continue;

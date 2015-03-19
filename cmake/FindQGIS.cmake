@@ -49,6 +49,7 @@ IF(WIN32)
       PATHS
         "$ENV{INCLUDE}"
         "$ENV{LIB_DIR}/include/qgis"
+        "$ENV{OSGEO4W_ROOT}/apps/qgis/include"
         "$ENV{OSGEO4W_ROOT}/include"
         "$ENV{PROGRAMFILES}/QGIS/include"
     )
@@ -63,6 +64,7 @@ IF(WIN32)
       PATHS
         "$ENV{LIB_DIR}/lib/"
         "$ENV{LIB}"
+        "$ENV{OSGEO4W_ROOT}/apps/qgis/lib"
         "$ENV{OSGEO4W_ROOT}/lib"
         "$ENV{PROGRAMFILES}/QGIS/lib"
     )
@@ -71,6 +73,7 @@ IF(WIN32)
       PATHS
         "$ENV{LIB_DIR}"
         "$ENV{LIB}"
+        "$ENV{OSGEO4W_ROOT}/apps/qgis/lib"
         "$ENV{OSGEO4W_ROOT}/lib"
         "$ENV{PROGRAMFILES}/QGIS/lib"
     )
@@ -79,6 +82,7 @@ IF(WIN32)
       PATHS
         "$ENV{LIB_DIR}"
         "$ENV{LIB}"
+        "$ENV{OSGEO4W_ROOT}/apps/qgis/lib"S
         "$ENV{OSGEO4W_ROOT}/lib"
         "$ENV{PROGRAMFILES}/QGIS/lib"
     )

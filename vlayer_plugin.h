@@ -19,7 +19,6 @@ public:
     typedef QList<QPair<QString, QString> > ParameterPairs;
 public slots:
     void onCreate();
-    void onAdd();
 private slots:
     void addVectorLayer( const QString& source, const QString& name, const QString& provider );
     void onContextMenu( const QPoint& );

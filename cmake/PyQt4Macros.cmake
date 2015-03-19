@@ -11,7 +11,7 @@ MACRO(PYQT4_WRAP_UI outfiles)
     GET_FILENAME_COMPONENT(outfile ${it} NAME_WE)
     GET_FILENAME_COMPONENT(infile ${it} ABSOLUTE)
     SET(outfile2 ${CMAKE_CURRENT_BINARY_DIR}/ui_${outfile}.py)
-    STRING(REPLACE "/" "_" tname ${outfile2})
+    STRING(REGEX REPLACE "[:/]" "_" tname ${outfile2})
     ADD_CUSTOM_TARGET(${tname} ALL
       DEPENDS ${outfile2}
     )
@@ -28,7 +28,7 @@ MACRO(PYQT4_ADD_RESOURCES outfiles)
     GET_FILENAME_COMPONENT(outfile ${it} NAME_WE)
     GET_FILENAME_COMPONENT(infile ${it} ABSOLUTE)
     SET(outfile2 ${CMAKE_CURRENT_BINARY_DIR}/${outfile}_rc.py)
-    STRING(REPLACE "/" "_" tname ${outfile2})
+    STRING(REGEX REPLACE "[:/]" "_" tname ${outfile2})
     ADD_CUSTOM_TARGET(${tname} ALL
       DEPENDS ${outfile2}
     )

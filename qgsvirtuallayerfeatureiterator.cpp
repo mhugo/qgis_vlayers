@@ -40,7 +40,7 @@ QgsVirtualLayerFeatureIterator::QgsVirtualLayerFeatureIterator( QgsVirtualLayerF
         else if (!mDefinition.uid().isNull() && request.filterType() == QgsFeatureRequest::FilterFids ) {
             QString values = quotedColumn(mDefinition.uid()) + " IN (";
             bool first = true;
-            for ( auto& v : request.filterFids() ) {
+            foreach ( auto& v, request.filterFids() ) {
                 if (!first) {
                     values += ",";
                 }
@@ -53,7 +53,7 @@ QgsVirtualLayerFeatureIterator::QgsVirtualLayerFeatureIterator( QgsVirtualLayerF
 
         if ( request.flags() & QgsFeatureRequest::SubsetOfAttributes ) {
             // copy only selected fields
-            for ( int idx: request.subsetOfAttributes() ) {
+            foreach ( int idx, request.subsetOfAttributes() ) {
                 mFields.append( mSource->provider()->fields().at(idx) );
             }
         }

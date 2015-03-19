@@ -1,6 +1,7 @@
 #include <memory>
 #include <string.h>
 #include <iostream>
+#include <stdint.h>
 
 #include <QCoreApplication>
 
@@ -640,7 +641,6 @@ int vtable_destroy( sqlite3_vtab *vtab )
         std::cout << "vtable_destroy sql@" << vtable->sql() << " " << sqlite3_db_filename( vtable->sql(), "main") << " vtab@" << vtab << " " << vtable->name().toUtf8().constData() << std::endl;
 
         QString query( "SELECT id FROM _tables WHERE name='" + vtable->name() + "'" );
-        char *errMsg;
         sqlite3_stmt* stmt;
         int r = sqlite3_prepare_v2( vtable->sql(), query.toLocal8Bit().constData(), -1, &stmt, NULL );
         if (r) {
@@ -670,6 +670,7 @@ int vtable_disconnect( sqlite3_vtab *vtab )
     if (vtab) {
         delete reinterpret_cast<VTable*>(vtab);
     }
+	return SQLITE_OK;
 }
 
 int vtable_rename( sqlite3_vtab *vtab, const char *new_name )
@@ -693,7 +694,7 @@ int vtable_bestindex( sqlite3_vtab *pvtab, sqlite3_index_info* index_info )
             index_info->aConstraintUsage[i].omit = 1;
             index_info->idxNum = 1; // PK filter
             index_info->estimatedCost = 1.0; // ??
-            index_info->estimatedRows = 1;
+            //index_info->estimatedRows = 1;
             index_info->idxStr = NULL;
             index_info->needToFreeIdxStr = 0;
             return SQLITE_OK;
@@ -708,7 +709,7 @@ int vtable_bestindex( sqlite3_vtab *pvtab, sqlite3_index_info* index_info )
             index_info->aConstraintUsage[i].omit = 1;
             index_info->idxNum = 2; // RTree filter
             index_info->estimatedCost = 1.0; // ??
-            index_info->estimatedRows = 1;
+            //index_info->estimatedRows = 1;
             index_info->idxStr = NULL;
             index_info->needToFreeIdxStr = 0;
             return SQLITE_OK;
@@ -716,7 +717,7 @@ int vtable_bestindex( sqlite3_vtab *pvtab, sqlite3_index_info* index_info )
     }
     index_info->idxNum = 0;
     index_info->estimatedCost = 10.0;
-    index_info->estimatedRows = 10;
+    //index_info->estimatedRows = 10;
     index_info->idxStr = NULL;
     index_info->needToFreeIdxStr = 0;
     return SQLITE_OK;

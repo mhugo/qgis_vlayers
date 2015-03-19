@@ -198,7 +198,7 @@ QGISEXTERN QgsVirtualLayerSourceSelect *createWidget( QWidget *parent, Qt::Windo
 {
     QgsVirtualLayerSourceSelect *w = new QgsVirtualLayerSourceSelect( parent, fl );
     QString name, source;
-    for ( auto& p : parameters ) {
+    foreach ( const auto& p, parameters ) {
         if ((p.first == "fromUrl") || (p.first == "fromFile")) {
             QgsVirtualLayerDefinition def;
             if (p.first == "fromUrl") {
@@ -211,7 +211,7 @@ QGISEXTERN QgsVirtualLayerSourceSelect *createWidget( QWidget *parent, Qt::Windo
             w->setQuery( def.query() );
             w->setUid( def.uid() );
             w->setGeometryColumn( def.geometryField() );
-            for ( auto& l : def.sourceLayers() ) {
+            foreach ( const auto& l, def.sourceLayers() ) {
                 w->addSource( l.name(), l.source(), l.provider() );
             }
             w->setFilename( def.uri() );

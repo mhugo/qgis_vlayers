@@ -37,7 +37,7 @@ QgsEmbeddedLayerSelectDialog::QgsEmbeddedLayerSelectDialog( QWidget* parent, QMa
         QgsLayerTreeView *tv = mainApp->findChild<QgsLayerTreeView*>( "theLayerTreeView" );
         if ( tv ) {
             auto layers = tv->layerTreeModel()->rootGroup()->findLayers();
-            for ( auto& l : layers ) {
+            foreach ( const auto& l, layers ) {
                 if ( l->layer() && l->layer()->type() == QgsMapLayer::VectorLayer ) {
                     mLayers->addItem( l->layer()->name(), QVariant::fromValue(static_cast<void*>(l->layer())) );
                 }
@@ -46,7 +46,7 @@ QgsEmbeddedLayerSelectDialog::QgsEmbeddedLayerSelectDialog( QWidget* parent, QMa
     }
 
     // providers
-    for ( auto pk : QgsProviderRegistry::instance()->providerList() ) {
+    foreach ( auto pk, QgsProviderRegistry::instance()->providerList() ) {
         mProviders->addItem( pk );
     }
 

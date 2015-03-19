@@ -75,7 +75,7 @@ void VLayerPlugin::initGui()
 
     // override entry in layer menu
     QMenu* layerMenu = iface_->layerMenu();
-    for ( auto action: layerMenu->actions() ) {
+    foreach ( QAction* action, layerMenu->actions() ) {
         if (action->objectName() == "mActionLayerSubsetString" ) {
             origLayerMenuAction_ = action;
             QAction* myAction = new QAction( action->text(), layerMenu );
@@ -105,7 +105,7 @@ void VLayerPlugin::onContextMenu( const QPoint& pos )
     QAction* myAction = new QAction(actionText, menu);
     connect( myAction, SIGNAL(triggered()), this, SLOT(onLayerFilterFromContextMenu()) );
 
-    for ( auto action : menu->actions() ) {
+    foreach ( QAction* action, menu->actions() ) {
         // look for the action by its text (!)
         if ( action->text() == actionText ) {
             origFilterAction_ = action;
@@ -285,7 +285,7 @@ VLayerPlugin::ParameterPairs VLayerPlugin::createVirtualLayer( const QList<QgsVe
         QStringList columns, tables, wheres;
         columns << "t.*";
         int join_idx = 0;
-        for ( auto& join : vl->vectorJoins() ) {
+        foreach ( const auto& join, vl->vectorJoins() ) {
             // join name for the query
             QString join_name = QString("j%1").arg(++join_idx);
 
@@ -306,7 +306,7 @@ VLayerPlugin::ParameterPairs VLayerPlugin::createVirtualLayer( const QList<QgsVe
 
             // is there a subset of joined fields ?
             if ( join.joinFieldNamesSubset() ) {
-                for ( auto& f : *join.joinFieldNamesSubset() ) {
+                foreach ( const auto& f, *join.joinFieldNamesSubset() ) {
                     columns << join_name + "." + f + " AS " + joined_layer->name() + "_" + f;
                 }
             }
@@ -398,7 +398,7 @@ void VLayerPlugin::duplicateLayerToVirtual( QgsVectorLayer* vl )
     ParameterPairs params( createVirtualLayer( layers ) );
     QUrl url;
     QString lname, lsource;
-    for ( auto& p : params ) {
+    foreach ( const auto& p, params ) {
         if ( p.first == "layer" ) {
             lname = p.second;
         }
@@ -449,7 +449,7 @@ void VLayerPlugin::addVectorLayer( const QString& source, const QString& name, c
             // look for the current layer
             QgsLayerTreeLayer* in_tree = QgsProject::instance()->layerTreeRoot()->findLayer( current->id() );
             int idx = 0;
-            for ( auto& vl : in_tree->parent()->children() ) {
+            foreach ( const auto& vl, in_tree->parent()->children() ) {
                 if ( vl->nodeType() == QgsLayerTreeNode::NodeLayer && static_cast<QgsLayerTreeLayer*>(vl)->layer() == current ) {
                     break;
                 }

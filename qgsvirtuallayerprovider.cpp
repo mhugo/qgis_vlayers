@@ -87,7 +87,7 @@ QgsVirtualLayerProvider::QgsVirtualLayerProvider( QString const &uri )
     }
 
     // connect to layer removal signals
-    for ( auto& layer : mLayers ) {
+    foreach ( const SourceLayer& layer, mLayers ) {
         if ( layer.layer ) {
             connect( layer.layer, SIGNAL(layerDeleted()), this, SLOT(onLayerDeleted()) );
         }
@@ -100,7 +100,7 @@ QgsVirtualLayerProvider::QgsVirtualLayerProvider( QString const &uri )
 
 bool QgsVirtualLayerProvider::loadSourceLayers_()
 {
-    for ( const auto& layer : mDefinition.sourceLayers() ) {
+    foreach ( const QgsVirtualLayerDefinition::SourceLayer& layer, mDefinition.sourceLayers() ) {
         if ( layer.isReferenced() ) {
             QgsMapLayer *l = QgsMapLayerRegistry::instance()->mapLayer( layer.reference() );
             if ( l == 0 ) {
@@ -199,19 +199,19 @@ bool QgsVirtualLayerProvider::createIt_()
 
         // look for layers
         QList<QString> tables = referencedTables( *queryTree );
-        for ( const auto& tname : tables ) {
+        foreach ( const QString& tname, tables ) {
             // is it in source layers ?
             if ( mDefinition.hasSourceLayer( tname ) ) {
                 continue;
             }
             // is it in loaded layers ?
             bool found = false;
-            for ( const auto& l : QgsMapLayerRegistry::instance()->mapLayers() ) {
+            foreach ( const QgsMapLayer* l, QgsMapLayerRegistry::instance()->mapLayers() ) {
                 if ( l->type() != QgsMapLayer::VectorLayer ) {
                     PROVIDER_ERROR( QString( "Referenced table %1 is not a vector layer!" ).arg(tname) );
                     return false;
                 }
-                const auto vl = static_cast<QgsVectorLayer*>(l);
+                const auto vl = static_cast<const QgsVectorLayer*>(l);
                 if ((vl->name() == tname) || (vl->id() == tname)) {
                     mDefinition.addSource( tname, vl->source(), vl->providerType() );
                     found = true;
@@ -319,7 +319,7 @@ bool QgsVirtualLayerProvider::createIt_()
             }
 
             int i = 1;
-            for ( auto& c: columns ) {
+            foreach ( QgsSql::ColumnType c, columns ) {
                 if ( c.isGeometry() ) {
                     gFields << c;
                 }
@@ -463,7 +463,7 @@ void QgsVirtualLayerProvider::resetSqlite()
 void QgsVirtualLayerProvider::onLayerDeleted()
 {
     QgsVectorLayer* vl = static_cast<QgsVectorLayer*>(sender());
-    for ( auto& layer : mLayers ) {
+    foreach ( const SourceLayer& layer, mLayers ) {
         if (layer.layer && layer.layer->id() == vl->id() ) {
             // must drop the corresponding virtual table
             Sqlite::Query::exec( mSqlite.get(), QString("DROP TABLE %1").arg(layer.name) );
@@ -646,5 +646,5 @@ QGISEXTERN bool isProvider()
 QGISEXTERN void cleanupProvider()
 {
     // unregister sqlite extension
-    sqlite3_cancel_auto_extension( (void(*)())qgsvlayer_module_init );
+    //sqlite3_cancel_auto_extension( (void(*)())qgsvlayer_module_init );
 }

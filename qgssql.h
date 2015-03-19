@@ -7,7 +7,7 @@
 
 namespace QgsSql
 {
-    struct NodeVisitor;
+    class NodeVisitor;
     class Node
     {
     public:
@@ -704,7 +704,7 @@ public:
 
     QList<ColumnType> findColumn( QString name ) const {
         QList<ColumnType> cdefs;
-        for ( auto& c: *this ) {
+        foreach ( const ColumnType& c, *this ) {
             if ( c.name().toLower() == name.toLower() ) {
                 cdefs << c;
             }
@@ -720,8 +720,8 @@ public:
 
     QList<ColumnType> findColumn( QString name ) const {
         QList<ColumnType> cdefs;
-        for ( auto& c: *this ) {
-            cdefs.append( c.findColumn( name ) );
+        foreach ( const TableDef& t, *this ) {
+            cdefs.append( t.findColumn( name ) );
         }
         return cdefs;
     }
