@@ -49,9 +49,15 @@ void TestSqlParser::testParsing()
 void TestSqlParser::testParsing2()
 {
     QString err;
-    std::unique_ptr<QgsSql::Node> n = QgsSql::parseSql( "select *, geometry as geom from departements", err );
-    std::cout << err.toUtf8().constData() << std::endl;
-    QVERIFY( n != 0 );
+    {
+        std::unique_ptr<QgsSql::Node> n = QgsSql::parseSql( "select *, geometry as geom from departements", err );
+        QVERIFY( n != 0 );
+    }
+    {
+        std::unique_ptr<QgsSql::Node> n = QgsSql::parseSql( "select * from (select 42 from t) as toto limit 1", err );
+        std::cout << err.toUtf8().constData() << std::endl;
+        QVERIFY( n != 0 );
+    }
 }
 
 void TestSqlParser::testRefTables()

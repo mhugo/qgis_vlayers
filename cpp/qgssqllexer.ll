@@ -197,6 +197,8 @@ string      "'"{str_char}*"'"
 "HAVING"    { return HAVING; }
 "EXISTS"    { return EXISTS; }
 "CAST"      { return CAST; }
+"LIMIT"     { return LIMIT; }
+"OFFSET"    { return OFFSET; }
 
 [()\.]      { return yytext[0]; }
 
