@@ -3,6 +3,7 @@
 
 
 #include <qgsvirtuallayerprovider.h>
+#include <qgsfeatureiterator.h>
 
 class QgsVirtualLayerFeatureSource : public QgsAbstractFeatureSource
 {

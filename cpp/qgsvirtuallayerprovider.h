@@ -23,9 +23,6 @@ email                : hugo dot mercier at oslandia dot com
 
 #include "qgsvirtuallayerdefinition.h"
 
-#include "spatialite/qgsspatialiteprovider.h"
-#include "spatialite/qgsspatialiteconnection.h"
-
 #include "common.h"
 
 class QgsVirtualLayerFeatureIterator;
