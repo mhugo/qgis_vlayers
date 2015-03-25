@@ -13,8 +13,8 @@ The current implementation is a functional prototype, designed as plugins for QG
 - an extension to QGIS DBManager for virtual layers
 
 Note :
-To fully benefit the QGIS integration, the following pull request must be merged (https://github.com/qgis/QGIS/pull/1911).
-In the meantime, you should use my branch (https://github.com/mhugo/QGIS/tree/fix_querybuilder_joins)
+To fully benefit the QGIS integration, the following pull request must be merged (https://github.com/qgis/QGIS/pull/1964).
+In the meantime, you should use my branch (https://github.com/mhugo/QGIS/tree/fix_querybuilder_joins2)
 
 Installation under Linux
 ------------------------
