@@ -443,7 +443,7 @@ void QgsVirtualLayerProvider::resetSqlite()
     if ( has_mtables ) {
         Sqlite::Query q( mSqlite.get(), "SELECT name FROM _tables WHERE id>0" );
         while ( q.step() == SQLITE_ROW ) {
-            sql += "DROP TABLE " + q.column_text(0) + ";";
+            sql += "DROP TABLE \"" + q.column_text(0) + "\";";
         }
         sql += "DELETE FROM _tables;";
         sql += "DELETE FROM _columns;";
@@ -466,7 +466,7 @@ void QgsVirtualLayerProvider::onLayerDeleted()
     foreach ( const SourceLayer& layer, mLayers ) {
         if (layer.layer && layer.layer->id() == vl->id() ) {
             // must drop the corresponding virtual table
-            Sqlite::Query::exec( mSqlite.get(), QString("DROP TABLE %1").arg(layer.name) );
+            Sqlite::Query::exec( mSqlite.get(), QString("DROP TABLE \"%1\"").arg(layer.name) );
         }
     }    
 }
