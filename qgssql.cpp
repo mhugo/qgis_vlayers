@@ -422,7 +422,6 @@ class OutputFunctionTypes : public QHash<QString, FunctionResult>
 
 OutputFunctionTypes initOutputFunctionTypes()
 {
-    std::cout << "initOutputFunctionTypes" << std::endl;
     OutputFunctionTypes t;
     t.add( "casttointeger1", QVariant::Int );
     t.add( "casttodouble1", QVariant::Double );
@@ -806,9 +805,13 @@ public:
     {
         // add all the columns of the table to the ref
         if ( defs_->find( t.name() ) != defs_->end() ) {
-			const auto& m = (*defs_)[t.name()];
-			for ( auto it = m.begin(); it != m.end(); it++ ) {
+            const auto& m = (*defs_)[t.name()];
+            for ( auto it = m.begin(); it != m.end(); it++ ) {
                 refs_[t.name()] << *it;
+                // also add to alias, if any
+                if (!t.alias().isEmpty()) {
+                    refs_[t.alias()] << *it;
+                }
             }
         }
     }
@@ -838,7 +841,7 @@ public:
         }
         else {
             // add all columns of ALL the tables
-			for ( auto it = refs_.begin(); it != refs_.end(); it++ ) {
+            for ( auto it = refs_.begin(); it != refs_.end(); it++ ) {
                 types.append( *it );
             }
         }

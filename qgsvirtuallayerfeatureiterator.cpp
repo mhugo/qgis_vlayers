@@ -86,8 +86,6 @@ QgsVirtualLayerFeatureIterator::QgsVirtualLayerFeatureIterator( QgsVirtualLayerF
             mSqlQuery += " WHERE " + wheres.join(" AND ");
         }
 
-        std::cout << mSqlQuery.toUtf8().constData() << std::endl;
-
         mQuery.reset( new Sqlite::Query( mSqlite.get(), mSqlQuery ) );
 
         mFid = 0;

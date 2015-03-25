@@ -218,6 +218,22 @@ void TestSqlParser::testColumnTypes()
         std::cout << err.toUtf8().constData() << std::endl;
         QVERIFY( err == "" );
     }
+    {
+        // unknown table
+        QString sql( "SELECT t2.* FROM t2" );
+        std::unique_ptr<Node> n( parseSql( sql, err ) );
+        QList<ColumnType> cdefs = columnTypes( *n, err, &t );
+        // no error
+        QVERIFY( cdefs.size() == 0 );
+        QVERIFY( err.contains("Unknown table t2") );
+    }
+    {
+        QString sql( "SELECT t2.* FROM t AS t2" );
+        std::unique_ptr<Node> n( parseSql( sql, err ) );
+        QList<ColumnType> cdefs = columnTypes( *n, err, &t );
+        // no error
+        QVERIFY( cdefs.size() == 2 );
+    }
 }
 
 QTEST_MAIN( TestSqlParser )
