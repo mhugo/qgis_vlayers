@@ -495,7 +495,7 @@ class TestQgsVirtualLayerProvider(TestCase):
         QgsMapLayerRegistry.instance().addMapLayer(l2)
 
         query = QUrl.toPercentEncoding( 'SELECT OBJECTId from "france parts"' )
-        l4 = QgsVectorLayer( "/tmp/t.sqlite?query=%s" % query, "tt", "virtual", False )
+        l4 = QgsVectorLayer( "query=%s" % query, "tt", "virtual", False )
         self.assertEqual( l4.isValid(), True )
         s = sum( f.attributes()[0] for f in l4.getFeatures() )
         self.assertEqual( s, 10659 )
