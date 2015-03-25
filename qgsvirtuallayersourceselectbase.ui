@@ -73,12 +73,12 @@
         </column>
         <column>
          <property name="text">
-          <string>Source</string>
+          <string>Provider</string>
          </property>
         </column>
         <column>
          <property name="text">
-          <string>Provider</string>
+          <string>Source</string>
          </property>
         </column>
        </widget>

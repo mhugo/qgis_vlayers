@@ -52,11 +52,11 @@ void QgsVirtualLayerSourceSelect::addSource( const QString& name, const QString&
     item = new QTableWidgetItem( name );
     mSourceLayers->setItem(n, 0, item );
 
-    item = new QTableWidgetItem( source );
+    item = new QTableWidgetItem( provider );
     item->setFlags( item->flags() & ~Qt::ItemIsEditable ); // not editable
     mSourceLayers->setItem(n, 1, item );
 
-    item = new QTableWidgetItem( provider );
+    item = new QTableWidgetItem( source );
     item->setFlags( item->flags() & ~Qt::ItemIsEditable ); // not editable
     mSourceLayers->setItem(n, 2, item );
 }
@@ -139,9 +139,9 @@ void QgsVirtualLayerSourceSelect::on_buttonBox_accepted()
 
     // embedded layers
     for ( int i = 0; i < mSourceLayers->rowCount(); i++ ) {
-            QString encodedSource( QUrl::toPercentEncoding(mSourceLayers->item(i,1)->text(), "", ":%") );
+            QString encodedSource( QUrl::toPercentEncoding(mSourceLayers->item(i,2)->text(), "", ":%") );
             QString v = QString("%1:%2:%3")
-                .arg(mSourceLayers->item(i, 2)->text(), encodedSource, mSourceLayers->item(i,0)->text() );
+                .arg(mSourceLayers->item(i, 1)->text(), encodedSource, mSourceLayers->item(i,0)->text() );
             url.addQueryItem( "layer", v );
     }
 
