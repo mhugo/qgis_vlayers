@@ -82,7 +82,7 @@ IF(WIN32)
       PATHS
         "$ENV{LIB_DIR}"
         "$ENV{LIB}"
-        "$ENV{OSGEO4W_ROOT}/apps/qgis/lib"S
+        "$ENV{OSGEO4W_ROOT}/apps/qgis/lib"
         "$ENV{OSGEO4W_ROOT}/lib"
         "$ENV{PROGRAMFILES}/QGIS/lib"
     )
