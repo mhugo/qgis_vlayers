@@ -180,7 +180,7 @@ QgsVirtualLayerDefinition virtualLayerDefinitionFromSqlite( const QString& path 
             }
         }
     }
-    // look for field overloaded types and geometry
+    // look for field types and geometry
     {
         Sqlite::Query q( sqlite.get(), "SELECT name, type FROM _columns WHERE table_id=0" );
         while ( q.step() == SQLITE_ROW ) {

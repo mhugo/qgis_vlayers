@@ -81,6 +81,7 @@ namespace Sqlite
             if (r) {
                 throw std::runtime_error( sqlite3_errmsg(db_) );
             }
+            nBind_ = 1;
         }
 
         int column_count() const

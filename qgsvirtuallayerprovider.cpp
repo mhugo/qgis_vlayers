@@ -144,6 +144,8 @@ bool QgsVirtualLayerProvider::openIt_()
         return false;
     }
 
+    mFields = mDefinition.overridenFields();
+
     /* only one table */
     if ( mDefinition.query().isEmpty() ) {
         mTableName = mLayers[0].name;
@@ -364,6 +366,16 @@ bool QgsVirtualLayerProvider::createIt_()
             reqGeometryField = gFields[0];
         }
 
+        // save fields
+        Sqlite::Query::exec( mSqlite.get(), "BEGIN" );
+        Sqlite::Query qq( mSqlite.get(), "INSERT INTO _columns (table_id, name, type) VALUES (0, ?, ?)" );
+        for ( int i = 0; i < mFields.size(); i++ ) {
+            qq.reset();
+            qq.bind( mFields.at(i).name() );
+            qq.bind( QVariant::typeToName(mFields.at(i).type()) );
+            qq.step();
+        }
+
         if ( !noGeometry ) {
             Sqlite::Query::exec( mSqlite.get(), QString("INSERT OR REPLACE INTO _columns (table_id, name, type) VALUES (0, '%1', '%2:%3')" )
                                  .arg(reqGeometryField.name())
@@ -382,6 +394,9 @@ bool QgsVirtualLayerProvider::createIt_()
         // create a view
         QString viewStr = "DROP VIEW IF EXISTS _view; CREATE VIEW _view AS " + mDefinition.query();
         Sqlite::Query::exec( mSqlite.get(), viewStr );
+
+        // end transaction
+        Sqlite::Query::exec( mSqlite.get(), "COMMIT" );
     }
     else {
         // no query => implies we must only have one virtual table

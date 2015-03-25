@@ -326,7 +326,10 @@ class TestQgsVirtualLayerProvider(TestCase):
         self.assertEqual( l2.isValid(), True )
         self.assertEqual( l2.dataProvider().geometryType(), 3 )
         self.assertEqual( l2.dataProvider().featureCount(), 4 )
-        print sum([f.id() for f in l2.getFeatures()])
+        sumid = sum([f.id() for f in l2.getFeatures()])
+        self.assertEqual(sumid, 10659)
+        suma = sum([f.attributes()[1] for f in l2.getFeatures()])
+        self.assertEqual( suma, 3064.0)
 
     def test_reopen4( self ):
         source = QUrl.toPercentEncoding(os.path.join(self.testDataDir_, "france_parts.shp"))
@@ -339,7 +342,10 @@ class TestQgsVirtualLayerProvider(TestCase):
         self.assertEqual( l2.isValid(), True )
         self.assertEqual( l2.dataProvider().geometryType(), 100 )
         self.assertEqual( l2.dataProvider().featureCount(), 4 )
-        print sum([f.id() for f in l2.getFeatures()])
+        sumid = sum([f.id() for f in l2.getFeatures()])
+        self.assertEqual(sumid, 10659)
+        suma = sum([f.attributes()[1] for f in l2.getFeatures()])
+        self.assertEqual( suma, 3064.0)
 
     def test_refLayer(self):
         l1 = QgsVectorLayer( os.path.join(self.testDataDir_, "test.csv") + "?type=csv&geomType=none&subsetIndex=no&watchFile=no", "test", "delimitedtext", False)
@@ -495,7 +501,7 @@ class TestQgsVirtualLayerProvider(TestCase):
         QgsMapLayerRegistry.instance().addMapLayer(l2)
 
         query = QUrl.toPercentEncoding( 'SELECT OBJECTId from "france parts"' )
-        l4 = QgsVectorLayer( "query=%s" % query, "tt", "virtual", False )
+        l4 = QgsVectorLayer( "?query=%s" % query, "tt", "virtual", False )
         self.assertEqual( l4.isValid(), True )
         s = sum( f.attributes()[0] for f in l4.getFeatures() )
         self.assertEqual( s, 10659 )
