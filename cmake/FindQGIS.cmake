@@ -118,6 +118,7 @@ ELSE(WIN32)
       PATHS
         ${QGIS_PREFIX_PATH}/share/qgis/
         /usr/share/qgis
+        /usr/local/share/qgis
     )
     # also get other frameworks' headers folders on OS X
     IF (APPLE)
