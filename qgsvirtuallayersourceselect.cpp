@@ -71,6 +71,11 @@ void QgsVirtualLayerSourceSelect::setUid( const QString& uid )
     mUidField->setText( uid );
 }
 
+void QgsVirtualLayerSourceSelect::setLayerName( const QString& name )
+{
+    mLayerName->setText( name );
+}
+
 void QgsVirtualLayerSourceSelect::setGeometryColumn( const QString& geom )
 {
     if ( geom == "*no*" ) {
@@ -202,6 +207,9 @@ QGISEXTERN QgsVirtualLayerSourceSelect *createWidget( QWidget *parent, Qt::Windo
         }
         else if (p.first == "file") {
             w->setFilename( p.second );
+        }
+        else if (p.first == "name") {
+            w->setLayerName( p.second );
         }
     }
     return w;

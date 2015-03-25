@@ -39,6 +39,7 @@ public:
     void addSource( const QString& name, const QString& source, const QString& provider );
     void setQuery( const QString& q );
     void setUid( const QString& uid );
+    void setLayerName( const QString& name );
     void setGeometryColumn( const QString& uid );
     void setFilename( const QString& );
 

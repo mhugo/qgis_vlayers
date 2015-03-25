@@ -200,6 +200,7 @@ void VLayerPlugin::onLayerSettings()
          static_cast<QgsVectorLayer*>(iface_->activeLayer())->providerType() == "virtual" ) {
         QString source = iface_->activeLayer()->source();
         QUrl url( QUrl::fromEncoded( source.toLocal8Bit() ) );
+        params.append( qMakePair( QString("name"), iface_->activeLayer()->name() ) );
         if (url.path().isEmpty()) {
             // temporary layer
             params.append( qMakePair(QString("fromUrl"), source) );
