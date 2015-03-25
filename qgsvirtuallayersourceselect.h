@@ -47,8 +47,6 @@ private slots:
 
     void onAddSource();
     void onRemoveSource();
-    void onAddField();
-    void onRemoveField();
     void onBrowse();
 
   signals:

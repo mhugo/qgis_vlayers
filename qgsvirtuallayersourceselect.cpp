@@ -36,8 +36,6 @@ QgsVirtualLayerSourceSelect::QgsVirtualLayerSourceSelect( QWidget* parent, Qt::W
 
     QObject::connect( mAddSourceBtn, SIGNAL(clicked()), this, SLOT(onAddSource()) );
     QObject::connect( mRemoveSourceBtn, SIGNAL(clicked()), this, SLOT(onRemoveSource()) );
-    QObject::connect( mAddFieldBtn, SIGNAL(clicked()), this, SLOT(onAddField()) );
-    QObject::connect( mRemoveFieldBtn, SIGNAL(clicked()), this, SLOT(onRemoveField()) );
     QObject::connect( mBrowseBtn, SIGNAL(clicked()), this, SLOT(onBrowse()) );
 }
 
@@ -109,31 +107,6 @@ void QgsVirtualLayerSourceSelect::onRemoveSource()
     mSourceLayers->removeRow(n);
 }
 
-void QgsVirtualLayerSourceSelect::onAddField()
-{
-    int n = mFields->rowCount() ? mFields->rowCount()-1 : 0;
-    mFields->insertRow(n);
-    QTableWidgetItem *item;
-
-    mFields->setItem( n, 0, new QTableWidgetItem( "new_field" ) );
-
-    item = new QTableWidgetItem();
-    QComboBox* box = new QComboBox();
-    box->addItem( "Integer" );
-    box->addItem( "Real" );
-    box->addItem( "String" );
-    mFields->setCellWidget( n, 1, box );
-}
-
-void QgsVirtualLayerSourceSelect::onRemoveField()
-{
-    int n = mFields->currentRow();
-    if ( n == -1 ) {
-        return;
-    }
-    mFields->removeRow(n);
-}
-
 void QgsVirtualLayerSourceSelect::onBrowse()
 {
     QSettings settings;
@@ -167,14 +140,6 @@ void QgsVirtualLayerSourceSelect::on_buttonBox_accepted()
             url.addQueryItem( "layer", v );
     }
 
-    // overloaded fields
-    for ( int i = 0; i < mFields->rowCount(); i++ ) {
-        QString name = mFields->item(i,0)->text();
-        int idx = static_cast<QComboBox*>(mFields->cellWidget(i,1))->currentIndex();
-        QString type = idx == 0 ? "int" : (idx == 1 ? "real" : "string");
-        QString v = name + ":" + type;
-        url.addQueryItem( "field", v );
-    }
     QString q = mQueryEdit->toPlainText();
     if ( ! q.isEmpty() ) {
         url.addQueryItem( "query", q );
