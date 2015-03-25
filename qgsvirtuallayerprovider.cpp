@@ -272,13 +272,13 @@ bool QgsVirtualLayerProvider::createIt_()
         QgsVectorLayer* vlayer = mLayers.at(i).layer;
         QString vname = mLayers.at(i).name;
         if ( vlayer ) {
-            QString createStr = QString("DROP TABLE IF EXISTS %1; CREATE VIRTUAL TABLE %1 USING QgsVLayer(%2);").arg(vname).arg(vlayer->id());
+            QString createStr = QString("DROP TABLE IF EXISTS \"%1\"; CREATE VIRTUAL TABLE \"%1\" USING QgsVLayer(%2);").arg(vname).arg(vlayer->id());
             Sqlite::Query::exec( mSqlite.get(), createStr );
         }
         else {
             QString provider = mLayers.at(i).provider;
             QString source = mLayers.at(i).source;
-            QString createStr = QString( "DROP TABLE IF EXISTS %1; CREATE VIRTUAL TABLE %1 USING QgsVLayer(%2,'%3')").arg(vname).arg(provider).arg(source);
+            QString createStr = QString( "DROP TABLE IF EXISTS \"%1\"; CREATE VIRTUAL TABLE \"%1\" USING QgsVLayer(%2,'%3')").arg(vname).arg(provider).arg(source);
             Sqlite::Query::exec( mSqlite.get(), createStr );
         }
     }

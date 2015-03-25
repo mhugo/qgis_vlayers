@@ -63,18 +63,32 @@ void TestSqlParser::testParsing2()
 void TestSqlParser::testRefTables()
 {
     QString err;
-    std::unique_ptr<QgsSql::Node> n( QgsSql::parseSql( "Select * From table, (select * from table2) as tt WHERE a IN (select id FROM table3)", err ) );
-    if ( !n ) {
-        std::cout << "ERROR: " << err.toUtf8().constData() << std::endl;
-        return;
+    {
+        std::unique_ptr<QgsSql::Node> n( QgsSql::parseSql( "Select * From table, (select * from table2) as tt WHERE a IN (select id FROM table3)", err ) );
+        if ( !n ) {
+            std::cout << "ERROR: " << err.toUtf8().constData() << std::endl;
+            return;
+        }
+
+        QList<QString> tables = QgsSql::referencedTables( *n );
+        QVERIFY( tables.size() == 3 );
+
+        QVERIFY( tables.contains("table") );
+        QVERIFY( tables.contains("table2") );
+        QVERIFY( tables.contains("table3") );
     }
+    {
+        std::unique_ptr<QgsSql::Node> n( QgsSql::parseSql( "Select * from \"Feuille 1\"", err ) );
+        if ( !n ) {
+            std::cout << "ERROR: " << err.toUtf8().constData() << std::endl;
+            return;
+        }
 
-    QList<QString> tables = QgsSql::referencedTables( *n );
-    QVERIFY( tables.size() == 3 );
+        QList<QString> tables = QgsSql::referencedTables( *n );
+        QVERIFY( tables.size() == 1 );
 
-    QVERIFY( tables.contains("table") );
-    QVERIFY( tables.contains("table2") );
-    QVERIFY( tables.contains("table3") );
+        QVERIFY( tables.contains("Feuille 1") );
+    }
 }
 
 

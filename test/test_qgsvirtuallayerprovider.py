@@ -482,17 +482,24 @@ class TestQgsVirtualLayerProvider(TestCase):
         l2 = QgsVectorLayer( os.path.join(self.testDataDir_, "france_parts.shp"), "france_parts", "ogr", False )
         self.assertEqual( l2.isValid(), True )
         QgsMapLayerRegistry.instance().addMapLayer(l2)
-        print l2.id()
-
-        print "list"
-        for k,v in QgsMapLayerRegistry.instance().mapLayers().items():
-            print k, v.name()
 
         query = QUrl.toPercentEncoding( "SELECT OBJECTId from france_parts" )
         l4 = QgsVectorLayer( "?query=%s" % query, "tt", "virtual", False )
         self.assertEqual( l4.isValid(), True )
         s = sum( f.attributes()[0] for f in l4.getFeatures() )
         self.assertEqual( s, 10659 )
+
+    def test_space_in_layer_name(self):
+        l2 = QgsVectorLayer( os.path.join(self.testDataDir_, "france_parts.shp"), "france parts", "ogr", False )
+        self.assertEqual( l2.isValid(), True )
+        QgsMapLayerRegistry.instance().addMapLayer(l2)
+
+        query = QUrl.toPercentEncoding( 'SELECT OBJECTId from "france parts"' )
+        l4 = QgsVectorLayer( "/tmp/t.sqlite?query=%s" % query, "tt", "virtual", False )
+        self.assertEqual( l4.isValid(), True )
+        s = sum( f.attributes()[0] for f in l4.getFeatures() )
+        self.assertEqual( s, 10659 )
+
 
 if __name__ == '__main__':
     unittest.main()
