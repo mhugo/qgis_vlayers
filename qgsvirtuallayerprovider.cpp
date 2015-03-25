@@ -28,7 +28,7 @@ extern "C" {
 #include <qgsvectorlayer.h>
 #include <qgsmaplayerregistry.h>
 #include <qgsdatasourceuri.h>
-#include "common.h"
+#include "sqlite_helper.h"
 #include "vlayer_module.h"
 
 const QString VIRTUAL_LAYER_KEY = "virtual";

@@ -5,7 +5,9 @@
 #include <iostream>
 
 #include "qgsvirtuallayerdefinition.h"
-#include "common.h"
+#include "sqlite_helper.h"
+
+#define VIRTUAL_LAYER_VERSION 1
 
 QGis::WkbType geometry_type_to_wkb_type( const QString& wkb_str )
 {

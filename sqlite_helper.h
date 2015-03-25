@@ -7,8 +7,6 @@ extern "C" {
 
 #include <memory>
 
-#define VIRTUAL_LAYER_VERSION 1
-
 // custom deleter for QgsSqliteHandle
 struct SqliteHandleDeleter
 {

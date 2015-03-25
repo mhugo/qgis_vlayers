@@ -23,7 +23,7 @@ email                : hugo dot mercier at oslandia dot com
 
 #include "qgsvirtuallayerdefinition.h"
 
-#include "common.h"
+#include "sqlite_helper.h"
 
 class QgsVirtualLayerFeatureIterator;
 
