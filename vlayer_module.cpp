@@ -205,6 +205,15 @@ std::unique_ptr<QgsGeometry> spatialite_blob_to_qgsgeometry( const unsigned char
     wkb[0] = 0x01; // endianness
     memcpy( wkb + 1, blob + header_size, wkb_size );
 
+    // convert wkb types between spatialite and qgsgeometry
+    uint32_t type = *(uint32_t*)(wkb+1);
+    uint32_t type2 = type;
+    if ( type > 1000 ) {
+        // Z flag
+        type2 = type2 - 1000 + 0x80000000;
+    }
+    *(uint32_t*)(wkb+1) = type2;
+
     std::unique_ptr<QgsGeometry> geom(new QgsGeometry());
     geom->fromWkb( wkb, wkb_size );
     return geom;
