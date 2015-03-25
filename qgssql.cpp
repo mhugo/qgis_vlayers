@@ -9,6 +9,23 @@
 namespace QgsSql
 {
 
+QList<ColumnType> TableDef::findColumn( QString name ) const
+{
+    QList<ColumnType> cdefs;
+    QString n = name.toLower();
+    if ( (n == "_rowid_") || (n == "rowid") || (n == "oid") ) {
+        ColumnType c( n, QVariant::Int );
+        cdefs << c;
+        return cdefs;
+    }
+    foreach ( const ColumnType& c, *this ) {
+        if ( c.name().toLower() == n ) {
+            cdefs << c;
+        }
+    }
+    return cdefs;
+}
+
 void Node::accept( NodeVisitor& v ) const {
     v.visit( *this );
 }
@@ -1143,6 +1160,7 @@ QList<ColumnType> columnTypes_r( const Node& n, const TableDefs* tableContext )
 QList<ColumnType> columnTypes( const Node& n, QString& errMsg, const TableDefs* tableContext )
 {
     QList<ColumnType> cdefs;
+    errMsg = "";
     try
     {
         cdefs = columnTypes_r( n, tableContext );

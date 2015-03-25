@@ -189,6 +189,21 @@ void TestSqlParser::testColumnTypes()
         QVERIFY( cdefs[1].scalarType() == QVariant::Invalid );
         QVERIFY( cdefs[1].name().isEmpty() );
     }
+    {
+        // rowid column
+        QString sql( "SELECT rowid FROM t" );
+        std::unique_ptr<Node> n( parseSql( sql, err ) );
+        if ( !n ) {
+            std::cout << "ERROR: " << err.toUtf8().constData() << std::endl;
+            return;
+        }
+        QList<ColumnType> cdefs = columnTypes( *n, err, &t );
+        // no error
+        QVERIFY( cdefs.size() == 1 );
+        QVERIFY( cdefs[0].scalarType() == QVariant::Int );
+        std::cout << err.toUtf8().constData() << std::endl;
+        QVERIFY( err == "" );
+    }
 }
 
 QTEST_MAIN( TestSqlParser )

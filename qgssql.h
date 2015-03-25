@@ -702,15 +702,7 @@ class TableDef : public QList<ColumnType>
 public:
     TableDef() : QList<ColumnType>() {}
 
-    QList<ColumnType> findColumn( QString name ) const {
-        QList<ColumnType> cdefs;
-        foreach ( const ColumnType& c, *this ) {
-            if ( c.name().toLower() == name.toLower() ) {
-                cdefs << c;
-            }
-        }
-        return cdefs;
-    }
+    QList<ColumnType> findColumn( QString name ) const;
 };
 
 class TableDefs : public QMap<QString, TableDef>
