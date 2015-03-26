@@ -81,20 +81,6 @@ class TestQgsVirtualLayerProvider(TestCase):
 
         QgsMapLayerRegistry.instance().removeMapLayer(l1.id())        
 
-    def test_FieldTypes(self):
-        l1 = QgsVectorLayer( os.path.join(self.testDataDir_, "testextpt.txt") + "?type=csv&delimiter=%7C&geomType=none&subsetIndex=no&watchFile=no", "test", "delimitedtext", False)
-        self.assertEqual( l1.isValid(), True )
-        QgsMapLayerRegistry.instance().addMapLayer(l1)
-
-        l2 = QgsVectorLayer( "?layer_ref=%s&field=x:double" % l1.id(), "vtab", "virtual", False )
-        self.assertEqual( l2.isValid(), True )
-        for f in l2.dataProvider().fields():
-            if f.name() == "x":
-                self.assertEqual( f.type(), QVariant.Double )
-        print sum([f.id() for f in l2.getFeatures()])
-
-        QgsMapLayerRegistry.instance().removeMapLayer(l1.id())        
-
     def test_ShapefileWithGeometry(self):
         l1 = QgsVectorLayer( os.path.join(self.testDataDir_, "france_parts.shp"), "france_parts", "ogr", False )
         self.assertEqual( l1.isValid(), True )

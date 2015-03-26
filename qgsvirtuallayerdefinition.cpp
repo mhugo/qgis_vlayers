@@ -107,23 +107,6 @@ void QgsVirtualLayerDefinition::fromUrl( const QUrl& url )
             std::cout << "nogeometry!!!" << std::endl;
             mGeometryField = "*no*";
         }
-        else if ( key == "field" ) {
-            QRegExp reGeom( "(\\w+):(int|integer|real|double|string|text)" );
-            int pos = reGeom.indexIn( value );
-            if ( pos >= 0 ) {
-                QVariant::Type type;
-                if ( (reGeom.cap(2) == "int")||(reGeom.cap(2) == "integer") ) {
-                    type = QVariant::Int;
-                }
-                else if ( (reGeom.cap(2) == "real")||(reGeom.cap(2) == "double") ) {
-                    type = QVariant::Double;
-                }
-                else {
-                    type = QVariant::String;
-                }
-                mOverridenFields.append( QgsField( reGeom.cap(1), type, reGeom.cap(2) ) );
-            }
-        }
         else if ( key == "uid" ) {
             mUid = value;
         }
