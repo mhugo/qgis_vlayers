@@ -703,6 +703,8 @@ public:
     TableDef() : QList<ColumnType>() {}
 
     QList<ColumnType> findColumn( QString name ) const;
+
+    QgsFields toFields() const;
 };
 
 class TableDefs : public QMap<QString, TableDef>

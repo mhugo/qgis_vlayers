@@ -26,6 +26,17 @@ QList<ColumnType> TableDef::findColumn( QString name ) const
     return cdefs;
 }
 
+QgsFields TableDef::toFields() const
+{
+    QgsFields fields;
+    foreach ( const ColumnType& c, *this ) {
+        if ( !c.isGeometry() ) {
+            fields.append( QgsField( c.name(), c.scalarType() ) );
+        }
+    }
+    return fields;
+}
+
 void Node::accept( NodeVisitor& v ) const {
     v.visit( *this );
 }
