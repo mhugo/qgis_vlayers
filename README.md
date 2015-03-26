@@ -1,7 +1,7 @@
 Virtual layers for QGIS
 =======================
 
-You can find here sources of an extension to QGIS that introduces "virtual layers" which are a database views over existing QGIS (vector) layers.
+You can find here sources of an extension to QGIS that introduces "virtual layers" which are database views over existing QGIS (vector) layers.
 These layers can be built by the use of the powerful SQL language and then allow for advanced uses in a consistent manner :
 joins between different layers, including spatial joins, subset selection, type conversion, on-the-fly attribute and geometry generation, etc.
 
@@ -49,10 +49,8 @@ You will need Flex/Bison for the SQL parser. Make FLEX_EXECUTABLE and BISON_EXEC
 Type `nmake` to compile and `nmake install` to install.
 
 
-Usage
------
-
-Under QGIS :
+Usage in  QGIS
+--------------
 
 - You can create a new virtual layer through the "New layer" menu
 - You can open a saved virtual layer through the "Add layer" menu
@@ -61,5 +59,18 @@ Under QGIS :
 - In DBManager, there is a new entry "virtual layers" where you can use SQL query to setup a virtual layer
 
 Standalone Spatialite extension
+-------------------------------
 
-TODO
+Virtual layers can also be created and queried directly using Spatialite (in command line or through other clients). The extension must be loaded with spatialite. The extension may need proper environment variables to be set. Under Linux, the variable `QGIS_PREFIX_PATH` must be set.
+
+Session example :
+```
+# load spatialite with QGIS_PREFIX_PATH set
+QGIS_PREFIX_PATH=/usr/local spatialite
+# load the extension
+select load_extension('/usr/local/lib/qgis/plugins/libvirtuallayerprovider.so', 'qgsvlayer_module_init');
+# now, you can use the QgsVLayer module to create virtual tables
+CREATE VIRTUAL TABLE "Table1" USING QgsVLayer(ogr,'poi.ods');
+# ... and query them
+SELECT * FROM Table1
+```
