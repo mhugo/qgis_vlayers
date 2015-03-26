@@ -618,6 +618,15 @@ QString QgsVirtualLayerProvider::description() const
 
 QgsAttributeList QgsVirtualLayerProvider::pkAttributeIndexes()
 {
+    if ( !mDefinition.uid().isNull() ) {
+        for ( int i = 0; i < mFields.size(); i++ ) {
+            if ( mFields.at(i).name().toLower() == mDefinition.uid().toLower() ) {
+                QgsAttributeList l;
+                l << i;
+                return l;
+            }
+        }
+    }
     return QgsAttributeList();
 }
 

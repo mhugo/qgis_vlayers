@@ -438,7 +438,7 @@ class TestQgsVirtualLayerProvider(TestCase):
         r = QgsFeatureRequest()
         r.setFlags( QgsFeatureRequest.SubsetOfAttributes )
         r.setSubsetOfAttributes([1])
-        s = [(f.id(), f.attributes()[0]) for f in l5.getFeatures(r)]
+        s = [(f.id(), f.attributes()[1]) for f in l5.getFeatures(r)]
         self.assertEqual(sum(map(lambda x:x[0], s)), 10659)
         self.assertEqual(sum(map(lambda x:x[1], s)), 3064.0)
 

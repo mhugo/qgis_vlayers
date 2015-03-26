@@ -48,6 +48,8 @@ class QgsVirtualLayerFeatureIterator : public QgsAbstractFeatureIteratorFromSour
 
     // Index of the id column, -1 if none
     int mUidColumn;
+
+    QgsAttributeList mAttributes;
 };
 
 #endif

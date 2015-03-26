@@ -51,14 +51,16 @@ QgsVirtualLayerFeatureIterator::QgsVirtualLayerFeatureIterator( QgsVirtualLayerF
             wheres << values;
         }
 
+        mFields = mSource->provider()->fields();
         if ( request.flags() & QgsFeatureRequest::SubsetOfAttributes ) {
+
             // copy only selected fields
             foreach ( int idx, request.subsetOfAttributes() ) {
-                mFields.append( mSource->provider()->fields().at(idx) );
+                mAttributes << idx;
             }
         }
         else {
-            mFields = mSource->provider()->fields();
+            mAttributes = mFields.allAttributesList();
         }
 
         QString columns;
@@ -70,7 +72,7 @@ QgsVirtualLayerFeatureIterator::QgsVirtualLayerFeatureIterator( QgsVirtualLayerF
             else {
                 columns = "0";
             }
-            for ( int i = 0; i < mFields.count(); i++ ) {
+            foreach( int i, mAttributes ) {
                 columns += ",";
                 QString cname = mFields.at(i).name().toLower();
                 columns += quotedColumn(cname);
@@ -147,19 +149,21 @@ bool QgsVirtualLayerFeatureIterator::fetchFeature( QgsFeature& feature )
     }
 
     int n = mQuery->column_count();
-    for ( int i = 0; i < mFields.count(); i++ ) {
-        const QgsField& f = mFields.at(i);
+    int i = 0;
+    foreach( int idx, mAttributes ) {
+        const QgsField& f = mFields.at(idx);
         if ( f.type() == QVariant::Int ) {
-            feature.setAttribute( i, mQuery->column_int(i+1) );
+            feature.setAttribute( idx, mQuery->column_int(i+1) );
         }
         else if ( f.type() == QVariant::Double ) {
-            feature.setAttribute( i, mQuery->column_double(i+1) );
+            feature.setAttribute( idx, mQuery->column_double(i+1) );
         }
         else if ( f.type() == QVariant::String ) {
-            feature.setAttribute( i, mQuery->column_text(i+1) );
+            feature.setAttribute( idx, mQuery->column_text(i+1) );
         }
+        i++;
     }
-    if (n > mFields.count()+1) {
+    if (n > mAttributes.size()+1) {
         // geometry field
         QByteArray blob( mQuery->column_blob(n-1) );
         if ( blob.size() > 0 ) {
