@@ -363,7 +363,7 @@ INSTALL(TARGETS vlayer_plugin
 
 SET(TEST_PARSER_SRCS
   qgssql.cpp
-  test_parser.cpp
+  test/test_parser.cpp
 )
 ADD_FLEX_FILES(TEST_PARSER_SRCS qgssqllexer.ll)
 ADD_BISON_FILES(TEST_PARSER_SRCS qgssqlparser.yy)
