@@ -481,12 +481,13 @@ class TestQgsVirtualLayerProvider(TestCase):
         s = sum( f.attributes()[0] for f in l4.getFeatures() )
         self.assertEqual( s, 10659 )
 
-    def test_space_in_layer_name(self):
-        l2 = QgsVectorLayer( os.path.join(self.testDataDir_, "france_parts.shp"), "france parts", "ogr", False )
+    def test_layer_name(self):
+        # test space and upper case
+        l2 = QgsVectorLayer( os.path.join(self.testDataDir_, "france_parts.shp"), "FranCe parts", "ogr", False )
         self.assertEqual( l2.isValid(), True )
         QgsMapLayerRegistry.instance().addMapLayer(l2)
 
-        query = QUrl.toPercentEncoding( 'SELECT OBJECTId from "france parts"' )
+        query = QUrl.toPercentEncoding( 'SELECT OBJECTId from "FranCe parts"' )
         l4 = QgsVectorLayer( "?query=%s" % query, "tt", "virtual", False )
         self.assertEqual( l4.isValid(), True )
         s = sum( f.attributes()[0] for f in l4.getFeatures() )

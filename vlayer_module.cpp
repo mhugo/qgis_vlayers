@@ -574,7 +574,7 @@ int vtable_create_connect( sqlite3* sql, void* aux, int argc, const char* const*
             columns_str += QString("INSERT INTO _columns VALUES(%1,'*geometry*','%2:%3:%4');").arg(table_id).arg(geometry_wkb_type).arg(geometry_dim).arg(srid);
             columns_str += QString( "INSERT OR REPLACE INTO virts_geometry_columns (virt_name, virt_geometry, geometry_type, coord_dimension, srid) "
                                     "VALUES ('%1', 'geometry', %2, %3, %4 );" )
-                .arg(vname)
+                .arg(vname.toLower())
                 .arg(geometry_wkb_type)
                 .arg(geometry_dim)
                 .arg(srid);
@@ -582,7 +582,7 @@ int vtable_create_connect( sqlite3* sql, void* aux, int argc, const char* const*
             QgsRectangle extent = new_vtab->provider()->extent();
             columns_str += QString("INSERT OR REPLACE INTO virts_geometry_columns_statistics (virt_name, virt_geometry, last_verified, row_count, extent_min_x, extent_min_y, extent_max_x, extent_max_y) "
                                  "VALUES ('%1', 'geometry', datetime('now'), %2, %3, %4, %5, %6);")
-                .arg(vname)
+                .arg(vname.toLower())
                 .arg(new_vtab->provider()->featureCount())
                 .arg(extent.xMinimum())
                 .arg(extent.yMinimum())
@@ -658,7 +658,7 @@ int vtable_destroy( sqlite3_vtab *vtab )
         sqlite3_finalize(stmt);
 
         if ( table_id ) {
-            QString q = QString("DELETE FROM _columns WHERE table_id=%1;DELETE FROM _tables WHERE id=%1;DELETE FROM virts_geometry_columns WHERE virt_name='%2';").arg(table_id).arg(vtable->name());
+            QString q = QString("DELETE FROM _columns WHERE table_id=%1;DELETE FROM _tables WHERE id=%1;DELETE FROM virts_geometry_columns WHERE virt_name='%2';").arg(table_id).arg(vtable->name().toLower());
             char *errMsg;
             r = sqlite3_exec( vtable->sql(), q.toLocal8Bit().constData(), NULL, NULL, &errMsg );
             if ( r ) return r;
