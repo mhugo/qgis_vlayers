@@ -323,7 +323,7 @@ VLayerPlugin::ParameterPairs VLayerPlugin::createVirtualLayer( const QList<QgsVe
 
             // add reference to the joined layer
             params.append( qMakePair( QString("layer"), join_name ) );
-            params.append( qMakePair( QString("source"), QString(QUrl::toPercentEncoding(joined_layer->source(), VLAYER_CHAR_ESCAPING)) ) );
+            params.append( qMakePair( QString("source"), QString(QUrl::toPercentEncoding(joined_layer->source(), "", VLAYER_CHAR_ESCAPING)) ) );
             params.append( qMakePair( QString("provider"), joined_layer->providerType() ) );
         }
 
