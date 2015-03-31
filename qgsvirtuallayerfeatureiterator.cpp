@@ -155,6 +155,9 @@ bool QgsVirtualLayerFeatureIterator::fetchFeature( QgsFeature& feature )
         if ( f.type() == QVariant::Int ) {
             feature.setAttribute( idx, mQuery->column_int(i+1) );
         }
+        else if ( f.type() == QVariant::LongLong ) {
+            feature.setAttribute( idx, mQuery->column_int64(i+1) );
+        }
         else if ( f.type() == QVariant::Double ) {
             feature.setAttribute( idx, mQuery->column_double(i+1) );
         }
