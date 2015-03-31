@@ -97,8 +97,6 @@ class LSqlResultModel(BaseTableModel):
                         a += [None]
                 data += [a]
 
-            os.remove( tmp )
-
         self._secs = 0
         self._affectedRows = len(data)
 
