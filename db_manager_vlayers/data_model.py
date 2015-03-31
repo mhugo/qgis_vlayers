@@ -76,7 +76,6 @@ class LSqlResultModel(BaseTableModel):
         if not p.isValid():
             data = []
             header = []
-            os.remove( tmp )
             raise DbError(p.error().message(QgsErrorMessage.Text), sql)
         else:
             header = [f.name() for f in p.fields()]
