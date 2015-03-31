@@ -79,7 +79,6 @@ class VLayerRegistry:
 
     def getLayer( self, l ):
         lid = self.layers.get(l)
-        print "getLayer", l, "lid = ", lid
         if lid is None:
             return lid
         return QgsMapLayerRegistry.instance().mapLayer(lid)
@@ -101,7 +100,6 @@ class VLayerConnector(DBConnector):
             print "_get_cursor_", name
 
         def _get_cursor_columns( self, c ):
-            print "_get_cursor_columns", c
             tf = QTemporaryFile()
             tf.open()
             tmp = tf.fileName()
@@ -151,7 +149,7 @@ class VLayerConnector(DBConnector):
         def getSchemas(self):
                 return None
 
-        def getTables(self, schema=None):
+        def getTables(self, schema=None, add_sys_tables = False):
                 """ get list of tables """
                 return self.getVectorTables()
 
@@ -178,7 +176,6 @@ class VLayerConnector(DBConnector):
                         if reg.has_key( lname ):
                             # use layer id as name
                             lname = l.id()
-                        print "***** add ", lname
                         VLayerRegistry.instance().set( lname, l.id() )
 
                         geomType = None
@@ -231,7 +228,6 @@ class VLayerConnector(DBConnector):
 
         def getTableFields(self, table):
                 """ return list of columns in table """
-                print "table", table
                 t = table[1]
                 l = VLayerRegistry.instance().getLayer(t)
                 # id, name, type, nonnull, default, pk
@@ -393,3 +389,8 @@ class VLayerConnector(DBConnector):
 
                     sql_dict["identifier"] = items
                 return sql_dict
+
+        def getQueryBuilderDictionary(self):
+            from .sql_dictionary import getQueryBuilderDictionary
+
+            return getQueryBuilderDictionary()

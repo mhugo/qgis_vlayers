@@ -60,8 +60,6 @@ class LTableDataModel(TableDataModel):
 class LSqlResultModel(BaseTableModel):
     # BaseTableModel
     def __init__( self, db, sql, parent = None ):
-        print "db=", db, "sql=", sql, "parent=", parent
-
         # create a virtual layer with non-geometry results
         q = QUrl.toPercentEncoding(sql)
         t = QTime()

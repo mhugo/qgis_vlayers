@@ -37,7 +37,6 @@ except ImportError:
 
 
 def classFactory():
-    print "class Factory"
     return VLayerDBPlugin
 
 class VLayerDBPlugin(DBPlugin):
@@ -67,24 +66,20 @@ class VLayerDBPlugin(DBPlugin):
             return [VLayerDBPlugin('QGIS layers')]
 
         def databasesFactory(self, connection, uri):
-            print "factory", connection, uri
             return FakeDatabase(connection, uri)
 
         def database( self ):
-            print "database", self.db
             return self.db
 
         #def info( self ):
 
         def connect(self, parent=None):
-            print "connect"
             self.connectToUri( "qgis" )
             return True
 
 
 class FakeDatabase(Database):
         def __init__(self, connection, uri):
-            print "FakeDatabase", connection, uri
             Database.__init__(self, connection, uri)
 
         def connectorsFactory(self, uri):
@@ -111,7 +106,12 @@ class FakeDatabase(Database):
 
         def toSqlLayer(self, sql, geomCol, uniqueCol, layerName="QueryLayer", layerType=None, avoidSelectById=False):
             q = QUrl.toPercentEncoding(sql)
-            return QgsVectorLayer("?query=%s&uid=%s&geometry=%s" %(q, uniqueCol, geomCol), layerName, "virtual" )
+            s = "?query=%s" % q
+            if uniqueCol is not None:
+                s += "&uid=" + uniqueCol
+            if geomCol is not None:
+                s += "&geometry=" + geomCol
+            return QgsVectorLayer(s, layerName, "virtual" )
 
         def registerDatabaseActions(self, mainWindow):
             return
@@ -135,7 +135,6 @@ class LTable(Table):
 
 class LVectorTable(LTable, VectorTable):
         def __init__(self, row, db, schema=None):
-            print "LVectorTable", row, db, schema
             LTable.__init__(self, row[:-5], db, schema)
             VectorTable.__init__(self, db, schema)
             # SpatiaLite does case-insensitive checks for table names, but the
