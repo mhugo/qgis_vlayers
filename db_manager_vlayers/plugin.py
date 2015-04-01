@@ -118,6 +118,15 @@ class FakeDatabase(Database):
         def runAction(self, action):
             return
 
+        def uniqueIdFunction(self):
+            return None
+
+        def explicitSpatialIndex( self ):
+            return True
+
+        def spatialIndexClause( self, src_table, src_column, dest_table, dest_column ):
+            return '"%s"._search_frame_ = "%s"."%s"' % (src_table,dest_table, dest_column)
+
 
 class LTable(Table):
         def __init__(self, row, db, schema=None):
@@ -148,7 +157,7 @@ class LVectorTable(LTable, VectorTable):
                 return uri
 
         def hasSpatialIndex(self, geom_column=None):
-            return False
+            return True
 
         def createSpatialIndex(self, geom_column=None):
             return
