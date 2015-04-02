@@ -49,14 +49,20 @@ You will need Flex/Bison for the SQL parser. Make FLEX_EXECUTABLE and BISON_EXEC
 
 Type `nmake` to compile and `nmake install` to install.
 
-Usage in  QGIS
---------------
+Usage in QGIS
+-------------
 
 - You can create a new virtual layer through the "New layer" menu
 - You can open a saved virtual layer through the "Add layer" menu
 - A virtual layer can be created out of a layer selection by right click in the context menu
 - If you want to filter a layer that has "joins", it will propose to copy it to a virtual layer (this is where the pull request is required)
 - In DBManager, there is a new entry "virtual layers" where you can use an SQL query to setup a virtual layer
+
+Videos :
+
+* https://vimeo.com/123287075
+* https://vimeo.com/123287077
+* https://vimeo.com/123287076
 
 Standalone Spatialite extension
 -------------------------------
