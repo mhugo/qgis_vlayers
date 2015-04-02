@@ -67,11 +67,15 @@ Session example :
 ```
 # load spatialite with QGIS_PREFIX_PATH set
 QGIS_PREFIX_PATH=/usr/local spatialite
-# load the extension
+```
+
+And then, in spatialite
+```SQL
+-- load the extension
 select load_extension('/usr/local/lib/qgis/plugins/libvirtuallayerprovider.so', 'qgsvlayer_module_init');
-# now, you can use the QgsVLayer module to create virtual tables
+-- now, you can use the QgsVLayer module to create virtual tables
 CREATE VIRTUAL TABLE "Table1" USING QgsVLayer(ogr,'poi.ods');
-# ... and query them
+-- ... and query them
 SELECT * FROM Table1
 ```
 
@@ -83,24 +87,24 @@ a set of key-value pairs.
 
 It can then be used directly either in Python or in C++.
 
-To reference a layer, use the key "layer". The value is a string with three fields separated by a colon : "provider:source[:name]".
+To reference a layer, use the key `layer`. The value is a string with three fields separated by a colon : `provider:source[:name]`.
 
 * The first field is the name of the QGIS provider to use
 * The second field is the source string. If it contains special characters, and especially ":", "&", "?" or "=" it must be escaped with the percentage sign (see QUrl.toPercentEncoding)
 * The third field is optional and is here to name the layer for reference in an SQL query. If no name is specified, each referenced layer will be named "vtabN" with an incrementing N integer.
 
-A "live" layer already loaded by QGIS can also be referenced by using the key "layer_ref". The corresponding value is "layer_id[:name]".
+A "live" layer already loaded by QGIS can also be referenced by using the key `layer_ref`. The corresponding value is `layer_id[:name]`.
 Currently, layers referenced this way are not available from the creation UI. Internally, features are accessed by the provider, rather directly by the layer. This is a known limitation.
 
-The "geometry" key is used to set the geometry column name, type and SRID. Its syntax is "column_name[:type:srid]". The type field can be a string (point, linestring, etc.) or a QGis::WkbType.
+The `geometry` key is used to set the geometry column name, type and SRID. Its syntax is `column_name[:type:srid]`. The type field can be a string (point, linestring, etc.) or a QGis::WkbType.
 SRID is an EPSG code.
 
-A parameter allows to ignore any geometry column, resulting in an attribute-only layer : "nogeometry"
+A parameter allows to ignore any geometry column, resulting in an attribute-only layer : `nogeometry`
 
-The "uid" key allows to specifiy which column must be used as an identifier for each feature. This is not mandatory. If no uid is specified, the underlying provider will autoincrement an integer for
+The `uid` key allows to specifiy which column must be used as an identifier for each feature. This is not mandatory. If no uid is specified, the underlying provider will autoincrement an integer for
 each feature.
 
-The "query" key allows to use an SQL query to setup the layer. It should also be escaped. Layer references are not strictly necessary. If the query uses names of existing QGIS layers (or their ID),
+The `query` key allows to use an SQL query to setup the layer. It should also be escaped. Layer references are not strictly necessary. If the query uses names of existing QGIS layers (or their ID),
 they will be automatically referenced. Name and type of the geometry column will also be detected.
 
 Serialization
@@ -126,28 +130,28 @@ Examples
 
 Minimal syntax to set an SQL query out of an existing layer (Python syntax)
 
-```
+```python
 l = QgsVectorLayer( "?query=SELECT a,b FROM tab", "myvlayer", "virtual" )
 ```
 
 A join between two shapefiles where the uid and the geometry column are set :
-```
+```python
 q = QUrl.toPercentEncoding("SELECT a.* FROM shp1 AS a, shp2 AS b WHERE Intersects(a.geometry,b.geometry)")
 l = QgsVectorLayer( "?layer=ogr:/data/myshape.shp:shp1&layer=ogr:/data/myshape2.shp:shp2&query=%s&uid=id&geometry=geometry:2:4326" % q, "myjoin", "virtual" )
 ```
 
 Minimal syntax to create a virtual layer on a single layer (equivalent to SELECT * FROM)
-```
+```python
 l = QgsVectorLayer( "?layer=ogr:/data/myfile.shp", "myvlayer", "virtual" )
 ```
 
 Creation of a virtual layer and storage in a file :
-```
+```python
 l = QgsVectorLayer( "/myvlayer.sqlite?query=SELECT * FROM ta, tb", "myvlayer", "virtual" )
 ```
 
 Opening of an existing virtual layer:
-```
+```python
 l = QgsVectorLayer( "/myvlayer.sqlite", "myvlayer", "virtual" )
 ```
 
@@ -163,7 +167,7 @@ to restrain the query to a particular region of space. This bounding box is pass
 So that use of spatial indexes must be explicit.
 
 For example :
-```
+```SQL
 SELECT * FROM pt, poly WHERE pt._search_frame_ = poly.geometry AND Intersects(pt.geometry, poly.geometry)
 ```
 
