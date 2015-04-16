@@ -224,17 +224,19 @@ class VLayerConnector(DBConnector):
             return []
 
         def getTableRowCount(self, table):
-            print "getTableRowCount", table
+            t = table[1]
+            l = VLayerRegistry.instance().getLayer(t)
+            return l.featureCount()
 
         def getTableFields(self, table):
-                """ return list of columns in table """
-                t = table[1]
-                l = VLayerRegistry.instance().getLayer(t)
-                # id, name, type, nonnull, default, pk
-                n = l.dataProvider().fields().size()
-                f = [(i, f.name(), f.typeName(), False, None, False) for i, f in enumerate(l.dataProvider().fields())]
-                f += [(n, "geometry", "geometry", False, None, False)]
-                return f
+            """ return list of columns in table """
+            t = table[1]
+            l = VLayerRegistry.instance().getLayer(t)
+            # id, name, type, nonnull, default, pk
+            n = l.dataProvider().fields().size()
+            f = [(i, f.name(), f.typeName(), False, None, False) for i, f in enumerate(l.dataProvider().fields())]
+            f += [(n, "geometry", "geometry", False, None, False)]
+            return f
 
         def getTableIndexes(self, table):
             return []
@@ -249,7 +251,14 @@ class VLayerConnector(DBConnector):
             return
 
         def getTableExtent(self, table, geom):
-            print "**unimplemented** getTableExtent"
+            is_id, t = table
+            if is_id:
+                l = QgsMapLayerRegistry.instance().mapLayer(t)
+            else:
+                l = VLayerRegistry.instance().getLayer(t)
+            e = l.extent()
+            r = (e.xMinimum(), e.yMinimum(), e.xMaximum(), e.yMaximum())
+            return r
 
         def getViewDefinition(self, view):
             print "**unimplemented** getViewDefinition"

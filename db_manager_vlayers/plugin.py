@@ -166,8 +166,7 @@ class LVectorTable(LTable, VectorTable):
             return
 
         def refreshTableEstimatedExtent(self):
-            return
-
+            self.extent = self.database().connector.getTableExtent(("id",self.geomTableName), None)
 
         def runAction(self, action):
             return
