@@ -51,44 +51,44 @@ aggregate_functions=[
 spatialite_functions = [  # from www.gaia-gis.it/spatialite-2.3.0/spatialite-sql-2.3.0.html
                           # SQL utility functions for BLOB objects
                           "*iszipblob", "*ispdfblob", "*isgifblob", "*ispngblob", "*isjpegblob", "*isexifblob",
-                          "*isexifgpsblob", "*geomfromexifgpsblob", "MakePoint", "buildmbr", "*buildcirclembr", "MbrMinX",
-                          "MbrMinY", "MbrMaxX", "MbrMaxY",
+                          "*isexifgpsblob", "*geomfromexifgpsblob", "MakePoint", "BuildMbr", "*buildcirclembr", "ST_MinX",
+                          "ST_MinY", "ST_MaxX", "ST_MaxY",
                           # SQL functions for constructing a geometric object given its Well-known Text Representation
-                          "GeomFromText", "*pointfromtext",
+                          "ST_GeomFromText", "*pointfromtext",
                           # SQL functions for constructing a geometric object given its Well-known Binary Representation
                           "*geomfromwkb", "*pointfromwkb",
                           # SQL functions for obtaining the Well-known Text / Well-known Binary Representation of a geometric object
-                          "AsText", "AsBinary",
+                          "ST_AsText", "ST_AsBinary",
                           # SQL functions supporting exotic geometric formats
                           "*assvg", "*asfgf", "*geomfromfgf",
                           # SQL functions on type Geometry
-                          "Dimension", "GeometryType", "Srid", "SetSrid", "isEmpty", "isSimple", "isValid", "Boundary",
-                          "Envelope",
+                          "ST_Dimension", "ST_GeometryType", "ST_Srid", "ST_SetSrid", "ST_isEmpty", "ST_isSimple", "ST_isValid", "ST_Boundary",
+                          "ST_Envelope",
                           # SQL functions on type Point
-                          "X", "Y",
+                          "ST_X", "ST_Y",
                           # SQL functions on type Curve [Linestring or Ring]
-                          "StartPoint", "EndPoint", "GLength", "isClosed", "isRing", "Simplify",
+                          "ST_StartPoint", "ST_EndPoint", "ST_Length", "ST_isClosed", "ST_isRing", "ST_Simplify",
                           "*simplifypreservetopology",
                           # SQL functions on type LineString
-                          "NumPoints", "PointN",
+                          "ST_NumPoints", "ST_PointN",
                           # SQL functions on type Surface [Polygon or Ring]
-                          "Centroid", "PointOnSurface", "Area",
+                          "ST_Centroid", "ST_PointOnSurface", "ST_Area",
                           # SQL functions on type Polygon
-                          "ExteriorRing", "InteriorRingN",
+                          "ST_ExteriorRing", "ST_InteriorRingN",
                           # SQL functions on type GeomCollection
-                          "NumGeometries", "GeometryN",
+                          "ST_NumGeometries", "ST_GeometryN",
                           # SQL functions that test approximative spatial relationships via MBRs
                           "MbrEqual", "MbrDisjoint", "MbrTouches", "MbrWithin", "MbrOverlaps", "MbrIntersects",
                           "MbrContains",
                           # SQL functions that test spatial relationships
-                          "Equals", "Disjoint", "Touches", "Within", "Overlaps", "Crosses", "Intersects", "Contains",
-                          "Relate",
+                          "ST_Equals", "ST_Disjoint", "ST_Touches", "ST_Within", "ST_Overlaps", "ST_Crosses", "ST_Intersects", "ST_Contains",
+                          "ST_Relate",
                           # SQL functions for distance relationships
-                          "Distance",
+                          "ST_Distance",
                           # SQL functions that implement spatial operators
-                          "Intersection", "Difference", "GUnion", "SymDifference", "Buffer", "ConvexHull",
+                          "ST_Intersection", "ST_Difference", "ST_Union", "ST_SymDifference", "ST_Buffer", "ST_ConvexHull",
                           # SQL functions for coordinate transformations
-                          "Transform",
+                          "ST_Transform",
                           # SQL functions for Spatial-MetaData and Spatial-Index handling
                           "*initspatialmetadata", "*addgeometrycolumn", "*recovergeometrycolumn", "*discardgeometrycolumn",
                           "*createspatialindex", "*creatembrcache", "*disablespatialindex",
