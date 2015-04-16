@@ -25,7 +25,7 @@ from .connector import VLayerConnector
 
 from PyQt4.QtCore import Qt, QSettings, QUrl
 from PyQt4.QtGui import QIcon, QApplication, QAction
-from qgis.core import QgsVectorLayer
+from qgis.core import QgsVectorLayer, QgsMapLayerRegistry
 from qgis.gui import QgsMessageBar
 
 from ..plugin import DBPlugin, Database, Table, VectorTable, RasterTable, TableField, TableIndex, TableTrigger, InvalidDataException
@@ -170,6 +170,9 @@ class LVectorTable(LTable, VectorTable):
 
         def runAction(self, action):
             return
+
+        def toMapLayer(self):
+            return QgsMapLayerRegistry.instance().mapLayer(self.geomTableName)
 
 class LTableField(TableField):
         def __init__(self, row, table):
