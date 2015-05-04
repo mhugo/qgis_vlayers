@@ -1,3 +1,22 @@
+/***************************************************************************
+             vlayer_module.h : SQLite module for QGIS virtual layers
+begin                : Jan, 2015
+copyright            : (C) 2015 Hugo Mercier, Oslandia
+email                : hugo dot mercier at oslandia dot com
+ ***************************************************************************/
+
+/***************************************************************************
+ *                                                                         *
+ *   This program is free software; you can redistribute it and/or modify  *
+ *   it under the terms of the GNU General Public License as published by  *
+ *   the Free Software Foundation; either version 2 of the License, or     *
+ *   (at your option) any later version.                                   *
+ *                                                                         *
+ ***************************************************************************/
+
+#ifndef QGSVIRTUAL_LAYER_MODULE_H
+#define QGSVIRTUAL_LAYER_MODULE_H
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -35,3 +54,4 @@ void initMetadata( sqlite3* db );
 
 #endif
 
+#endif

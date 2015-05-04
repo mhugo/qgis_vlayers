@@ -73,11 +73,11 @@ QgsVirtualLayerProvider::QgsVirtualLayerProvider( QString const &uri )
 
         if ( mDefinition.sourceLayers().empty() && !mDefinition.uri().isEmpty() && mDefinition.query().isEmpty() ) {
             // open the file
-            mValid = openIt_();
+            mValid = openIt();
         }
         else {
             // create the file
-            mValid = createIt_();
+            mValid = createIt();
         }
     }
     catch (std::runtime_error& e) {
@@ -98,7 +98,7 @@ QgsVirtualLayerProvider::QgsVirtualLayerProvider( QString const &uri )
     }
 }
 
-bool QgsVirtualLayerProvider::loadSourceLayers_()
+bool QgsVirtualLayerProvider::loadSourceLayers()
 {
     foreach ( const QgsVirtualLayerDefinition::SourceLayer& layer, mDefinition.sourceLayers() ) {
         if ( layer.isReferenced() ) {
@@ -121,7 +121,7 @@ bool QgsVirtualLayerProvider::loadSourceLayers_()
     return true;
 }
 
-bool QgsVirtualLayerProvider::openIt_()
+bool QgsVirtualLayerProvider::openIt()
 {
     spatialite_init(0);
 
@@ -140,7 +140,7 @@ bool QgsVirtualLayerProvider::openIt_()
     mSqlite.reset(db);
 
     // load source layers
-    if (!loadSourceLayers_()) {
+    if (!loadSourceLayers()) {
         return false;
     }
 
@@ -169,7 +169,7 @@ bool QgsVirtualLayerProvider::openIt_()
     return true;
 }
 
-bool QgsVirtualLayerProvider::createIt_()
+bool QgsVirtualLayerProvider::createIt()
 {
     // consistency check
     if ( mDefinition.sourceLayers().size() > 1 && mDefinition.query().isEmpty() ) {
@@ -264,7 +264,7 @@ bool QgsVirtualLayerProvider::createIt_()
         reqGeometryField.setSrid( mDefinition.geometrySrid() );
     }
 
-    if (!loadSourceLayers_()) {
+    if (!loadSourceLayers()) {
         return false;
     }
 

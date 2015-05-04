@@ -30,7 +30,7 @@ class QgsVirtualLayerFeatureIterator;
 
 class QgsVirtualLayerProvider: public QgsVectorDataProvider
 {
-  Q_OBJECT public:
+    Q_OBJECT public:
 
     /**
      * Constructor of the vector provider
@@ -44,8 +44,8 @@ class QgsVirtualLayerProvider: public QgsVectorDataProvider
     virtual QgsAbstractFeatureSource* featureSource() const override;
 
     /**
-        *   Returns the permanent storage type for this layer as a friendly name.
-        */
+     *   Returns the permanent storage type for this layer as a friendly name.
+     */
     virtual QString storageType() const override;
 
     /*! Get the QgsCoordinateReferenceSystem for this layer
@@ -77,11 +77,7 @@ class QgsVirtualLayerProvider: public QgsVectorDataProvider
     QGis::WkbType geometryType() const override;
 
     /** return the number of layers for the current data source
-
-    @note
-
-    Should this be subLayerCount() instead?
-    */
+     */
     size_t layerCount() const;
 
     /**
@@ -128,44 +124,16 @@ class QgsVirtualLayerProvider: public QgsVectorDataProvider
     /**Returns a bitmask containing the supported capabilities*/
     int capabilities() const override;
 
-    /** The SpatiaLite provider does its own transforms so we return
-     * true for the following three functions to indicate that transforms
-     * should not be handled by the QgsCoordinateTransform object. See the
-     * documentation on QgsVectorDataProvider for details on these functions.
-     */
-    // XXX For now we have disabled native transforms in the SpatiaLite
-    //   (following the PostgreSQL provider example)
     bool supportsNativeTransform()
     {
       return false;
     }
 
-    /** return a provider name
-
-    Essentially just returns the provider key.  Should be used to build file
-    dialogs so that providers can be shown with their supported types. Thus
-    if more than one provider supports a given format, the user is able to
-    select a specific provider to open that file.
-
-    @note
-
-    Instead of being pure virtual, might be better to generalize this
-    behavior and presume that none of the sub-classes are going to do
-    anything strange with regards to their name or description?
-
+    /** return the provider name
     */
     QString name() const override;
 
     /** return description
-
-    Return a terse string describing what the provider is.
-
-    @note
-
-    Instead of being pure virtual, might be better to generalize this
-    behavior and presume that none of the sub-classes are going to do
-    anything strange with regards to their name or description?
-
     */
     QString description() const override;
 
@@ -228,9 +196,9 @@ class QgsVirtualLayerProvider: public QgsVectorDataProvider
 
     void updateStatistics() const;
 
-    bool openIt_();
-    bool createIt_();
-    bool loadSourceLayers_();
+    bool openIt();
+    bool createIt();
+    bool loadSourceLayers();
 
     friend class QgsVirtualLayerFeatureIterator;
 
