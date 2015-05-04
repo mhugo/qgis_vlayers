@@ -1,3 +1,5 @@
+#include <iostream>
+
 #include <QtTest/QtTest>
 #include <QObject>
 #include <QApplication>

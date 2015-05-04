@@ -21,6 +21,7 @@ email                : hugo dot mercier at oslandia dot com
 
 #include <qgsvectordataprovider.h>
 
+#include "qgscoordinatereferencesystem.h"
 #include "qgsvirtuallayerdefinition.h"
 
 #include "sqlite_helper.h"
