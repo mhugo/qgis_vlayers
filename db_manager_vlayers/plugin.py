@@ -141,6 +141,9 @@ class LTable(Table):
                 from .data_model import LTableDataModel
                 return LTableDataModel(self, parent)
 
+        def canBeAddedToCanvas( self ):
+            return False
+
 
 class LVectorTable(LTable, VectorTable):
         def __init__(self, row, db, schema=None):
