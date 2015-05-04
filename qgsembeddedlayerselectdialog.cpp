@@ -47,7 +47,12 @@ QgsEmbeddedLayerSelectDialog::QgsEmbeddedLayerSelectDialog( QWidget* parent, QMa
 
     // providers
     foreach ( auto pk, QgsProviderRegistry::instance()->providerList() ) {
-        mProviders->addItem( pk );
+        // we cannot know before trying to actually load a dataset
+        // if the provider is raster or vector
+        // so we manually exclude well-known raster providers
+        if ( pk != "gdal" && pk != "ows" && pk != "wcs" && pk != "wms" ) {
+            mProviders->addItem( pk );
+        }
     }
 
     QObject::connect( mImportBtn, SIGNAL(clicked()), this, SLOT(onImport()) );
