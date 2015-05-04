@@ -35,6 +35,7 @@ class QgsEmbeddedLayerSelectDialog : public QDialog, private Ui::QgsEmbeddedLaye
 
     QString getLocalName() const;
     QString getProvider() const;
+    QString getEncoding() const;
     QString getSource() const;
 
 private slots:

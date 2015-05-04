@@ -115,7 +115,7 @@ bool QgsVirtualLayerProvider::loadSourceLayers_()
             mLayers << SourceLayer(static_cast<QgsVectorLayer*>(l), layer.name());
         }
         else {
-            mLayers << SourceLayer(layer.provider(), layer.source(), layer.name());
+            mLayers << SourceLayer(layer.provider(), layer.source(), layer.name(), layer.encoding() );
         }
     }
     return true;
@@ -215,7 +215,7 @@ bool QgsVirtualLayerProvider::createIt_()
                 }
                 const auto vl = static_cast<const QgsVectorLayer*>(l);
                 if ((vl->name() == tname) || (vl->id() == tname)) {
-                    mDefinition.addSource( tname, vl->source(), vl->providerType() );
+                    mDefinition.addSource( tname, vl->source(), vl->providerType(), vl->dataProvider()->encoding() );
                     found = true;
                     break;
                 }
@@ -279,7 +279,8 @@ bool QgsVirtualLayerProvider::createIt_()
         else {
             QString provider = mLayers.at(i).provider;
             QString source = mLayers.at(i).source;
-            QString createStr = QString( "DROP TABLE IF EXISTS \"%1\"; CREATE VIRTUAL TABLE \"%1\" USING QgsVLayer(%2,'%3')").arg(vname).arg(provider).arg(source);
+            QString encoding = mLayers.at(i).encoding;
+            QString createStr = QString( "DROP TABLE IF EXISTS \"%1\"; CREATE VIRTUAL TABLE \"%1\" USING QgsVLayer(%2,'%3',%4)").arg(vname).arg(provider).arg(source).arg(encoding);
             Sqlite::Query::exec( mSqlite.get(), createStr );
         }
     }

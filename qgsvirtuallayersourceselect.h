@@ -36,7 +36,7 @@ public:
 
     static QMainWindow* sMainApp;
 
-    void addSource( const QString& name, const QString& source, const QString& provider );
+    void addSource( const QString& name, const QString& source, const QString& provider, const QString& encoding );
     void setQuery( const QString& q );
     void setUid( const QString& uid );
     void setLayerName( const QString& name );

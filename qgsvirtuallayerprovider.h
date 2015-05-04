@@ -186,11 +186,15 @@ class QgsVirtualLayerProvider: public QgsVectorDataProvider
     {
         SourceLayer(): layer(0) {}
         SourceLayer( QgsVectorLayer *l, const QString& n = "" ) : layer(l), name(n) {}
-        SourceLayer( const QString& p, const QString& s, const QString& n ) : layer(0), name(n), source(s), provider(p) {}
+        SourceLayer( const QString& p, const QString& s, const QString& n, const QString& e = "UTF-8" ) :
+            layer(0), name(n), source(s), provider(p), encoding(e) {}
+        // non-null if it refers to a live layer
         QgsVectorLayer* layer;
         QString name;
+        // non-empty if it is an embedded layer
         QString source;
         QString provider;
+        QString encoding;
     };
     struct SourceLayers : public QVector<SourceLayer>
     {

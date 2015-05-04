@@ -493,6 +493,21 @@ class TestQgsVirtualLayerProvider(TestCase):
         s = sum( f.attributes()[0] for f in l4.getFeatures() )
         self.assertEqual( s, 10659 )
 
+    def test_encoding( self ):
+        # changes encoding on a shapefile (the only provider supporting setEncoding)
+        source = QUrl.toPercentEncoding(os.path.join(self.testDataDir_, "france_parts.shp"))
+        l = QgsVectorLayer("?layer=ogr:%s:fp:latin1" % source, "vtab", "virtual", False)
+        self.assertEqual( l.isValid(), True )
+
+        for f in l.getFeatures():
+            self.assertEqual(f.attributes()[8], u"Région")
+
+        # use UTF-8 now
+        l = QgsVectorLayer("?layer=ogr:%s:fp:UTF-8" % source, "vtab", "virtual", False)
+        self.assertEqual( l.isValid(), True )
+        for f in l.getFeatures():
+            self.assertEqual(f.attributes()[8], u"R\ufffdgion") # invalid unicode character
+
 
 if __name__ == '__main__':
     unittest.main()

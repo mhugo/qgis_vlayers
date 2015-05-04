@@ -324,6 +324,7 @@ VLayerPlugin::ParameterPairs VLayerPlugin::createVirtualLayer( const QList<QgsVe
             // add reference to the joined layer
             params.append( qMakePair( QString("layer"), join_name ) );
             params.append( qMakePair( QString("source"), QString(QUrl::toPercentEncoding(joined_layer->source(), "", VLAYER_CHAR_ESCAPING)) ) );
+            params.append( qMakePair( QString("encoding"), joined_layer->dataProvider()->encoding() ) );
             params.append( qMakePair( QString("provider"), joined_layer->providerType() ) );
         }
 
@@ -367,6 +368,7 @@ VLayerPlugin::ParameterPairs VLayerPlugin::createVirtualLayer( const QList<QgsVe
         QString source = QUrl::toPercentEncoding(vl->source(), "", VLAYER_CHAR_ESCAPING);
         params.append( qMakePair( QString("layer"), QString("t") ) );
         params.append( qMakePair( QString("source"), source ) );
+        params.append( qMakePair( QString("encoding"), vl->dataProvider()->encoding() ) );
         params.append( qMakePair( QString("provider"), vl->providerType() ) );
     }
 
@@ -382,6 +384,7 @@ VLayerPlugin::ParameterPairs VLayerPlugin::createVirtualLayer( const QList<QgsVe
         QString source = QUrl::toPercentEncoding(vl->source(), "", VLAYER_CHAR_ESCAPING);
         params.append( qMakePair( QString("layer"), vl->name() ) );
         params.append( qMakePair( QString("source"), source ) );
+        params.append( qMakePair( QString("encoding"), vl->dataProvider()->encoding() ) );
         params.append( qMakePair( QString("provider"), vl->providerType() ) );
     }
     if ( !has_geometry ) {

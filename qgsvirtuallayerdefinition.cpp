@@ -67,23 +67,30 @@ void QgsVirtualLayerDefinition::fromUrl( const QUrl& url )
         }
         if ( key == "layer" ) {
             layer_idx++;
-            // syntax: layer=provider:url_encoded_source_URI(:name)?
+            // syntax: layer=provider:url_encoded_source_URI(:name(:encoding)?)?
             int pos = value.indexOf(':');
             if ( pos != -1 ) {
-                QString providerKey, source, vlayer_name;
+                QString providerKey, source, vlayer_name, encoding = "UTF-8";
 
                 providerKey = value.left(pos);
                 int pos2 = value.indexOf( ':', pos + 1);
                 if (pos2 != -1) {
                     source = QUrl::fromPercentEncoding(value.mid(pos+1,pos2-pos-1).toLocal8Bit());
-                    vlayer_name = value.mid(pos2+1);
+                    int pos3 = value.indexOf( ':', pos2 + 1);
+                    if (pos3 != -1) {
+                        vlayer_name = value.mid(pos2+1,pos3-pos2-1);
+                        encoding = value.mid(pos3+1);
+                    }
+                    else {
+                        vlayer_name = value.mid(pos2+1);
+                    }
                 }
                 else {
                     source = QUrl::fromPercentEncoding(value.mid(pos+1).toLocal8Bit());
                     vlayer_name = QString("vtab%1").arg(layer_idx);
                 }
 
-                mSourceLayers << SourceLayer(vlayer_name, source, providerKey);
+                mSourceLayers << SourceLayer(vlayer_name, source, providerKey, encoding);
             }
         }
         else if ( key == "geometry" ) {
@@ -148,18 +155,16 @@ QgsVirtualLayerDefinition virtualLayerDefinitionFromSqlite( const QString& path 
     }
     // look for a query, if any
     {
-        Sqlite::Query q( sqlite.get(), "SELECT id, name, source, provider FROM _tables" );
+        Sqlite::Query q( sqlite.get(), "SELECT id, name, source, provider, encoding FROM _tables" );
         while ( q.step() == SQLITE_ROW ) {
             int id = sqlite3_column_int( q.stmt(), 0 );
             if ( id == 0 ) { // query
-                def.setQuery( (const char*)sqlite3_column_text( q.stmt(), 2 ) );
+                def.setQuery( q.column_text(2) );
                 // name stores the UID field, if any
-                def.setUid( (const char*)sqlite3_column_text( q.stmt(), 1 ) );
+                def.setUid( q.column_text(1) );
             }
             else {
-                def.addSource( (const char*)sqlite3_column_text( q.stmt(), 1 ),
-                                       (const char*)sqlite3_column_text( q.stmt(), 2 ),
-                                       (const char*)sqlite3_column_text( q.stmt(), 3 ) );
+                def.addSource( q.column_text(1), q.column_text(2), q.column_text(3), q.column_text(4) );
             }
         }
     }

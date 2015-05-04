@@ -18,6 +18,7 @@ email                : hugo dot mercier at oslandia dot com
 #include "qgsembeddedlayerselectdialog.h"
 
 #include <QMainWindow>
+#include <QSettings>
 
 #include <qgsvectorlayer.h>
 #include <qgslayertreeview.h>
@@ -25,6 +26,7 @@ email                : hugo dot mercier at oslandia dot com
 #include <qgslayertreegroup.h>
 #include <qgslayertreelayer.h>
 #include <qgsproviderregistry.h>
+#include <qgsvectordataprovider.h>
 
 QgsEmbeddedLayerSelectDialog::QgsEmbeddedLayerSelectDialog( QWidget* parent, QMainWindow* mainApp )
     : QDialog( parent )
@@ -55,6 +57,12 @@ QgsEmbeddedLayerSelectDialog::QgsEmbeddedLayerSelectDialog( QWidget* parent, QMa
         }
     }
 
+    // encodings
+    mEncodingCombo->addItems( QgsVectorDataProvider::availableEncodings() );
+    // set default encoding
+    QString enc = QSettings().value( "/UI/encoding", "System" ).toString();
+    mEncodingCombo->setCurrentIndex(mEncodingCombo->findText( enc ));
+
     QObject::connect( mImportBtn, SIGNAL(clicked()), this, SLOT(onImport()) );
 }
 
@@ -77,6 +85,11 @@ QString QgsEmbeddedLayerSelectDialog::getSource() const
     return mSource->toPlainText();
 }
 
+QString QgsEmbeddedLayerSelectDialog::getEncoding() const
+{
+    return mEncodingCombo->currentText();
+}
+
 void QgsEmbeddedLayerSelectDialog::onImport()
 {
     int n = mLayers->currentIndex();
@@ -88,5 +101,6 @@ void QgsEmbeddedLayerSelectDialog::onImport()
         }
         mSource->setPlainText( l->source() );
         mLayerName->setText( l->name() );
+        mEncodingCombo->setCurrentIndex( mEncodingCombo->findText( l->dataProvider()->encoding() ) );
     }
 }

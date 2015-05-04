@@ -68,7 +68,7 @@ void initMetadata( sqlite3* db )
         }
     }
     if (create_tables) {
-        r = sqlite3_exec( db, "CREATE TABLE _tables (id INTEGER PRIMARY KEY, name TEXT, provider TEXT, source TEXT, layer_id TEXT);", NULL, NULL, &errMsg );        
+        r = sqlite3_exec( db, "CREATE TABLE _tables (id INTEGER PRIMARY KEY, name TEXT, provider TEXT, source TEXT, encoding TEXT, layer_id TEXT);", NULL, NULL, &errMsg );        
         if (r) {
             throw std::runtime_error( errMsg );
         }
@@ -236,11 +236,15 @@ struct VTable
         init_();
     }
 
-    VTable( sqlite3* db, const QString& provider, const QString& source, const QString& name ) : sql_(db), pk_column_(-1), zErrMsg(0), name_(name)
+    VTable( sqlite3* db, const QString& provider, const QString& source, const QString& name, const QString& encoding )
+        : sql_(db), pk_column_(-1), zErrMsg(0), name_(name), encoding_(encoding)
     {
         provider_ = static_cast<QgsVectorDataProvider*>(QgsProviderRegistry::instance()->provider( provider, source ));
         if ( provider_ == 0 || !provider_->isValid() ) {
             throw std::runtime_error( "Invalid provider" );
+        }
+        if ( provider_->capabilities() & QgsVectorDataProvider::SelectEncoding ) {
+            provider_->setEncoding( encoding_ );
         }
         owned_ = true;
         init_();
@@ -279,6 +283,8 @@ private:
     bool owned_;
 
     QString name_;
+
+    QString encoding_;
 
     // primary key column (default = -1: none)
     int pk_column_;
@@ -496,13 +502,18 @@ int vtable_create_connect( sqlite3* sql, void* aux, int argc, const char* const*
             sqlite3_bind_text( table_creation_stmt, 2, argv[3], strlen(argv[3]), SQLITE_TRANSIENT );
         }
     }
-    else if ( argc == 5 ) {
-        // CREATE VIRTUAL TABLE vtab USING QgsVLayer(provider,source)
+    else if ( argc == 5 || argc == 6 ) {
+        // CREATE VIRTUAL TABLE vtab USING QgsVLayer(provider,source[,encoding])
         // vtab = argv[2]
         // provider = argv[3]
         // source = argv[4]
+        // encoding = argv[5]
         QString provider = argv[3];
         QString source = argv[4];
+        QString encoding = "UTF-8";
+        if ( argc == 6 ) {
+            encoding = argv[5];
+        }
         if ( provider.size() >= 1 && provider[0] == '\'' ) {
             provider = provider.mid(1, provider.size()-2);
         }
@@ -510,7 +521,7 @@ int vtable_create_connect( sqlite3* sql, void* aux, int argc, const char* const*
             source = source.mid(1, source.size()-2);
         }
         try {
-            new_vtab.reset(new VTable( sql, provider, source, argv[2] ));
+            new_vtab.reset(new VTable( sql, provider, source, argv[2], encoding ));
         }
         catch (std::runtime_error& e) {
             std::string err(e.what());
@@ -519,7 +530,7 @@ int vtable_create_connect( sqlite3* sql, void* aux, int argc, const char* const*
         }
 
         if ( is_created ) {
-            r = sqlite3_prepare_v2( sql, "INSERT INTO _tables (name, source, provider) VALUES(?,?,?);", -1, &table_creation_stmt, NULL );
+            r = sqlite3_prepare_v2( sql, "INSERT INTO _tables (name, source, provider, encoding) VALUES(?,?,?,?);", -1, &table_creation_stmt, NULL );
             if (r) {
                 RETURN_CSTR_ERROR( sqlite3_errmsg(sql) );
                 return r;
@@ -527,8 +538,10 @@ int vtable_create_connect( sqlite3* sql, void* aux, int argc, const char* const*
             sqlite3_bind_text( table_creation_stmt, 1, argv[2], strlen(argv[2]), SQLITE_TRANSIENT );
             QByteArray sba( source.toLocal8Bit() );
             QByteArray pba( provider.toLocal8Bit() );
+            QByteArray eba( encoding.toLocal8Bit() );
             sqlite3_bind_text( table_creation_stmt, 2, sba.constData(), sba.size(), SQLITE_TRANSIENT );
             sqlite3_bind_text( table_creation_stmt, 3, pba.constData(), pba.size(), SQLITE_TRANSIENT );
+            sqlite3_bind_text( table_creation_stmt, 4, eba.constData(), eba.size(), SQLITE_TRANSIENT );
         }
     }
 
@@ -795,7 +808,9 @@ int vtable_column( sqlite3_vtab_cursor *cursor, sqlite3_context* ctxt, int idx )
             sqlite3_result_double( ctxt, v.toDouble() );
             break;
         default:
-            sqlite3_result_text( ctxt, v.toString().toUtf8(), -1, SQLITE_TRANSIENT );
+            {
+                sqlite3_result_text( ctxt, v.toString().toUtf8(), -1, SQLITE_TRANSIENT );
+            }
             break;
         }
     }

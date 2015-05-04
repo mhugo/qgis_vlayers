@@ -27,7 +27,8 @@ class QgsVirtualLayerDefinition
     {
     public:
         SourceLayer( const QString& name, const QString& ref ) : mName(name), mRef(ref) {}
-        SourceLayer( const QString& name, const QString& source, const QString& provider ) : mName(name), mSource(source), mProvider(provider) {}
+        SourceLayer( const QString& name, const QString& source, const QString& provider, const QString& encoding )
+            : mName(name), mSource(source), mProvider(provider), mEncoding(encoding) {}
 
         bool isReferenced() const { return !mRef.isEmpty(); }
 
@@ -35,11 +36,13 @@ class QgsVirtualLayerDefinition
         QString name() const { return mName; }
         QString provider() const { return mProvider; }
         QString source() const { return mSource; }
+        QString encoding() const { return mEncoding; }
     private:
         QString mName;
         QString mSource;
         QString mProvider;
         QString mRef;
+        QString mEncoding;
     };
 
     QgsVirtualLayerDefinition( const QString& uri = "" ) : mUri(uri) {}
@@ -51,9 +54,9 @@ class QgsVirtualLayerDefinition
     {
         mSourceLayers.append( SourceLayer(name, ref) );
     }
-    void addSource( const QString& name, const QString source, const QString& provider )
+    void addSource( const QString& name, const QString source, const QString& provider, const QString& encoding )
     {
-        mSourceLayers.append( SourceLayer(name, source, provider) );
+        mSourceLayers.append( SourceLayer(name, source, provider, encoding) );
     }
 
     const QList<SourceLayer>& sourceLayers() const { return mSourceLayers; }

@@ -78,6 +78,11 @@
         </column>
         <column>
          <property name="text">
+          <string>Encoding</string>
+         </property>
+        </column>
+        <column>
+         <property name="text">
           <string>Source</string>
          </property>
         </column>
