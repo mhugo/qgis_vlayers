@@ -1,3 +1,7 @@
+//
+// This plugin is here to demonstrate the integration of virtual layers into the QGIS GUI
+// It should be considered temporary. The idea is to include virtual layers into the core
+
 #include <QAction>
 
 #include <qgis.h>

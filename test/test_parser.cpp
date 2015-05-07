@@ -36,14 +36,14 @@ void TestSqlParser::cleanupTestCase()
 void TestSqlParser::testParsing()
 {
     QString err;
-    std::unique_ptr<QgsSql::Node> n( QgsSql::parseSql( "Select * From table", err ) );
+    QScopedPointer<QgsSql::Node> n( QgsSql::parseSql( "Select * From table", err ) );
     if ( !n ) {
         std::cout << "ERROR: " << err.toUtf8().constData() << std::endl;
         return;
     }
 
     // test error handling
-    n = QgsSql::parseSql( "Select * form table", err );
+    n.reset( QgsSql::parseSql( "Select * form table", err ) );
     QVERIFY( !n );
     QVERIFY( err == "1:10: syntax error, unexpected IDENTIFIER, expecting $end" );
 }
@@ -52,13 +52,13 @@ void TestSqlParser::testParsing2()
 {
     QString err;
     {
-        std::unique_ptr<QgsSql::Node> n = QgsSql::parseSql( "select *, geometry as geom from departements", err );
-        QVERIFY( n != 0 );
+        QScopedPointer<QgsSql::Node> n( QgsSql::parseSql( "select *, geometry as geom from departements", err ) );
+        QVERIFY( !n.isNull() );
     }
     {
-        std::unique_ptr<QgsSql::Node> n = QgsSql::parseSql( "select * from (select 42 from t) as toto limit 1", err );
+        QScopedPointer<QgsSql::Node> n( QgsSql::parseSql( "select * from (select 42 from t) as toto limit 1", err ) );
         std::cout << err.toUtf8().constData() << std::endl;
-        QVERIFY( n != 0 );
+        QVERIFY( !n.isNull() );
     }
 }
 
@@ -66,7 +66,7 @@ void TestSqlParser::testRefTables()
 {
     QString err;
     {
-        std::unique_ptr<QgsSql::Node> n( QgsSql::parseSql( "Select * From table, (select * from table2) as tt WHERE a IN (select id FROM table3)", err ) );
+        QScopedPointer<QgsSql::Node> n( QgsSql::parseSql( "Select * From table, (select * from table2) as tt WHERE a IN (select id FROM table3)", err ) );
         if ( !n ) {
             std::cout << "ERROR: " << err.toUtf8().constData() << std::endl;
             return;
@@ -80,7 +80,7 @@ void TestSqlParser::testRefTables()
         QVERIFY( tables.contains("table3") );
     }
     {
-        std::unique_ptr<QgsSql::Node> n( QgsSql::parseSql( "Select * from \"Feuille 1\"", err ) );
+        QScopedPointer<QgsSql::Node> n( QgsSql::parseSql( "Select * from \"Feuille 1\"", err ) );
         if ( !n ) {
             std::cout << "ERROR: " << err.toUtf8().constData() << std::endl;
             return;
@@ -105,7 +105,7 @@ void TestSqlParser::testColumnTypes()
     QString err;
     {
         QString sql( "select CAST(abs(-4) AS real) as ab,t2.*,CASE when a+0 THEN 'ok' ELSE 'no' END,t.* from (Select 2+1, PointFromText('',4325+1) as geom2) t2, t" );
-        std::unique_ptr<Node> n( parseSql( sql, err ) );
+        QScopedPointer<Node> n( parseSql( sql, err ) );
         if ( !n ) {
             std::cout << "ERROR: " << err.toUtf8().constData() << std::endl;
             return;
@@ -139,7 +139,7 @@ void TestSqlParser::testColumnTypes()
     {
         // column name
         QString sql( "SELECT a,b,c FROM t" );
-        std::unique_ptr<Node> n( parseSql( sql, err ) );
+        QScopedPointer<Node> n( parseSql( sql, err ) );
         if ( !n ) {
             std::cout << "ERROR: " << err.toUtf8().constData() << std::endl;
             return;
@@ -150,7 +150,7 @@ void TestSqlParser::testColumnTypes()
     {
         // constant evaluation
         QString sql( "SELECT CASE WHEN 1 THEN 'ok' ELSE 34 END, 'ok' || 'no' FROM t" );
-        std::unique_ptr<Node> n( parseSql( sql, err ) );
+        QScopedPointer<Node> n( parseSql( sql, err ) );
         if ( !n ) {
             std::cout << "ERROR: " << err.toUtf8().constData() << std::endl;
             return;
@@ -165,7 +165,7 @@ void TestSqlParser::testColumnTypes()
     {
         // type inferer: type mismatch
         QString sql( "SELECT CASE WHEN a+0 THEN 'ok' ELSE 34 END FROM t" );
-        std::unique_ptr<Node> n( parseSql( sql, err ) );
+        QScopedPointer<Node> n( parseSql( sql, err ) );
         if ( !n ) {
             std::cout << "ERROR: " << err.toUtf8().constData() << std::endl;
             return;
@@ -176,7 +176,7 @@ void TestSqlParser::testColumnTypes()
     {
         // type inferer: geometry type
         QString sql( "SELECT CastToXYZ(PointFromText('',2154)), SetSrid(GeomFromText(''),1234) FROM t" );
-        std::unique_ptr<Node> n( parseSql( sql, err ) );
+        QScopedPointer<Node> n( parseSql( sql, err ) );
         if ( !n ) {
             std::cout << "ERROR: " << err.toUtf8().constData() << std::endl;
             return;
@@ -193,7 +193,7 @@ void TestSqlParser::testColumnTypes()
     {
         // type inferer: unknown name and types
         QString sql( "SELECT 1, GeomFromText('')" );
-        std::unique_ptr<Node> n( parseSql( sql, err ) );
+        QScopedPointer<Node> n( parseSql( sql, err ) );
         if ( !n ) {
             std::cout << "ERROR: " << err.toUtf8().constData() << std::endl;
             return;
@@ -208,7 +208,7 @@ void TestSqlParser::testColumnTypes()
     {
         // rowid column
         QString sql( "SELECT rowid FROM t" );
-        std::unique_ptr<Node> n( parseSql( sql, err ) );
+        QScopedPointer<Node> n( parseSql( sql, err ) );
         if ( !n ) {
             std::cout << "ERROR: " << err.toUtf8().constData() << std::endl;
             return;
@@ -223,7 +223,7 @@ void TestSqlParser::testColumnTypes()
     {
         // unknown table
         QString sql( "SELECT t2.* FROM t2" );
-        std::unique_ptr<Node> n( parseSql( sql, err ) );
+        QScopedPointer<Node> n( parseSql( sql, err ) );
         QList<ColumnType> cdefs = columnTypes( *n, err, &t );
         // no error
         QVERIFY( cdefs.size() == 0 );
@@ -231,7 +231,7 @@ void TestSqlParser::testColumnTypes()
     }
     {
         QString sql( "SELECT t2.* FROM t AS t2" );
-        std::unique_ptr<Node> n( parseSql( sql, err ) );
+        QScopedPointer<Node> n( parseSql( sql, err ) );
         QList<ColumnType> cdefs = columnTypes( *n, err, &t );
         // no error
         QVERIFY( cdefs.size() == 2 );

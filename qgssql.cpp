@@ -1,3 +1,19 @@
+/***************************************************************************
+           qgssql.h Classes for SQL abtract syntax tree
+begin                : Jan, 2014
+copyright            : (C) 2014 Hugo Mercier, Oslandia
+email                : hugo dot mercier at oslandia dot com
+ ***************************************************************************/
+
+/***************************************************************************
+ *                                                                         *
+ *   This program is free software; you can redistribute it and/or modify  *
+ *   it under the terms of the GNU General Public License as published by  *
+ *   the Free Software Foundation; either version 2 of the License, or     *
+ *   (at your option) any later version.                                   *
+ *                                                                         *
+ ***************************************************************************/
+
 #include <qgssql.h>
 #include <qgsfeature.h>
 #include <qgsmaplayerregistry.h>
@@ -120,8 +136,8 @@ void ExpressionCast::accept( NodeVisitor& v ) const {
 
 void DFSVisitor::visit( const Select& s )
 {
-    if ( s.column_list() ) {
-        s.column_list()->accept( *this );
+    if ( s.columnList() ) {
+        s.columnList()->accept( *this );
     }
     if ( s.from() ) {
         s.from()->accept( *this );
@@ -134,8 +150,8 @@ void DFSVisitor::visit( const Select& s )
 void DFSVisitor::visit( const SelectStmt& s )
 {
     if ( s.selects() ) { s.selects()->accept(*this); }
-    if ( s.order_by() ) { s.order_by()->accept(*this); }
-    if ( s.limit_offset() ) { s.limit_offset()->accept(*this); }
+    if ( s.orderBy() ) { s.orderBy()->accept(*this); }
+    if ( s.limitOffset() ) { s.limitOffset()->accept(*this); }
 }
 
 void DFSVisitor::visit( const OrderBy& s )
@@ -170,8 +186,8 @@ void DFSVisitor::visit( const TableSelect& s )
 
 void DFSVisitor::visit( const JoinedTable& jt )
 {
-    if ( jt.right_table() ) {
-        jt.right_table()->accept(*this);
+    if ( jt.rightTable() ) {
+        jt.rightTable()->accept(*this);
     }
 }
 
@@ -204,8 +220,8 @@ void DFSVisitor::visit(const ExpressionCondition& c )
     if (c.conditions()) {
         c.conditions()->accept(*this);
     }
-    if (c.else_node()) {
-        c.else_node()->accept(*this);
+    if (c.elseNode()) {
+        c.elseNode()->accept(*this);
     }
 }
 
@@ -214,15 +230,15 @@ void DFSVisitor::visit(const ExpressionWhenThen& wt )
     if (wt.when()) {
         wt.when()->accept(*this);
     }
-    if (wt.then_node()) {
-        wt.then_node()->accept(*this);
+    if (wt.thenNode()) {
+        wt.thenNode()->accept(*this);
     }
 }
 
 void DFSVisitor::visit(const ExpressionIn& t )
 {
     if (t.expression()) { t.expression()->accept(*this); }
-    if (t.in_what()) { t.in_what()->accept(*this); }
+    if (t.inWhat()) { t.inWhat()->accept(*this); }
 }
 
 void DFSVisitor::visit(const ExpressionSubQuery& t )
@@ -245,61 +261,61 @@ class AsStringVisitor : public DFSVisitor
 public:
     virtual void visit( const Select& s ) override
     {
-        str_ += "SELECT ";
-        s.column_list()->accept( *this );
+        mStr += "SELECT ";
+        s.columnList()->accept( *this );
         if ( s.from() ) {
-            str_ += " FROM ";
+            mStr += " FROM ";
             s.from()->accept( *this );
         }
         if ( s.where() ) {
-            str_ += " WHERE ";
+            mStr += " WHERE ";
             s.where()->accept( *this );
         }
     }
     virtual void visit( const List& l ) override
     {
-        str_ += "[";
+        mStr += "[";
         bool first = true;
 		for ( auto it = l.begin(); it != l.end(); it++ ) {
             if ( first ) {
                 first = false;
             }
             else {
-                str_ += ", ";
+                mStr += ", ";
             }
             (*it)->accept(*this);
         }
-        str_ += "]";
+        mStr += "]";
     }
     virtual void visit( const TableColumn& t ) override
     {
-        str_ += t.table() + "." + t.column();
+        mStr += t.table() + "." + t.column();
     }
     virtual void visit( const TableName& t ) override
     {
-        str_ += t.name() + " AS " + t.alias();
+        mStr += t.name() + " AS " + t.alias();
     }
     virtual void visit( const ExpressionLiteral& t ) override
     {
-        str_ += t.value().toString();
+        mStr += t.value().toString();
     }
     virtual void visit( const ExpressionIn& t ) override
     {
         t.expression()->accept(*this);
-        if (t.not_in()) {
-            str_ += " NOT ";
+        if (t.notIn()) {
+            mStr += " NOT ";
         }
-        str_ += " IN ";
-        t.in_what()->accept(*this);
+        mStr += " IN ";
+        t.inWhat()->accept(*this);
     }
-    QString str_;
+    QString mStr;
 };
 
 QString asString( const Node& n )
 {
     AsStringVisitor pv;
     n.accept(pv);
-    return pv.str_;
+    return pv.mStr;
 }
 
 class TableVisitor : public DFSVisitor
@@ -326,10 +342,10 @@ QList<QString> referencedTables( const Node& n )
 class InfererException
 {
 public:
-    InfererException( const QString& err ) : err_(err) {}
-    QString err() const { return err_; }
+    InfererException( const QString& err ) : mErr(err) {}
+    QString err() const { return mErr; }
 private:
-    QString err_;
+    QString mErr;
 };
 
 void TableDefs::addColumnsFromLayer( const QString& tableName, const QgsVectorLayer* vl )
@@ -782,7 +798,7 @@ QGis::WkbType toXYZ( QGis::WkbType ta )
 class ColumnTypeInferer : public DFSVisitor
 {
 public:
-    ColumnTypeInferer( const TableDefs* defs ) : DFSVisitor(), defs_(defs)
+    ColumnTypeInferer( const TableDefs* defs ) : DFSVisitor(), mDefs(defs)
     {
     }
 
@@ -809,19 +825,19 @@ public:
             s.from()->accept( *this );
         }
         // then the columns
-        s.column_list()->accept( *this );
+        s.columnList()->accept( *this );
     }
 
     virtual void visit( const TableName& t ) override
     {
         // add all the columns of the table to the ref
-        if ( defs_->find( t.name() ) != defs_->end() ) {
-            const auto& m = (*defs_)[t.name()];
+        if ( mDefs->find( t.name() ) != mDefs->end() ) {
+            const auto& m = (*mDefs)[t.name()];
             for ( auto it = m.begin(); it != m.end(); it++ ) {
-                refs_[t.name()] << *it;
+                mRefs[t.name()] << *it;
                 // also add to alias, if any
                 if (!t.alias().isEmpty()) {
-                    refs_[t.alias()] << *it;
+                    mRefs[t.alias()] << *it;
                 }
             }
         }
@@ -830,29 +846,29 @@ public:
     virtual void visit( const TableSelect& s ) override
     {
         // subquery (recursive call)
-        QList<ColumnType> o = columnTypes_r( *s.select(), defs_ );
+        QList<ColumnType> o = columnTypes_r( *s.select(), mDefs );
 
-        if ( refs_.find(s.alias()) == refs_.end() ) {
-            refs_[s.alias()] = TableDef();
+        if ( mRefs.find(s.alias()) == mRefs.end() ) {
+            mRefs[s.alias()] = TableDef();
         }
 
         for ( auto it = o.begin(); it != o.end(); it++ ) {
-            refs_[s.alias()]  << *it;
+            mRefs[s.alias()]  << *it;
         }
     }
 
     virtual void visit( const AllColumns& c ) override
     {
         if ( !c.table().isEmpty() ) {
-            if ( refs_.find(c.table()) == refs_.end()) {
+            if ( mRefs.find(c.table()) == mRefs.end()) {
                 throw InfererException( "Unknown table " + c.table() );
             }
             // add all columns of the given table
-            types.append( refs_[c.table()] );
+            types.append( mRefs[c.table()] );
         }
         else {
             // add all columns of ALL the tables
-            for ( auto it = refs_.begin(); it != refs_.end(); it++ ) {
+            for ( auto it = mRefs.begin(); it != mRefs.end(); it++ ) {
                 types.append( *it );
             }
         }
@@ -862,7 +878,7 @@ public:
     {
         if ( !c.table().isEmpty() ) {
             // set the current column
-            QList<ColumnType> cdefs = refs_[c.table()].findColumn( c.column() );
+            QList<ColumnType> cdefs = mRefs[c.table()].findColumn( c.column() );
             if (cdefs.isEmpty()) {
                 throw InfererException("Cannot find column " + c.column() + " in table " + c.table() );
             }
@@ -870,7 +886,7 @@ public:
         }
         else {
             // look for the column in ALL tables
-            QList<ColumnType> cdefs = refs_.findColumn( c.column() );
+            QList<ColumnType> cdefs = mRefs.findColumn( c.column() );
             if (cdefs.isEmpty()) {
                 throw InfererException("Cannot find column " + c.column() );
             }
@@ -1056,12 +1072,12 @@ public:
 		const auto& cc = *c.conditions();
         for ( auto it = cc.begin(); it != cc.end(); it++ ) {
             Q_ASSERT( (*it)->type() == Node::NODE_EXPRESSION_WHEN_THEN );
-            ExpressionWhenThen* wt = static_cast<ExpressionWhenThen*>(it->get());
+            ExpressionWhenThen* wt = static_cast<ExpressionWhenThen*>(it->data());
 
             ColumnType when = eval( *wt->when() );
             if ( allConstants && when.isConstant() ) {
                 if ( when.value().toInt() != 0 ) {
-                    ColumnType then_node = eval( *wt->then_node() );
+                    ColumnType then_node = eval( *wt->thenNode() );
                     *column = then_node;
                     return;
                 }
@@ -1069,17 +1085,17 @@ public:
             else {
                 allConstants = false;
 
-                ColumnType then_node = eval( *wt->then_node() );
-                possibleTypes << qMakePair(then_node.type(), wt->then_node());
+                ColumnType then_node = eval( *wt->thenNode() );
+                possibleTypes << qMakePair(then_node.type(), wt->thenNode());
             }
         }
-        ColumnType elseNode = eval( *c.else_node() );
+        ColumnType elseNode = eval( *c.elseNode() );
         if (allConstants) {
             *column = elseNode;
             return;
         }
         else {
-            possibleTypes << qMakePair(elseNode.type(), c.else_node() );
+            possibleTypes << qMakePair(elseNode.type(), c.elseNode() );
         }
         ColumnType::Type lastType = possibleTypes.front().first;
         QString lastTypeNodeStr = asString( *possibleTypes.front().second );
@@ -1151,12 +1167,12 @@ public:
     static const OutputFunctionTypes outputFunctionTypes;
 private:
     // definitions of tables passed during construction
-    const TableDefs* defs_;
+    const TableDefs* mDefs;
 
     // tables referenced
-    TableDefs refs_;
+    TableDefs mRefs;
 
-    sqlite3* db_;
+    sqlite3* mDb;
 };
 
 const OutputFunctionTypes ColumnTypeInferer::outputFunctionTypes = initOutputFunctionTypes();

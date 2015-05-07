@@ -1,7 +1,7 @@
 /***************************************************************************
            qgsvirtuallayerprovider.cpp Virtual layer data provider
-begin                : Jan, 2014
-copyright            : (C) 2014 Hugo Mercier, Oslandia
+begin                : Jan, 2015
+copyright            : (C) 2015 Hugo Mercier, Oslandia
 email                : hugo dot mercier at oslandia dot com
  ***************************************************************************/
 
@@ -187,13 +187,13 @@ bool QgsVirtualLayerProvider::createIt()
         return false;        
     }
 
-    std::unique_ptr<QgsSql::Node> queryTree;
+    QScopedPointer<QgsSql::Node> queryTree;
     QList<QgsSql::ColumnType> fields, gFields;
     QgsSql::TableDefs refTables;
     if ( !mDefinition.query().isEmpty() ) {
         // deduce sources from the query
         QString error;
-        queryTree = QgsSql::parseSql( mDefinition.query(), error );
+        queryTree.reset( QgsSql::parseSql( mDefinition.query(), error ) );
         if ( !queryTree ) {
             PROVIDER_ERROR( "SQL parsing error: " + error );
             return false;

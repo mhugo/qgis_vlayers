@@ -1,9 +1,9 @@
 /***************************************************************************
                          qgssqlparser.yy
                           --------------------
-    begin                : August 2011
-    copyright            : (C) 2011 by Martin Dobias
-    email                : wonder.sk at gmail dot com
+    begin                : Feb. 2015
+    copyright            : (C) 2015 by Hugo Mercier / Oslandia
+    email                : hugo dot mercier at oslandia dot com
  ***************************************************************************
  *                                                                         *
  *   This program is free software; you can redistribute it and/or modify  *
@@ -184,7 +184,7 @@ optional_limit:
                 {
                     if ($3) {
                         $$ = $3;
-                        static_cast<QgsSql::LimitOffset*>($$)->set_limit( $2 );
+                        static_cast<QgsSql::LimitOffset*>($$)->setLimit( $2 );
                     }
                     else {
                         $$ = new QgsSql::LimitOffset( $2 );
@@ -244,7 +244,7 @@ is_natural:
         |       NATURAL { $$ = true; }              
         ;
 
-join_operator:  is_natural non_natural_join_operator { $$ = $2; static_cast<QgsSql::JoinedTable*>($$)->set_is_natural($1); }
+join_operator:  is_natural non_natural_join_operator { $$ = $2; static_cast<QgsSql::JoinedTable*>($$)->setIsNatural($1); }
         ;
 
 non_natural_join_operator:
@@ -279,20 +279,20 @@ table_or_subquery_list:
         {
             $$ = $1;
             QgsSql::JoinedTable* jt = new QgsSql::JoinedTable(QgsSql::JoinedTable::JOIN_CROSS);
-            jt->set_right_table($3);
+            jt->setRightTable($3);
             $$->append(jt);
         }
         |       table_or_subquery_list join_operator table_or_subquery join_constraint
         {
             $$ = $1;
             QgsSql::JoinedTable* jt = static_cast<QgsSql::JoinedTable*>($2);
-            jt->set_right_table($3);
+            jt->setRightTable($3);
             if ($4) {
                 if ($4->type() == QgsSql::Node::NODE_LIST) {
-                    jt->set_using_columns(static_cast<QgsSql::List*>($4));
+                    jt->setUsingColumns(static_cast<QgsSql::List*>($4));
                 }
                 else {
-                    jt->set_on_expression(static_cast<QgsSql::Expression*>($4));
+                    jt->setOnExpression(static_cast<QgsSql::Expression*>($4));
                 }
             }
             $$->append(jt);
@@ -383,7 +383,7 @@ when_then_clause:
 
 namespace QgsSql
 {
-std::unique_ptr<Node> parseSql(const QString& str, QString& parserErrorMsg, bool formatError )
+Node* parseSql(const QString& str, QString& parserErrorMsg, bool formatError )
 {
     //    yydebug = 1;
   expression_parser_context ctx;
@@ -400,7 +400,7 @@ std::unique_ptr<Node> parseSql(const QString& str, QString& parserErrorMsg, bool
   // list should be empty when parsing was OK
   if (res == 0) // success?
   {
-      return std::unique_ptr<QgsSql::Node>(ctx.sqlNode);
+      return ctx.sqlNode;
   }
   else // error?
   {

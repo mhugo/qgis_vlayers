@@ -1,9 +1,9 @@
 /***************************************************************************
                           qgssqllexer.ll
                           --------------------
-    begin                : August 2011
-    copyright            : (C) 2011 by Martin Dobias
-    email                : wonder.sk at gmail dot com
+    begin                : Feb. 2015
+    copyright            : (C) 2015 by Hugo Mercier / Oslandia
+    email                : hugo dot mercier at oslandia dot com
  ***************************************************************************
  *                                                                         *
  *   This program is free software; you can redistribute it and/or modify  *
