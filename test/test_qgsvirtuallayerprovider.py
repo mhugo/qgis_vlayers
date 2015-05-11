@@ -508,6 +508,15 @@ class TestQgsVirtualLayerProvider(TestCase):
         for f in l.getFeatures():
             self.assertEqual(f.attributes()[8], u"R\ufffdgion") # invalid unicode character
 
+    def test_rowid( self ):
+        source = QUrl.toPercentEncoding(os.path.join(self.testDataDir_, "france_parts.shp"))
+        query = QUrl.toPercentEncoding("select rowid as uid, * from vtab limit 1 offset 3")
+        l = QgsVectorLayer("?layer=ogr:%s:vtab&query=%s" % (source,query), "vtab2", "virtual", False)
+        # the last line must have a fixed rowid (not an autoincrement)
+        for f in l.getFeatures():
+            lid = f.attributes()[0]
+        self.assertEqual( lid, 3 )
+
 
 if __name__ == '__main__':
     unittest.main()

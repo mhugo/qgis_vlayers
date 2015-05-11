@@ -358,18 +358,15 @@ struct VTableCursor
     VTable *vtab_;
 
     // specific members
-    sqlite3_int64 current_row_;
-
     QgsFeature current_feature_;
     QgsFeatureIterator iterator_;
     bool eof_;
 
-    VTableCursor( VTable *vtab ) : vtab_(vtab), current_row_(-1), eof_(true) {}
+    VTableCursor( VTable *vtab ) : vtab_(vtab), eof_(true) {}
 
     void filter( QgsFeatureRequest request )
     {
         iterator_ = vtab_->provider()->getFeatures( request );
-        current_row_ = -1;
         // get on the first record
         eof_ = false;
         next();
@@ -380,16 +377,13 @@ struct VTableCursor
         if ( !eof_ ) {
             eof_ = !iterator_.nextFeature( current_feature_ );
         }
-        if ( !eof_ ) {
-            current_row_++;
-        }
     }
 
     bool eof() const { return eof_; }
 
     int n_columns() const { return vtab_->provider()->fields().count(); }
 
-    sqlite3_int64 current_row() const { return current_row_; }
+    sqlite3_int64 current_id() const { return current_feature_.id(); }
 
     QVariant current_attribute( int column ) const { return current_feature_.attribute(column); }
 
@@ -792,7 +786,7 @@ int vtable_eof( sqlite3_vtab_cursor *cursor )
 int vtable_rowid( sqlite3_vtab_cursor *cursor, sqlite3_int64 *out_rowid )
 {
     VTableCursor* c = reinterpret_cast<VTableCursor*>(cursor);
-    *out_rowid = c->current_row();
+    *out_rowid = c->current_id();
 
     return SQLITE_OK;
 }
