@@ -182,6 +182,6 @@ Known limitations / Future developments
 
 * Virtual layers are read-only for now. For the simple case (only one layer referenced), implementing feature update and addition should not be complicated. For the more general case where a virtual layer
 can be a join between layers, the concept of "updateable" views found in databases could be ported. It means it would require the user to specify triggers on UPDATE and INSERT.
-* Layers are referenced by their provider and source. Using directly the QgsVectorLayer to access features would allow to access joins more transparently and allow to access memory layers.
+* Creating a virtual layer with the `layer_ref` key allows to directly access already loaded QGIS layers (including memory layers). But internally, QgsDataProvider is used to access features, where QgsVectorLayer could be used, allowing to expose joins (and edit buffers) ?
 * Spatial indexes must be set explicitly. The SQL parser code may be used in the future as a base for simple SQL transformations where use of geometry predicates (or bounding boxes operators like && in PostGIS) could be detected and spatial indexes added.
 * QgsExpression functions are not supported in an SQL query. Addition of such a feature would be possible (since SQLite virtual table mechanism allows to add/overload functions).
