@@ -280,7 +280,11 @@ bool QgsVirtualLayerProvider::createIt()
             QString provider = mLayers.at(i).provider;
             QString source = mLayers.at(i).source;
             QString encoding = mLayers.at(i).encoding;
-            QString createStr = QString( "DROP TABLE IF EXISTS \"%1\"; CREATE VIRTUAL TABLE \"%1\" USING QgsVLayer(%2,'%3',%4)").arg(vname).arg(provider).arg(source).arg(encoding);
+            QString createStr = QString( "DROP TABLE IF EXISTS \"%1\"; CREATE VIRTUAL TABLE \"%1\" USING QgsVLayer(%2,'%4',%3)")
+                .arg(vname)
+                .arg(provider)
+                .arg(encoding)
+                .arg(source); // source must be the last argument here, since it can contains '%x' strings that would be replaced
             Sqlite::Query::exec( mSqlite.get(), createStr );
         }
     }
