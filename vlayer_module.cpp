@@ -391,7 +391,9 @@ struct VTableCursor
     {
         size_t blob_len;
         unsigned char* blob;
-        qgsgeometry_to_spatialite_blob( *current_feature_.geometry(), vtab_->crs(), blob, blob_len );
+        // make it work for pre 2.10 and 2.10 qgis version
+        QgsGeometry* g = const_cast<QgsFeature&>(current_feature_).geometry();
+        qgsgeometry_to_spatialite_blob( *g, vtab_->crs(), blob, blob_len );
         return qMakePair( blob, blob_len );
     }
 };
