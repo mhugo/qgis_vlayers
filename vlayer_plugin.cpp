@@ -34,7 +34,6 @@
 
 #include "qgsvirtuallayersourceselect.h"
 
-#include <unistd.h>
 #include <iostream>
 
 static const QString sName = "Virtual layer plugin";
