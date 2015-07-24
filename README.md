@@ -14,10 +14,14 @@ The current implementation is a functional prototype, designed as plugins for QG
 
 Note :
 
-These plugins have been designed for QGIS 2.8.
-Support for filtering a layer that has a (QGIS) join defined needs a recent 2.9 version (at least from 02-18-2015 - commit number 4a52750a - nightly build 2.9.0-33)
+These plugins have been designed for QGIS 2.8 and works also with QGIS 2.10
 
-Installation under Linux
+Binary installation
+-------------------
+
+**Compiled binaries for the Windows (32bits and 64bits) platform can be found at the following link**: https://github.com/mhugo/qgis_vlayers_bin
+
+Compilation under Linux
 ------------------------
 
 Use CMake to configure the project. Make QGIS_* variables point to your QGIS installation directories.
@@ -33,7 +37,7 @@ Example of configuration:
 
 Then type `make` and `sudo make install`.
 
-Installation under Windows
+Compilation under Windows
 --------------------------
 
 The compilation has been tested under VS2010.
