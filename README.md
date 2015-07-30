@@ -16,6 +16,8 @@ Note :
 
 These plugins have been designed for QGIS 2.8 and works also with QGIS 2.10
 
+This has been funded by the MEDDE http://www.developpement-durable.gouv.fr/ (French Ministry of Sustainable Development)
+
 Binary installation
 -------------------
 
