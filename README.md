@@ -27,7 +27,7 @@ Usage in QGIS
 - You can create a new virtual layer through the "New layer" menu
 - You can open a saved virtual layer through the "Add layer" menu
 - A virtual layer can be created out of a layer selection by right click in the context menu
-- If you want to filter a layer that has "joins", it will propose to copy it to a virtual layer (this is where the pull request is required)
+- If you want to filter a layer that has "joins", it will propose to copy it to a virtual layer
 - In DBManager, there is a new entry "virtual layers" where you can use an SQL query to setup a virtual layer
 
 ![](https://raw.githubusercontent.com/mhugo/qgis_vlayers/master/doc/dbmanager_screen.png)
