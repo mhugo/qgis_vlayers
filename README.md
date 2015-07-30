@@ -21,38 +21,6 @@ Binary installation
 
 **Compiled binaries for the Windows (32bits and 64bits) platform can be found at the following link**: https://github.com/mhugo/qgis_vlayers_bin
 
-Compilation under Linux
-------------------------
-
-Use CMake to configure the project. Make QGIS_* variables point to your QGIS installation directories.
-Example of configuration:
-```
- QGIS_ANALYSIS_LIBRARY            /usr/local/lib/libqgis_analysis.so                                                 
- QGIS_APP_DIR                     /usr/local/share/qgis                                                              
- QGIS_CORE_LIBRARY                /usr/local/lib/libqgis_core.so                                                     
- QGIS_GUI_LIBRARY                 /usr/local/lib/libqgis_gui.so                                                      
- QGIS_INCLUDE_DIR                 /usr/local/include/qgis                                                            
- QGIS_PLUGIN_DIR                  /usr/local/lib/qgis/plugins                                                        
-```
-
-Then type `make` and `sudo make install`.
-
-Compilation under Windows
---------------------------
-
-The compilation has been tested under VS2010.
-
-Use CMake to configure the project with "NMake makefiles".
-
-Pay attention to the CMAKE_BUILD_TYPE you use (Debug/Release or RelWithDebInfo). You cannot mix debug and release libraries under Windows. It has to be the same as the one used to compile QGIS.
-Usually, if QGIS is installed with the osgeo installer, then set it to "RelWithDebInfo".
-
-Make QGIS_* variables point to QGIS installation (or build) directories.
-
-You will need Flex/Bison for the SQL parser. Make FLEX_EXECUTABLE and BISON_EXECUTABLE point to the executables used by the QGIS compilation (Flex coming for cygwin and bison from GnuWin32 in my case)
-
-Type `nmake` to compile and `nmake install` to install.
-
 Usage in QGIS
 -------------
 
@@ -61,6 +29,8 @@ Usage in QGIS
 - A virtual layer can be created out of a layer selection by right click in the context menu
 - If you want to filter a layer that has "joins", it will propose to copy it to a virtual layer (this is where the pull request is required)
 - In DBManager, there is a new entry "virtual layers" where you can use an SQL query to setup a virtual layer
+
+![](https://raw.githubusercontent.com/mhugo/qgis_vlayers/master/doc/dbmanager_screen.png)
 
 Videos :
 
@@ -189,3 +159,38 @@ can be a join between layers, the concept of "updateable" views found in databas
 * Creating a virtual layer with the `layer_ref` key allows to directly access already loaded QGIS layers (including memory layers). But internally, QgsDataProvider is used to access features, where QgsVectorLayer could be used, allowing to expose joins (and edit buffers) ?
 * Spatial indexes must be set explicitly. The SQL parser code may be used in the future as a base for simple SQL transformations where use of geometry predicates (or bounding boxes operators like && in PostGIS) could be detected and spatial indexes added.
 * QgsExpression functions are not supported in an SQL query. Addition of such a feature would be possible (since SQLite virtual table mechanism allows to add/overload functions).
+
+Compilation
+===========
+
+Compilation under Linux
+------------------------
+
+Use CMake to configure the project. Make QGIS_* variables point to your QGIS installation directories.
+Example of configuration:
+```
+ QGIS_ANALYSIS_LIBRARY            /usr/local/lib/libqgis_analysis.so                                                 
+ QGIS_APP_DIR                     /usr/local/share/qgis                                                              
+ QGIS_CORE_LIBRARY                /usr/local/lib/libqgis_core.so                                                     
+ QGIS_GUI_LIBRARY                 /usr/local/lib/libqgis_gui.so                                                      
+ QGIS_INCLUDE_DIR                 /usr/local/include/qgis                                                            
+ QGIS_PLUGIN_DIR                  /usr/local/lib/qgis/plugins                                                        
+```
+
+Then type `make` and `sudo make install`.
+
+Compilation under Windows
+--------------------------
+
+The compilation has been tested under VS2010.
+
+Use CMake to configure the project with "NMake makefiles".
+
+Pay attention to the CMAKE_BUILD_TYPE you use (Debug/Release or RelWithDebInfo). You cannot mix debug and release libraries under Windows. It has to be the same as the one used to compile QGIS.
+Usually, if QGIS is installed with the osgeo installer, then set it to "RelWithDebInfo".
+
+Make QGIS_* variables point to QGIS installation (or build) directories.
+
+You will need Flex/Bison for the SQL parser. Make FLEX_EXECUTABLE and BISON_EXECUTABLE point to the executables used by the QGIS compilation (Flex coming for cygwin and bison from GnuWin32 in my case)
+
+Type `nmake` to compile and `nmake install` to install.
