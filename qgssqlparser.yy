@@ -169,7 +169,8 @@ optional_order_by:
         ;
 
 ordering_term:  
-                expression ASC { $$ = new QgsSql::OrderingTerm( $1, true ); }
+                expression { $$ = new QgsSql::OrderingTerm( $1, true ); }
+        |       expression ASC { $$ = new QgsSql::OrderingTerm( $1, true ); }
         |       expression DESC { $$ = new QgsSql::OrderingTerm( $1, false ); }
         ;
 

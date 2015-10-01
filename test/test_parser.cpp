@@ -56,6 +56,18 @@ void TestSqlParser::testParsing2()
         QVERIFY( !n.isNull() );
     }
     {
+        QScopedPointer<QgsSql::Node> n( QgsSql::parseSql( "select * from departements order by id_geofla", err ) );
+        QVERIFY( !n.isNull() );
+    }
+    {
+        QScopedPointer<QgsSql::Node> n( QgsSql::parseSql( "select * from departements order by id_geofla desc", err ) );
+        QVERIFY( !n.isNull() );
+    }
+    {
+        QScopedPointer<QgsSql::Node> n( QgsSql::parseSql( "select * from departements group by id_geofla", err ) );
+        QVERIFY( !n.isNull() );
+    }
+    {
         QScopedPointer<QgsSql::Node> n( QgsSql::parseSql( "select * from (select 42 from t) as toto limit 1", err ) );
         std::cout << err.toUtf8().constData() << std::endl;
         QVERIFY( !n.isNull() );

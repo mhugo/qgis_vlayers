@@ -183,15 +183,16 @@ string      "'"{str_char}*"'"
 "USING" { return USING; }
 "ON" { return ON; }
 
-"SELECT"   { return SELECT; }
-"FROM"     { return FROM; }
-"AS"       { return AS; }
-"WHERE"    { return WHERE; }
-"ALL"      { return ALL; }
-"DISTINCT" { return DISTINCT; }
-"UNION"    { return UNION; }
+"SELECT"    { return SELECT; }
+"FROM"      { return FROM; }
+"AS"        { return AS; }
+"WHERE"     { return WHERE; }
+"ALL"       { return ALL; }
+"DISTINCT"  { return DISTINCT; }
+"UNION"     { return UNION; }
 "EXCEPT"    { return EXCEPT; }
 "INTERSECT" { return INTERSECT; }
+"ORDER"     { return ORDER; }
 "GROUP"     { return GROUP; }
 "BY"        { return BY; }
 "HAVING"    { return HAVING; }
@@ -199,6 +200,8 @@ string      "'"{str_char}*"'"
 "CAST"      { return CAST; }
 "LIMIT"     { return LIMIT; }
 "OFFSET"    { return OFFSET; }
+"ASC"       { return ASC; }
+"DESC"      { return DESC; }
 
 [()\.]      { return yytext[0]; }
 
