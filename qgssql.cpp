@@ -623,6 +623,13 @@ OutputFunctionTypes initOutputFunctionTypes()
     t.add( "extractmultilinestring1", QGis::WKBMultiLineString );
     t.add( "extractmultipolygon1", QGis::WKBMultiPolygon );
 
+    t.add( "extent1", QGis::WKBPolygon );
+    t.add( "st_extent1", QGis::WKBPolygon );
+    t.add( "buildarea1", QGis::WKBPolygon );
+    t.add( "st_buildarea1", QGis::WKBPolygon );
+    t.add( "polygonize1", QGis::WKBPolygon );
+    t.add( "st_polygonize1", QGis::WKBPolygon );
+
     // geometry functions that do not touch their types
     t.add( "snap3", QGis::WKBUnknown );
     t.add( "st_snap3", QGis::WKBUnknown );
@@ -719,6 +726,23 @@ QGis::WkbType intersectionType( QGis::WkbType ta, QGis::WkbType tb )
     case QGis::WKBMultiPolygon:
         return QGis::WKBMultiPolygon;
     };
+    return QGis::WKBUnknown;
+}
+
+QGis::WkbType unionType1( QGis::WkbType ta )
+{
+    switch (ta) {
+    case QGis::WKBPoint:
+    case QGis::WKBMultiPoint:
+      return QGis::WKBMultiPoint;
+    case QGis::WKBLineString:
+    case QGis::WKBMultiLineString:
+      return QGis::WKBMultiLineString;
+    case QGis::WKBPolygon:
+    case QGis::WKBMultiPolygon:
+      return QGis::WKBMultiPolygon;
+    }
+    // else its a collection
     return QGis::WKBUnknown;
 }
 
@@ -988,6 +1012,14 @@ public:
         }
         else if ( ((h == "gunion2") || (h == "st_union2")) && argsDefs[0].isGeometry() && argsDefs[1].isGeometry() ) {
             column->setGeometry( unionType( argsDefs[0].wkbType(), argsDefs[1].wkbType() ) );
+            column->setSrid( argsDefs[0].srid() );
+        }
+        else if ( ((h == "gunion1") || (h == "st_union1")) && argsDefs[0].isGeometry() ) {
+            column->setGeometry( unionType1( argsDefs[0].wkbType() ) );
+            column->setSrid( argsDefs[0].srid() );
+        }
+        else if ( ((h == "collect1") || (h == "st_collect1")) && argsDefs[0].isGeometry() ) {
+            column->setGeometry( QGis::WKBUnknown );
             column->setSrid( argsDefs[0].srid() );
         }
         else {

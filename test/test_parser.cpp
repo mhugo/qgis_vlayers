@@ -248,6 +248,32 @@ void TestSqlParser::testColumnTypes()
         // no error
         QVERIFY( cdefs.size() == 2 );
     }
+    {
+        QString sql( "SELECT st_union(t.geom) as geom FROM t" );
+        QScopedPointer<Node> n( parseSql( sql, err ) );
+        QList<ColumnType> cdefs = columnTypes( *n, err, &t );
+        QVERIFY( cdefs.size() == 1 );
+        QVERIFY( cdefs[0].name() == "geom" );
+        QVERIFY( cdefs[0].isGeometry() );
+        QVERIFY( cdefs[0].wkbType() == QGis::WKBMultiLineString );
+    }
+    {
+        QString sql( "SELECT st_collect(t.geom) as geom, st_polygonize(geom) as geom2, extent(geom) as ext FROM t" );
+        QScopedPointer<Node> n( parseSql( sql, err ) );
+        QList<ColumnType> cdefs = columnTypes( *n, err, &t );
+        QVERIFY( cdefs.size() == 3 );
+        QVERIFY( cdefs[0].name() == "geom" );
+        QVERIFY( cdefs[0].isGeometry() );
+        QVERIFY( cdefs[0].wkbType() != QGis::WKBNoGeometry );
+
+        QVERIFY( cdefs[1].name() == "geom2" );
+        QVERIFY( cdefs[1].isGeometry() );
+        QVERIFY( cdefs[1].wkbType() == QGis::WKBPolygon );
+
+        QVERIFY( cdefs[2].name() == "ext" );
+        QVERIFY( cdefs[2].isGeometry() );
+        QVERIFY( cdefs[2].wkbType() == QGis::WKBPolygon );
+    }
 }
 
 QTEST_MAIN( TestSqlParser )

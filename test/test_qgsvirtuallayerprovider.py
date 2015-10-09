@@ -483,6 +483,17 @@ class TestQgsVirtualLayerProvider(TestCase):
         s = sum( f.attributes()[0] for f in l4.getFeatures() )
         self.assertEqual( s, 10659 )
 
+    def test_sql5(self):
+        l2 = QgsVectorLayer( os.path.join(self.testDataDir_, "france_parts.shp"), "france_parts", "ogr", False )
+        self.assertEqual( l2.isValid(), True )
+        QgsMapLayerRegistry.instance().addMapLayer(l2)
+
+        query = QUrl.toPercentEncoding( "SELECT st_union(geometry) as geom from france_parts" )
+        l4 = QgsVectorLayer( "?query=%s" % query, "tt", "virtual", False )
+        self.assertEqual( l4.isValid(), True )
+        self.assertEqual( l4.dataProvider().geometryType(), 6 )
+        self.assertEqual( l4.geometryType(), 2 )
+
     def test_layer_name(self):
         # test space and upper case
         l2 = QgsVectorLayer( os.path.join(self.testDataDir_, "france_parts.shp"), "FranCe parts", "ogr", False )
