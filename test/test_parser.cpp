@@ -255,7 +255,7 @@ void TestSqlParser::testColumnTypes()
         QVERIFY( cdefs.size() == 1 );
         QVERIFY( cdefs[0].name() == "geom" );
         QVERIFY( cdefs[0].isGeometry() );
-        QVERIFY( cdefs[0].wkbType() == QGis::WKBMultiLineString );
+        QVERIFY( cdefs[0].wkbType() == QGis::WKBLineString );
     }
     {
         QString sql( "SELECT st_collect(t.geom) as geom, st_polygonize(geom) as geom2, extent(geom) as ext FROM t" );

@@ -339,8 +339,13 @@ bool QgsVirtualLayerProvider::createIt()
                     }
                     // if the geometry field is detected with a scalar type, move it to the geometry fields
                     if ( c.name() == reqGeometryField.name() ) {
+                      if ( (reqGeometryField.wkbType() != QGis::WKBNoGeometry) && (reqGeometryField.wkbType() != QGis::WKBUnknown) ) {
+                        gFields << reqGeometryField;
+                      }
+                      else {
                         PROVIDER_ERROR( "Can't deduce the geometry type of the geometry field !" );
                         return false;
+                      }
                     }
                     else {
                         mFields.append( QgsField( c.name(), c.scalarType() ) );

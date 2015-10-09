@@ -672,6 +672,8 @@ OutputFunctionTypes initOutputFunctionTypes()
     return t;
 }
 
+//
+// most probable type, since we cannot deduce the type without evaluating
 QGis::WkbType intersectionType( QGis::WkbType ta, QGis::WkbType tb )
 {
     if (ta > tb) {
@@ -729,23 +731,8 @@ QGis::WkbType intersectionType( QGis::WkbType ta, QGis::WkbType tb )
     return QGis::WKBUnknown;
 }
 
-QGis::WkbType unionType1( QGis::WkbType ta )
-{
-    switch (ta) {
-    case QGis::WKBPoint:
-    case QGis::WKBMultiPoint:
-      return QGis::WKBMultiPoint;
-    case QGis::WKBLineString:
-    case QGis::WKBMultiLineString:
-      return QGis::WKBMultiLineString;
-    case QGis::WKBPolygon:
-    case QGis::WKBMultiPolygon:
-      return QGis::WKBMultiPolygon;
-    }
-    // else its a collection
-    return QGis::WKBUnknown;
-}
-
+//
+// most probable type, since we cannot deduce the type without evaluating
 QGis::WkbType unionType( QGis::WkbType ta, QGis::WkbType tb )
 {
     switch (ta) {
@@ -772,6 +759,8 @@ QGis::WkbType unionType( QGis::WkbType ta, QGis::WkbType tb )
     return QGis::WKBUnknown;
 }
 
+//
+// most probable type, since we cannot deduce the type without evaluating
 QGis::WkbType differenceType( QGis::WkbType ta, QGis::WkbType tb )
 {
     switch (ta)
@@ -1015,7 +1004,7 @@ public:
             column->setSrid( argsDefs[0].srid() );
         }
         else if ( ((h == "gunion1") || (h == "st_union1")) && argsDefs[0].isGeometry() ) {
-            column->setGeometry( unionType1( argsDefs[0].wkbType() ) );
+            column->setGeometry( argsDefs[0].wkbType() );
             column->setSrid( argsDefs[0].srid() );
         }
         else if ( ((h == "collect1") || (h == "st_collect1")) && argsDefs[0].isGeometry() ) {
