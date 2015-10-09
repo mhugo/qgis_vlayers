@@ -219,7 +219,7 @@ class TestQgsVirtualLayerProvider(TestCase):
         geo = [ (1, "POINT", "(0 0)" ),
                 (2, "LINESTRING", "(0 0,1 0)"),
                 (3, "POLYGON", "((0 0,1 0,1 1,0 0))"),
-                (4, "MULTIPOINT", "(1 1)"),
+                (4, "MULTIPOINT", "((1 1))"),
                 (5, "MULTILINESTRING", "((0 0,1 0),(0 1,1 1))"),
                 (6, "MULTIPOLYGON", "(((0 0,1 0,1 1,0 0)),((2 2,3 0,3 3,2 2)))") ]
         for wkb_type, wkt_type, wkt in geo:
@@ -228,7 +228,9 @@ class TestQgsVirtualLayerProvider(TestCase):
             QgsMapLayerRegistry.instance().addMapLayer(l)
 
             f1 = QgsFeature(1)
-            f1.setGeometry(QgsGeometry.fromWkt(wkt_type+wkt))
+            g = QgsGeometry.fromWkt(wkt_type+wkt)
+            self.assertEqual( g is None, False )
+            f1.setGeometry(g)
             l.dataProvider().addFeatures([f1])
 
             l2 = QgsVectorLayer( "?layer_ref=%s" % l.id(), "vtab", "virtual", False )
