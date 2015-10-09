@@ -542,6 +542,27 @@ class TestQgsVirtualLayerProvider(TestCase):
             lid = f.attributes()[0]
         self.assertEqual( lid, 3 )
 
+    def test_geometry_conversion( self ):
+        query = QUrl.toPercentEncoding("select geomfromtext('multipoint((0 0),(1 1))') as geom")
+        l = QgsVectorLayer("?query=%s&geometry=geom:multipoint:0" % query, "tt", "virtual", False)
+        self.assertEqual(l.isValid(),True)
+        for f in l.getFeatures():
+            self.assertEqual(f.geometry().exportToWkt().lower().startswith("multipoint"), True)
+            self.assertEqual("),(" in f.geometry().exportToWkt(), True) # has two points
+
+        query = QUrl.toPercentEncoding("select geomfromtext('multipolygon(((0 0,1 0,1 1,0 1,0 0)),((0 1,1 1,1 2,0 2,0 1)))') as geom")
+        l = QgsVectorLayer("?query=%s&geometry=geom:multipolygon:0" % query, "tt", "virtual", False)
+        self.assertEqual(l.isValid(),True)
+        for f in l.getFeatures():
+            self.assertEqual(f.geometry().exportToWkt().lower().startswith("multipolygon"), True)
+            self.assertEqual(")),((" in f.geometry().exportToWkt(), True) # has two polygons
+
+        query = QUrl.toPercentEncoding("select geomfromtext('multilinestring((0 0,1 0,1 1,0 1,0 0),(0 1,1 1,1 2,0 2,0 1))') as geom")
+        l = QgsVectorLayer("?query=%s&geometry=geom:multilinestring:0" % query, "tt", "virtual", False)
+        self.assertEqual(l.isValid(),True)
+        for f in l.getFeatures():
+            self.assertEqual(f.geometry().exportToWkt().lower().startswith("multilinestring"), True)
+            self.assertEqual("),(" in f.geometry().exportToWkt(), True) # has two linestrings
 
 if __name__ == '__main__':
     unittest.main()

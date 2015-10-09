@@ -213,22 +213,93 @@ QgsRectangle spatialite_blob_bbox( const unsigned char* blob, const size_t size 
     return QgsRectangle( h.mbr_min_x, h.mbr_min_y, h.mbr_max_x, h.mbr_max_y );
 }
 
+void copy_spatialite_single_wkb_to_qgsgeometry( uint32_t type, const unsigned char* iwkb, unsigned char* owkb, uint32_t& osize )
+{
+  int dims = type / 1000;
+  int n_dims = 2 + (dims&1) + (dims&2);
+  switch (type%1000)
+  {
+  case 1:
+    // point
+    memcpy( owkb, iwkb, n_dims*8 );
+    iwkb += n_dims*8;
+    iwkb += n_dims*8;
+    osize = n_dims*8;
+    break;
+  case 2: {
+    // linestring
+    uint32_t n_points = *(uint32_t*)iwkb;
+    memcpy( owkb, iwkb, 4 );
+    iwkb+=4; owkb+=4;
+    for ( uint32_t i = 0; i < n_points; i++ ) {
+      memcpy( owkb, iwkb, n_dims*8 );
+      iwkb += n_dims*8;
+      owkb += n_dims*8;
+    }
+    osize += n_dims*8*n_points + 4;
+    break;
+  }
+  case 3: {
+    // polygon
+    uint32_t n_rings = *(uint32_t*)iwkb;
+    memcpy( owkb, iwkb, 4 );
+    iwkb+=4; owkb+=4;
+    osize = 4;
+    for ( uint32_t i = 0; i < n_rings; i++ ) {
+      uint32_t n_points = *(uint32_t*)iwkb;
+      memcpy( owkb, iwkb, 4 );
+      iwkb+=4; owkb+=4;
+      osize += 4;
+      for ( uint32_t j = 0; j < n_points; j++ ) {
+        memcpy( owkb, iwkb, n_dims*8 );
+        iwkb += n_dims*8;
+        owkb += n_dims*8;
+        osize += n_dims*8;
+      }
+    }
+    break;
+  }
+  }
+}
+
+void copy_spatialite_collection_wkb_to_qgsgeometry( const unsigned char* iwkb, unsigned char* owkb, uint32_t& osize )
+{
+  memcpy( owkb, iwkb, 5 );
+  owkb[0] = 0x01; // endianness
+  size_t copy_size = 0;
+  uint32_t type = *(uint32_t*)(iwkb+1);
+
+  // convert type
+  uint32_t type2 = (type > 1000) ? (type%1000 + 0x80000000) : type;
+  *(uint32_t*)(owkb+1) = type2;
+
+  if ( (type % 1000) >= 4 ) {
+    // multi type
+    uint32_t n_elements = *(uint32_t*)(iwkb+5);
+    memcpy( owkb+5, iwkb+5, 4 );
+    uint32_t p = 0;
+    for ( uint32_t i = 0; i < n_elements; i++ ) {
+      uint32_t rsize = 0;
+      copy_spatialite_collection_wkb_to_qgsgeometry( iwkb+9+p, owkb+9+p, rsize );
+      p += rsize;
+    }
+    osize = p+9;
+  }
+  else {
+    osize = 0;
+    copy_spatialite_single_wkb_to_qgsgeometry( type, iwkb+5, owkb+5, osize );
+    osize += 5;
+  }
+}
+
 std::unique_ptr<QgsGeometry> spatialite_blob_to_qgsgeometry( const unsigned char* blob, const size_t size )
 {
     size_t header_size = 39;
     size_t wkb_size = size - header_size;
     unsigned char* wkb = new unsigned char[wkb_size];
-    wkb[0] = 0x01; // endianness
-    memcpy( wkb + 1, blob + header_size, wkb_size );
 
-    // convert wkb types between spatialite and qgsgeometry
-    uint32_t type = *(uint32_t*)(wkb+1);
-    uint32_t type2 = type;
-    if ( type > 1000 ) {
-        // Z flag
-        type2 = type2 - 1000 + 0x80000000;
-    }
-    *(uint32_t*)(wkb+1) = type2;
+    uint32_t osize = 0;
+    copy_spatialite_collection_wkb_to_qgsgeometry( blob + header_size - 1, wkb, osize );
 
     std::unique_ptr<QgsGeometry> geom(new QgsGeometry());
     geom->fromWkb( wkb, wkb_size );

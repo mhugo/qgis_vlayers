@@ -111,7 +111,6 @@ void QgsVirtualLayerDefinition::fromUrl( const QUrl& url )
             }
         }
         else if ( key == "nogeometry" ) {
-            std::cout << "nogeometry!!!" << std::endl;
             mGeometryField = "*no*";
         }
         else if ( key == "uid" ) {
