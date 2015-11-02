@@ -521,11 +521,15 @@ QString QgsVirtualLayerProvider::subsetString()
     return mSubset;
 }
 
+#if VERSION_INT < 21100
+
 bool QgsVirtualLayerProvider::setSubsetString( QString theSQL, bool updateFeatureCount )
 {
     mSubset = theSQL;
     return true;
 }
+
+#endif
 
 
 QGis::WkbType QgsVirtualLayerProvider::geometryType() const

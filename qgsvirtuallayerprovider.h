@@ -21,6 +21,7 @@ email                : hugo dot mercier at oslandia dot com
 
 #include <qgsvectordataprovider.h>
 
+#include "qgsconfig.h"
 #include "qgscoordinatereferencesystem.h"
 #include "qgsvirtuallayerdefinition.h"
 
@@ -61,7 +62,9 @@ class QgsVirtualLayerProvider: public QgsVectorDataProvider
     virtual QString subsetString() override;
 
     /** mutator for sql where clause used to limit dataset size */
+#if VERSION_INT < 21100
     virtual bool setSubsetString( QString theSQL, bool updateFeatureCount = true ) override;
+#endif
 
     virtual bool supportsSubsetString() override { return true; }
 

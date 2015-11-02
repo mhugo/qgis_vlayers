@@ -22,6 +22,8 @@ email                : hugo dot mercier at oslandia dot com
 
 #include <QSet>
 
+#include <qgsconfig.h>
+
 namespace QgsSql
 {
 
@@ -1036,7 +1038,11 @@ public:
             QScopedPointer<QgsExpression::NodeBinaryOperator> nOp( new QgsExpression::NodeBinaryOperator( b.op(), nLeft, nRight ) );
             QgsFeature f;
             QgsExpression e("");
+#if VERSION_INT >= 21100
+            QVariant result = nOp->eval( &e, (const QgsExpressionContext*)0 );
+#else
             QVariant result = nOp->eval( &e, &f );
+#endif
             column->setConstantValue( result );
         }
         else {
@@ -1067,7 +1073,11 @@ public:
             QScopedPointer<QgsExpression::NodeUnaryOperator> nOp( new QgsExpression::NodeUnaryOperator( b.op(), nLeft ) );
             QgsFeature f;
             QgsExpression e("");
+#if VERSION_INT >= 21100
+            QVariant result = nOp->eval( &e, (const QgsExpressionContext*)0 );
+#else
             QVariant result = nOp->eval( &e, &f );
+#endif
             column->setConstantValue( result );
         }
         else {

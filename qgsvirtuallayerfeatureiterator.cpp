@@ -154,7 +154,11 @@ bool QgsVirtualLayerFeatureIterator::fetchFeature( QgsFeature& feature )
         return false;
     }
 
+#if VERSION_INT <= 20900
     feature.setFields( &mFields, /* init */ true );
+#else
+    feature.setFields( mFields, /* init */ true );
+#endif
 
     if ( mDefinition.uid().isNull() ) {
         // no id column => autoincrement
