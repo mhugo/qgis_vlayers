@@ -452,6 +452,14 @@ class OutputFunctionTypes : public QHash<QString, FunctionResult>
 OutputFunctionTypes initOutputFunctionTypes()
 {
     OutputFunctionTypes t;
+    // sqlite functions
+    t.add( "count0", QVariant::Int );
+    t.add( "count1", QVariant::Int );
+    t.add( "sum1", QVariant::Int );
+    t.add( "total1", QVariant::Int );
+    t.add( "avg1", QVariant::Double );
+
+    // spatialite functions
     t.add( "casttointeger1", QVariant::Int );
     t.add( "casttodouble1", QVariant::Double );
     t.add( "casttotext1", QVariant::String );
@@ -925,16 +933,18 @@ public:
     virtual void visit( const ExpressionFunction& c ) override
     {
         QVector<ColumnType> argsDefs;
-        bool allConstants = true;
-		const auto& l = *c.args();
-        for ( auto it = l.begin(); it != l.end(); it++ ) {
+        // TODO constant evaluation
+        //        bool allConstants = true;
+        if ( c.args() ) {
+          const auto& l = *c.args();
+          for ( auto it = l.begin(); it != l.end(); it++ ) {
             argsDefs << eval( *(*it) );
-            if (!argsDefs.back().isConstant()) {
-                allConstants = false;
-            }
+            // if (!argsDefs.back().isConstant()) {
+            // allConstants = false;
+            //}
+          }
         }
 
-        //TODO constant evaluation
         column->setConstant( false );
         QString fname = c.name().toLower();
         QString h = c.name().toLower() + QString::number(argsDefs.size());

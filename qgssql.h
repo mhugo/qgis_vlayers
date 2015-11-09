@@ -152,19 +152,29 @@ namespace QgsSql
     class ExpressionFunction : public Expression
     {
     public:
-        ExpressionFunction( const QString& name, List* args ):
+      //!
+      //! @param is_all Whether it's a '*' argument (count(*) for instance)
+      //! @param is_distinct Whether the "DISTINCT" keyword is present in front of arguments
+      ExpressionFunction( const QString& name, List* args, bool is_all = false, bool is_distinct = false ):
             Expression( NODE_EXPRESSION_FUNCTION ),
             mName( name ),
-            mArgs(args)
+            mArgs( args ),
+            mIsAll( is_all ),
+            mIsDistinct( is_distinct )
         {}
 
         QString name() const { return mName; }
         const List* args() const { return mArgs.data(); }
 
+      bool isAll() const { return mIsAll; }
+      bool isDistinct() const { return mIsDistinct; }
+
         void accept( NodeVisitor& v ) const;
     private:
         QString mName;
         QScopedPointer<List> mArgs;
+      bool mIsAll;
+      bool mIsDistinct;
     };
 
     class ExpressionCondition : public Expression

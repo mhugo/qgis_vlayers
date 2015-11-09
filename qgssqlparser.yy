@@ -98,7 +98,7 @@ struct expression_parser_context
 //
 
 // operator tokens
-%token <b_op> OR AND EQ NE LE GE LT GT REGEXP LIKE IS PLUS MINUS MUL DIV MOD CONCAT
+%token <b_op> OR AND EQ NE LE GE LT GT REGEXP LIKE IS PLUS MINUS MUL DIV MOD CONCAT GLOB MATCH
 %token <u_op> NOT
 %token IN
 
@@ -127,7 +127,7 @@ struct expression_parser_context
 %type   <sqlnode>       when_then_clause select_stmt result_column optional_from table_or_subquery join_operator non_natural_join_operator join_constraint optional_where optional_group_by optional_having
 %type   <sqlnode>       optional_order_by optional_limit ordering_term optional_offset select_core
 %type   <sqlnodelist>   exp_list result_column_list table_or_subquery_list when_then_clauses compound_select ordering_terms
-%type   <boolean>       is_distinct is_natural
+%type   <boolean>       is_distinct is_distinct_or_all is_natural
 
 // debugging
 %error-verbose
@@ -208,7 +208,7 @@ compound_select:
         ;
 
 select_core:    SELECT
-                is_distinct
+                is_distinct_or_all
                 result_column_list
                 optional_from
                 optional_where
@@ -216,7 +216,7 @@ select_core:    SELECT
                 { $$ = new QgsSql::Select( $3, $4, static_cast<QgsSql::Expression*>($5), $2 ); }
         ;
 
-is_distinct:
+is_distinct_or_all:
                 /*empty*/ { $$ = false; }
         |       DISTINCT { $$ = true; }
         |       ALL { $$ = false; }
@@ -309,6 +309,11 @@ table_or_subquery:
         |       '('select_stmt ')' AS IDENTIFIER { $$ = new QgsSql::TableSelect( $2, *$5 ); delete $5; }
         ;
 
+is_distinct:
+                /*empty*/ { $$ = false; }
+        |       DISTINCT { $$ = true; }
+        ;
+
 expression:
       expression AND expression       { $$ = BINOP($2, $1, $3); }
     | expression OR expression        { $$ = BINOP($2, $1, $3); }
@@ -329,15 +334,20 @@ expression:
     | expression MOD expression       { $$ = BINOP($2, $1, $3); }
 //QGIS extension                  | expression POW expression       { $$ = BINOP($2, $1, $3); }
     | expression CONCAT expression    { $$ = BINOP($2, $1, $3); }
+    | expression GLOB expression    { $$ = BINOP($2, $1, $3); }
+    | expression MATCH expression    { $$ = BINOP($2, $1, $3); }
     | NOT expression                  { $$ = new QgsSql::ExpressionUnaryOperator($1, $2); }
     | '(' expression ')'              { $$ = $2; }
 
-    | IDENTIFIER '(' exp_list ')'
+    | IDENTIFIER '(' is_distinct exp_list ')'
         {
-          $$ = new QgsSql::ExpressionFunction(*$1, $3);
+          $$ = new QgsSql::ExpressionFunction(*$1, $4, /* is_all = */ false, /* is_disinct = */ $3);
           delete $1;
         }
-
+    | IDENTIFIER '(' MUL ')'
+    {
+          $$ = new QgsSql::ExpressionFunction(*$1, /* args = */ 0, /* is_all */ true);
+    } 
     | expression IN '(' exp_list ')'     { $$ = new QgsSql::ExpressionIn($1, $4, false);  }
     | expression NOT IN '(' exp_list ')' { $$ = new QgsSql::ExpressionIn($1, $5, true); }
         |       expression IN '(' select_stmt ')' { $$ = new QgsSql::ExpressionIn( $1, $4, false ); }

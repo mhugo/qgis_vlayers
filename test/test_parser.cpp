@@ -69,7 +69,19 @@ void TestSqlParser::testParsing2()
     }
     {
         QScopedPointer<QgsSql::Node> n( QgsSql::parseSql( "select * from (select 42 from t) as toto limit 1", err ) );
-        std::cout << err.toUtf8().constData() << std::endl;
+        QVERIFY( !n.isNull() );
+    }
+
+    {
+        QScopedPointer<QgsSql::Node> n( QgsSql::parseSql( "select count(*) from t", err ) );
+        QVERIFY( !n.isNull() );
+    }
+    {
+        QScopedPointer<QgsSql::Node> n( QgsSql::parseSql( "select count(DISTINCT id) from t", err ) );
+        QVERIFY( !n.isNull() );
+    }
+    {
+        QScopedPointer<QgsSql::Node> n( QgsSql::parseSql( "select count(DISTINCT id, e) from t", err ) );
         QVERIFY( !n.isNull() );
     }
 }
@@ -112,7 +124,7 @@ void TestSqlParser::testColumnTypes()
 
     TableDefs t;
     t["t"] = TableDef();
-    t["t"] << ColumnType( "geom", QGis::WKBLineString, 4326 ) << ColumnType( "a", QVariant::Int );
+    t["t"] << ColumnType( "geom", QGis::WKBLineString, 4326 ) << ColumnType( "a", QVariant::Int ) << ColumnType( "b", QVariant::Int );
 
     QString err;
     {
@@ -123,7 +135,7 @@ void TestSqlParser::testColumnTypes()
             return;
         }
         QList<ColumnType> cdefs = columnTypes( *n, err, &t );
-        QVERIFY( cdefs.size() == 6 );
+        QVERIFY( cdefs.size() == 7 );
         QVERIFY( cdefs[0].scalarType() == QVariant::Double );
         QVERIFY( cdefs[0].name() == "ab" );
 
@@ -157,7 +169,7 @@ void TestSqlParser::testColumnTypes()
             return;
         }
         QList<ColumnType> cdefs = columnTypes( *n, err, &t );
-        QVERIFY( err == "Cannot find column b" );
+        QVERIFY( err == "Cannot find column c" );
     }
     {
         // constant evaluation
@@ -246,7 +258,7 @@ void TestSqlParser::testColumnTypes()
         QScopedPointer<Node> n( parseSql( sql, err ) );
         QList<ColumnType> cdefs = columnTypes( *n, err, &t );
         // no error
-        QVERIFY( cdefs.size() == 2 );
+        QVERIFY( cdefs.size() == 3 );
     }
     {
         QString sql( "SELECT st_union(t.geom) as geom FROM t" );
@@ -273,6 +285,28 @@ void TestSqlParser::testColumnTypes()
         QVERIFY( cdefs[2].name() == "ext" );
         QVERIFY( cdefs[2].isGeometry() );
         QVERIFY( cdefs[2].wkbType() == QGis::WKBPolygon );
+    }
+
+    {
+        QScopedPointer<QgsSql::Node> n( QgsSql::parseSql( "select count(*) from t", err ) );
+        QList<ColumnType> cdefs = columnTypes( *n, err, &t );
+        QVERIFY( !n.isNull() );
+        QVERIFY( cdefs[0].scalarType() == QVariant::Int );
+    }
+    {
+        QScopedPointer<QgsSql::Node> n( QgsSql::parseSql( "select count(DISTINCT a) from t", err ) );
+        QList<ColumnType> cdefs = columnTypes( *n, err, &t );
+        std::cout << "ERROR: " << err.toUtf8().constData() << std::endl;
+        QVERIFY( !n.isNull() );
+        QVERIFY( cdefs.size() == 1 );
+        QVERIFY( cdefs[0].scalarType() == QVariant::Int );
+    }
+    {
+        QScopedPointer<QgsSql::Node> n( QgsSql::parseSql( "select avg(a) from t", err ) );
+        QList<ColumnType> cdefs = columnTypes( *n, err, &t );
+        QVERIFY( !n.isNull() );
+        QVERIFY( cdefs.size() == 1 );
+        QVERIFY( cdefs[0].scalarType() == QVariant::Double );
     }
 }
 
