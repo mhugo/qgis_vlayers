@@ -278,9 +278,13 @@ bool QgsVirtualLayerProvider::createIt()
         }
         else {
             QString provider = mLayers.at(i).provider;
+            // double each single quote
+            provider.replace( "'", "''" );
             QString source = mLayers.at(i).source;
+            // double each single quote
+            source.replace( "'", "''" );
             QString encoding = mLayers.at(i).encoding;
-            QString createStr = QString( "DROP TABLE IF EXISTS \"%1\"; CREATE VIRTUAL TABLE \"%1\" USING QgsVLayer(%2,'%4',%3)")
+            QString createStr = QString( "DROP TABLE IF EXISTS \"%1\"; CREATE VIRTUAL TABLE \"%1\" USING QgsVLayer('%2','%4',%3)")
                 .arg(vname)
                 .arg(provider)
                 .arg(encoding)

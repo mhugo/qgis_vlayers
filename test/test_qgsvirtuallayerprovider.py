@@ -69,6 +69,17 @@ class TestQgsVirtualLayerProvider(TestCase):
         self.assertEqual(l.isValid(), True)
         print sum([f.id() for f in l.getFeatures()])
 
+    def test_source_escaping2(self):
+        # the source contains ',' and single quotes
+        source=QUrl.toPercentEncoding("dbname='%s' table=\"test\" (geometry) sql=" % os.path.join(self.testDataDir_, "test_sqlite,.db"))
+        l = QgsVectorLayer( "?layer=spatialite:%s:t" % source, "vtab", "virtual", False )
+        self.assertEqual(l.isValid(), True)
+
+        # the source contains ':' and single quotes
+        source=QUrl.toPercentEncoding("dbname='%s' table=\"test\" (geometry) sql=" % os.path.join(self.testDataDir_, "test_sqlite:.db"))
+        l = QgsVectorLayer( "?layer=spatialite:%s:t" % source, "vtab", "virtual", False )
+        self.assertEqual(l.isValid(), True)
+
     def test_DynamicGeometry(self):
         l1 = QgsVectorLayer( os.path.join(self.testDataDir_, "testextpt.txt") + "?type=csv&delimiter=%7C&geomType=none&subsetIndex=no&watchFile=no", "test", "delimitedtext", False)
         self.assertEqual( l1.isValid(), True )

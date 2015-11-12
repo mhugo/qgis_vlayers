@@ -598,10 +598,12 @@ int vtable_create_connect( sqlite3* sql, void* aux, int argc, const char* const*
             encoding = argv[5];
         }
         if ( provider.size() >= 1 && provider[0] == '\'' ) {
-            provider = provider.mid(1, provider.size()-2);
+          // trim and undouble single quotes
+          provider = provider.mid(1, provider.size()-2).replace( "''", "'" );
         }
         if ( source.size() >= 1 && source[0] == '\'' ) {
-            source = source.mid(1, source.size()-2);
+          // trim and undouble single quotes
+          source = source.mid(1, source.size()-2).replace( "''", "'" );
         }
         try {
             new_vtab.reset(new VTable( sql, provider, source, argv[2], encoding ));
