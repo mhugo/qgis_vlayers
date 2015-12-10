@@ -209,10 +209,8 @@ bool QgsVirtualLayerProvider::createIt()
             // is it in loaded layers ?
             bool found = false;
             foreach ( const QgsMapLayer* l, QgsMapLayerRegistry::instance()->mapLayers() ) {
-                if ( l->type() != QgsMapLayer::VectorLayer ) {
-                    PROVIDER_ERROR( QString( "Referenced table %1 is not a vector layer!" ).arg(tname) );
-                    return false;
-                }
+                if ( l->type() != QgsMapLayer::VectorLayer )
+                  continue;
                 const auto vl = static_cast<const QgsVectorLayer*>(l);
                 if ((vl->name() == tname) || (vl->id() == tname)) {
                     mDefinition.addSource( tname, vl->source(), vl->providerType(), vl->dataProvider()->encoding() );
